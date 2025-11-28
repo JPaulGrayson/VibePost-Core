@@ -14,7 +14,7 @@ import {
   Search,
   Inbox
 } from "lucide-react";
-} from "lucide-react";
+
 import { SiDiscord, SiReddit } from "react-icons/si";
 import type { PlatformConnection } from "@shared/schema";
 

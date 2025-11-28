@@ -15,6 +15,7 @@ import TopicSearch from "@/pages/topic-search";
 import Settings from "@/pages/settings";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
+import ReviewQueue from "@/pages/review-queue";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();

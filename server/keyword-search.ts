@@ -15,14 +15,14 @@ export class KeywordSearchEngine {
     try {
       // Get stored Twitter credentials from database
       const twitterConnection = await storage.getPlatformConnection("twitter");
-      
+
       if (!twitterConnection || !twitterConnection.credentials || Object.keys(twitterConnection.credentials).length === 0) {
         console.log('No stored credentials, cannot search X without authentication');
         return null;
       }
 
       const credentials = twitterConnection.credentials;
-      
+
       // Use OAuth 1.0a User Context authentication (same as successful AIDebate app)
       console.log('Using OAuth 1.0a User Context authentication for X search');
       return new TwitterApi({
@@ -39,7 +39,7 @@ export class KeywordSearchEngine {
 
   async searchTwitter(keyword: string, maxResults: number = 10): Promise<SearchResult[]> {
     const twitterClient = await this.getTwitterClient();
-    
+
     if (!twitterClient) {
       throw new Error('X/Twitter API not available for keyword search.');
     }
@@ -55,11 +55,11 @@ export class KeywordSearchEngine {
       });
 
       const results: SearchResult[] = [];
-      
+
       // Get data from the search results - handle both array and object responses
       let tweets: any[] = [];
       let users: any[] = [];
-      
+
       if (Array.isArray(searchResults.data)) {
         tweets = searchResults.data;
       } else if (searchResults.data && Array.isArray(searchResults.data.data)) {
@@ -68,13 +68,13 @@ export class KeywordSearchEngine {
       } else if (searchResults.data) {
         tweets = [searchResults.data];
       }
-      
+
       if (searchResults.includes?.users) {
         users = searchResults.includes.users;
       }
-      
+
       console.log(`Found ${tweets.length} tweets and ${users.length} users`);
-      
+
       for (const tweet of tweets) {
         const author = users.find((user: any) => user.id === tweet.author_id);
         results.push({
@@ -90,12 +90,12 @@ export class KeywordSearchEngine {
       return results;
     } catch (error: any) {
       console.error('Twitter search error:', error);
-      
+
       // Check for usage cap exceeded in API response
       if (error.data && error.data.title === 'UsageCapExceeded') {
         throw new Error('X API search blocked: Your app needs to be associated with a Twitter Developer Project. AIDebate works because its app is Project-associated. Check Twitter Developer Portal > Projects > Associate your app.');
       }
-      
+
       // Provide specific error messages for common issues
       if (error instanceof Error) {
         if (error.message.includes('401')) {
@@ -106,7 +106,7 @@ export class KeywordSearchEngine {
           throw new Error('X API rate limit exceeded. Please wait a few minutes before trying again.');
         }
       }
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Twitter API error: ${errorMessage}`);
     }
@@ -115,7 +115,7 @@ export class KeywordSearchEngine {
   async searchReddit(keyword: string, subreddit?: string, maxResults: number = 10): Promise<SearchResult[]> {
     try {
       // Use Reddit's JSON API (no auth required for public posts)
-      const searchUrl = subreddit 
+      const searchUrl = subreddit
         ? `https://www.reddit.com/r/${subreddit}/search.json?q=${encodeURIComponent(keyword)}&sort=new&limit=${maxResults}`
         : `https://www.reddit.com/search.json?q=${encodeURIComponent(keyword)}&sort=new&limit=${maxResults}`;
 
@@ -127,7 +127,7 @@ export class KeywordSearchEngine {
 
       if (!response.ok) {
         let errorMessage = `Reddit API failed: ${response.status} ${response.statusText}`;
-        
+
         if (response.status === 403) {
           errorMessage = 'Reddit API blocked this request. Reddit may be limiting automated searches or your IP may be flagged. Try again later or consider using Reddit API credentials.';
         } else if (response.status === 429) {
@@ -135,7 +135,7 @@ export class KeywordSearchEngine {
         } else if (response.status === 401) {
           errorMessage = 'Reddit API authentication required. Some searches may need proper API credentials.';
         }
-        
+
         throw new Error(errorMessage);
       }
 
@@ -144,7 +144,7 @@ export class KeywordSearchEngine {
 
       for (const post of data.data?.children || []) {
         const postData = post.data;
-        
+
         results.push({
           platform: 'reddit',
           id: postData.id,
@@ -182,11 +182,11 @@ export class KeywordSearchEngine {
         errors.push(`Twitter: ${errorMsg}`);
       }
     }
-    
+
     // Search Reddit if requested
     if (platforms.includes('reddit')) {
       const subreddits = ['ChatGPTCoding', 'learnprogramming', 'webdev'];
-      
+
       for (const subreddit of subreddits) {
         try {
           const redditResults = await this.searchReddit(keyword, subreddit);
@@ -212,21 +212,21 @@ export class KeywordSearchEngine {
     // If we have no results but have errors, provide helpful guidance
     if (allResults.length === 0 && errors.length > 0) {
       let helpfulMessage = "Search unavailable: ";
-      
+
       if (platforms.includes('twitter')) {
         helpfulMessage += "Twitter requires Academic Research or Enterprise API access for search. ";
       }
-      
+
       if (platforms.includes('reddit')) {
         helpfulMessage += "Reddit blocks automated searches from script apps. ";
       }
-      
+
       if (platforms.includes('discord')) {
         helpfulMessage += "Discord search requires bot permissions. ";
       }
-      
+
       helpfulMessage += "These APIs work for posting but have restrictions for searching.";
-      
+
       throw new Error(helpfulMessage);
     }
 
@@ -240,7 +240,7 @@ export class KeywordSearchEngine {
 
   async replyToTwitterPost(postId: string, replyText: string): Promise<boolean> {
     const twitterClient = await this.getTwitterClient();
-    
+
     if (!twitterClient) {
       console.log('Twitter API not configured');
       return false;
