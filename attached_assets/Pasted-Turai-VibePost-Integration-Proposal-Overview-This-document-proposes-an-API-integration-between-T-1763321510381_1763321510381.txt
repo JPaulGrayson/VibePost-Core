@@ -1,0 +1,232 @@
+Turai × VibePost Integration Proposal
+
+Overview
+
+This document proposes an API integration between Turai (AI-powered location tours) and VibePost (social media automation platform) to enable automated, trend-responsive content generation.
+
+The Concept: VibePost identifies trending topics and relevant conversations across X, Reddit, and Discord. Turai generates location-based visual postcards that connect those trends to real places, which VibePost can then share across platforms.
+
+Use Cases
+
+1. Trend-Responsive Content
+
+Trend: "Solar eclipse 2024" trending on X
+VibePost: Identifies the trend and relevant locations (Carbondale, IL)
+Turai: Generates postcard for Carbondale with eclipse-themed narrative
+VibePost: Posts to X/Instagram with trending hashtags
+2. Event-Based Marketing
+
+Trend: "Taylor Swift Eras Tour Nashville"
+Turai: Creates Nashville tour postcard with Swiftie angle
+VibePost: Replies to relevant conversations with visual content
+3. Seasonal Content
+
+Trend: "Best fall foliage 2024"
+Turai: Generates postcards for Vermont, Smoky Mountains, etc.
+VibePost: Shares across multiple platforms with platform-optimized aspect ratios
+4. Location Discovery
+
+Trend: "Hidden gems in Utah"
+Turai: Creates postcards for lesser-known Utah locations
+VibePost: Posts as content series across social platforms
+Proposed API Design
+
+Endpoint
+
+POST /api/postcards/generate-by-topic
+
+Request Format
+
+{
+  "location": {
+    "name": "Nashville, TN",
+    "coordinates": {
+      "lat": 36.1627,
+      "lng": -86.7816
+    }
+  },
+  "topic": "Taylor Swift Eras Tour",
+  "aspectRatio": "1:1",
+  "stylePreset": "vibrant",
+  "contextHint": "Focus on music venues and cultural significance"
+}
+
+Request Parameters
+
+Parameter	Type	Required	Description	Example Values
+location.name	string	Yes*	Human-readable location	"Nashville, TN", "Route 66"
+location.coordinates	object	Yes*	Lat/lng coordinates	{lat: 36.16, lng: -86.78}
+topic	string	Yes	Trending topic or theme	"Solar eclipse", "Fall foliage"
+aspectRatio	string	No	Social platform format	"1:1", "9:16", "4:5", "16:9", "1.91:1"
+stylePreset	string	No	Visual style	"vibrant", "classic", "minimal"
+contextHint	string	No	Additional context for AI	"Focus on family activities"
+*Either location.name OR location.coordinates required (or both)
+
+Response Format
+
+{
+  "success": true,
+  "data": {
+    "imageUrl": "https://turai.com/postcards/abc123.png",
+    "caption": "Experience Nashville like a true Swiftie! 🎸 Explore the music venues that shaped her career...",
+    "location": {
+      "name": "Nashville, TN",
+      "lat": 36.1627,
+      "lng": -86.7816
+    },
+    "aspectRatio": "1:1",
+    "generatedAt": "2024-11-16T10:30:00Z"
+  }
+}
+
+Error Response
+
+{
+  "success": false,
+  "error": {
+    "code": "GENERATION_FAILED",
+    "message": "Unable to generate postcard for the specified location",
+    "details": "No relevant location data found"
+  }
+}
+
+Authentication Options
+
+Option 1: API Key (Recommended)
+
+VibePost includes API key in request header: X-API-Key: your_key_here
+Simple, secure, trackable
+Allows rate limiting per integration partner
+Option 2: Public Endpoint with Rate Limiting
+
+No authentication required
+Global rate limit (e.g., 100 requests/hour per IP)
+Simpler integration but less control
+Option 3: OAuth (If needed)
+
+Full OAuth flow for more complex integrations
+Probably overkill for this use case
+Question for VibePost: Which authentication approach works best for your architecture?
+
+Platform-Specific Aspect Ratios
+
+Turai already supports platform-optimized formats:
+
+Platform	Aspect Ratio	Dimensions	Use Case
+Instagram Post	1:1	1080×1080	Feed posts
+Instagram Story	9:16	1080×1920	Vertical stories
+Instagram Portrait	4:5	1080×1350	Portrait posts
+Facebook	16:9	1200×630	Link previews
+LinkedIn	1.91:1	1200×627	Professional sharing
+Question for VibePost: Do you need additional aspect ratios or custom dimensions?
+
+Advanced Features (Optional)
+
+Batch Generation
+
+Generate multiple postcards in one request:
+
+{
+  "requests": [
+    {
+      "location": {"name": "Nashville, TN"},
+      "topic": "Taylor Swift",
+      "aspectRatio": "1:1"
+    },
+    {
+      "location": {"name": "Nashville, TN"},
+      "topic": "Taylor Swift",
+      "aspectRatio": "9:16"
+    }
+  ]
+}
+
+Question: Would batch generation be valuable for your workflow?
+
+Webhook Callbacks
+
+For async processing of large batches:
+
+{
+  "location": {"name": "Nashville, TN"},
+  "topic": "Taylor Swift",
+  "aspectRatio": "1:1",
+  "webhookUrl": "https://vibepost.com/callbacks/postcard-ready"
+}
+
+Question: Do you need async/webhook support, or is synchronous generation sufficient?
+
+Pre-Generated Templates
+
+Turai could maintain a cache of popular location postcards:
+
+GET /api/postcards/trending?topic=solar-eclipse
+Returns already-generated postcards for common topics
+Question: Would pre-cached postcards be useful, or do you always need fresh content?
+
+Rate Limits & Pricing
+
+Questions for Discussion:
+
+Expected volume: How many postcards would VibePost generate per day/week?
+Peak usage: Are there burst periods (trending event happens, need 50 postcards immediately)?
+Cost structure: Should this be:
+Free tier with limits
+Pay-per-generation
+Flat monthly fee
+Part of existing Live Discovery subscriptions
+Technical Implementation Timeline
+
+If we proceed, here's a rough implementation plan:
+
+Week 1: Build API endpoint with basic location + topic → postcard generation
+Week 2: Add authentication, rate limiting, error handling
+Week 3: Testing with VibePost team, refinement based on feedback
+Week 4: Production deployment with monitoring
+Open Questions for VibePost
+
+Please provide feedback on the following:
+
+Core Functionality
+
+ Does the proposed request/response format work for your needs?
+ Are there additional parameters you'd need (e.g., text overlay customization, branding options)?
+ Do you need the ability to specify multiple locations for one topic?
+Authentication & Security
+
+ Which authentication method works best for VibePost's architecture?
+ Do you need separate API keys for dev/staging/production environments?
+Features & Workflow
+
+ Is synchronous generation acceptable, or do you need async/webhooks?
+ Would batch generation be valuable (generate 5 postcards in one request)?
+ Do you need the ability to regenerate with the same parameters if the first result isn't ideal?
+Integration Details
+
+ What's your preferred error handling approach?
+ Do you need health check/status endpoints to monitor Turai availability?
+ Should Turai provide usage analytics (how many postcards generated per topic/location)?
+Content & Customization
+
+ Do you want to provide custom caption templates, or trust Turai's AI?
+ Should postcards include VibePost branding or stay neutral?
+ Any content restrictions or compliance requirements?
+Volume & Pricing
+
+ Estimated volume: ___ postcards per day/week/month
+ Peak burst needs: ___ postcards simultaneously
+ Budget expectations: Free tier / pay-per-use / subscription
+Next Steps
+
+Review this proposal and provide feedback on open questions
+Schedule alignment call to discuss technical details
+Define MVP scope (minimum viable integration)
+Build & test initial integration
+Iterate based on real-world usage
+Contact
+
+For questions or feedback on this proposal, please reach out through your preferred channel.
+
+Document Version: 1.0
+Date: November 16, 2024
+Status: Proposal - Awaiting VibePost Feedback
