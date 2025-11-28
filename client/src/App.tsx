@@ -46,6 +46,7 @@ function Router() {
         <Route path="/topic-search" component={TopicSearch} />
         <Route path="/search" component={TopicSearch} />
         <Route path="/settings" component={Settings} />
+        <Route path="/review-queue" component={ReviewQueue} />
         <Route component={NotFound} />
       </Switch>
     </MainLayout>

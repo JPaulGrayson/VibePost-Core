@@ -128,6 +128,18 @@ export const foundPosts = pgTable("found_posts", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const postcardDrafts = pgTable("postcard_drafts", {
+  id: serial("id").primaryKey(),
+  originalTweetId: varchar("original_tweet_id").notNull(),
+  originalAuthorHandle: varchar("original_author_handle").notNull(),
+  detectedLocation: varchar("detected_location").notNull(),
+  status: varchar("status", { length: 50 }).notNull().default("pending_review"), // pending_review, approved, rejected, published, failed
+  draftText: text("draft_text").notNull(),
+  turaiImageUrl: text("turai_image_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  scheduledFor: timestamp("scheduled_for"),
+});
+
 export const insertPostSchema = createInsertSchema(posts).omit({
   id: true,
   createdAt: true,
@@ -181,6 +193,11 @@ export const insertFoundPostSchema = createInsertSchema(foundPosts).omit({
   userId: true,
 });
 
+export const insertPostcardDraftSchema = createInsertSchema(postcardDrafts).omit({
+  id: true,
+  createdAt: true,
+});
+
 // User schema for authentication
 export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
@@ -216,3 +233,9 @@ export type Platform = z.infer<typeof Platform>;
 
 export const PostStatus = z.enum(["draft", "published", "failed", "scheduled"]);
 export type PostStatus = z.infer<typeof PostStatus>;
+
+export type InsertPostcardDraft = z.infer<typeof insertPostcardDraftSchema>;
+export type PostcardDraft = typeof postcardDrafts.$inferSelect;
+
+export const PostcardDraftStatus = z.enum(["pending_review", "approved", "rejected", "published", "failed"]);
+export type PostcardDraftStatus = z.infer<typeof PostcardDraftStatus>;

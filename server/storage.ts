@@ -1,6 +1,6 @@
-import { 
-  posts, 
-  platformConnections, 
+import {
+  posts,
+  platformConnections,
   postAnalytics,
   campaigns,
   campaignPosts,
@@ -9,7 +9,7 @@ import {
   users,
   keywordMonitoring,
   foundPosts,
-  type Post, 
+  type Post,
   type InsertPost,
   type PlatformConnection,
   type InsertPlatformConnection,
@@ -21,13 +21,16 @@ import {
   type InsertKeywordMonitoring,
   type FoundPost,
   type InsertFoundPost,
+  type PostcardDraft,
+  type InsertPostcardDraft,
   type Platform,
   type PostStatus,
   type User,
   type UpsertUser
 } from "@shared/schema";
+import { postcardDrafts } from "@shared/schema";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Posts
@@ -37,36 +40,41 @@ export interface IStorage {
   updatePost(id: number, updates: Partial<InsertPost>): Promise<Post | undefined>;
   deletePost(id: number): Promise<boolean>;
   getPostsByStatus(status: PostStatus): Promise<Post[]>;
-  
+
   // Platform Connections
   getPlatformConnections(): Promise<PlatformConnection[]>;
   getPlatformConnection(platform: Platform): Promise<PlatformConnection | undefined>;
   createPlatformConnection(connection: InsertPlatformConnection): Promise<PlatformConnection>;
   updatePlatformConnection(platform: Platform, updates: Partial<InsertPlatformConnection>): Promise<PlatformConnection | undefined>;
-  
+
   // Analytics
   getPostAnalytics(postId: number): Promise<PostAnalytics[]>;
   createPostAnalytics(analytics: InsertPostAnalytics): Promise<PostAnalytics>;
   updatePostAnalytics(id: number, updates: Partial<InsertPostAnalytics>): Promise<PostAnalytics | undefined>;
-  
+
   // Campaigns
   getCampaigns(): Promise<Campaign[]>;
   getCampaign(id: number): Promise<Campaign | undefined>;
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   updateCampaign(id: number, updates: Partial<InsertCampaign>): Promise<Campaign | undefined>;
   deleteCampaign(id: number): Promise<boolean>;
-  
+
   // Keyword Monitoring
   getKeywordMonitoring(): Promise<KeywordMonitoring[]>;
   getKeywordMonitoring(id: number): Promise<KeywordMonitoring | undefined>;
   createKeywordMonitoring(keyword: InsertKeywordMonitoring): Promise<KeywordMonitoring>;
   updateKeywordMonitoring(id: number, updates: Partial<InsertKeywordMonitoring>): Promise<KeywordMonitoring | undefined>;
   deleteKeywordMonitoring(id: number): Promise<boolean>;
-  
+
   // Found Posts
   getFoundPosts(keywordId?: number): Promise<FoundPost[]>;
   createFoundPost(foundPost: InsertFoundPost): Promise<FoundPost>;
   updateFoundPost(id: number, updates: Partial<InsertFoundPost>): Promise<FoundPost | undefined>;
+
+  // Postcard Drafts
+  getPostcardDrafts(): Promise<PostcardDraft[]>;
+  getPostcardDraft(id: number): Promise<PostcardDraft | undefined>;
+  updatePostcardDraft(id: number, updates: Partial<InsertPostcardDraft>): Promise<PostcardDraft | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -80,6 +88,8 @@ export class MemStorage implements IStorage {
   private foundPosts: Map<number, FoundPost>;
   private currentKeywordId: number;
   private currentFoundPostId: number;
+  private postcardDrafts: Map<number, PostcardDraft>;
+  private currentPostcardDraftId: number;
 
   constructor() {
     this.posts = new Map();
@@ -88,7 +98,9 @@ export class MemStorage implements IStorage {
     this.currentPostId = 1;
     this.currentConnectionId = 1;
     this.currentAnalyticsId = 1;
-    
+    this.postcardDrafts = new Map();
+    this.currentPostcardDraftId = 1;
+
     // Initialize with default platform connections
     this.initializePlatformConnections();
   }
@@ -98,7 +110,7 @@ export class MemStorage implements IStorage {
     platforms.forEach(platform => {
       let isConnected = false;
       let credentials = {};
-      
+
       // Set up platforms as connected with their credentials
       if (platform === "twitter") {
         isConnected = true;
@@ -117,7 +129,7 @@ export class MemStorage implements IStorage {
           password: "Polaris4"
         };
       }
-      
+
       const connection: PlatformConnection = {
         id: this.currentConnectionId++,
         platform,
@@ -133,7 +145,7 @@ export class MemStorage implements IStorage {
 
   // Posts
   async getPosts(): Promise<Post[]> {
-    return Array.from(this.posts.values()).sort((a, b) => 
+    return Array.from(this.posts.values()).sort((a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   }
@@ -172,11 +184,11 @@ export class MemStorage implements IStorage {
       platformData: updates.platformData !== undefined ? updates.platformData : existingPost.platformData,
       scheduledAt: updates.scheduledAt !== undefined ? updates.scheduledAt : existingPost.scheduledAt,
       updatedAt: new Date(),
-      publishedAt: updates.status === "published" && !existingPost.publishedAt 
-        ? new Date() 
+      publishedAt: updates.status === "published" && !existingPost.publishedAt
+        ? new Date()
         : existingPost.publishedAt,
     };
-    
+
     this.posts.set(id, updatedPost);
     return updatedPost;
   }
@@ -224,7 +236,7 @@ export class MemStorage implements IStorage {
       ...updates,
       updatedAt: new Date(),
     };
-    
+
     this.platformConnections.set(platform, updated);
     return updated;
   }
@@ -258,7 +270,7 @@ export class MemStorage implements IStorage {
       ...updates,
       updatedAt: new Date(),
     };
-    
+
     this.postAnalytics.set(id, updated);
     return updated;
   }
@@ -281,6 +293,99 @@ export class MemStorage implements IStorage {
 
   async deleteCampaign(id: number): Promise<boolean> {
     return false;
+  }
+
+  // Keyword Monitoring
+  async getKeywordMonitoring(): Promise<KeywordMonitoring[]> {
+    return Array.from(this.keywordMonitoring.values());
+  }
+
+  async getKeywordMonitoring(id: number): Promise<KeywordMonitoring | undefined> {
+    return this.keywordMonitoring.get(id);
+  }
+
+  async createKeywordMonitoring(keyword: InsertKeywordMonitoring): Promise<KeywordMonitoring> {
+    const now = new Date();
+    const newKeyword: KeywordMonitoring = {
+      ...keyword,
+      id: this.currentKeywordId++,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.keywordMonitoring.set(newKeyword.id, newKeyword);
+    return newKeyword;
+  }
+
+  async updateKeywordMonitoring(id: number, updates: Partial<InsertKeywordMonitoring>): Promise<KeywordMonitoring | undefined> {
+    const existing = this.keywordMonitoring.get(id);
+    if (!existing) return undefined;
+
+    const updated: KeywordMonitoring = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.keywordMonitoring.set(id, updated);
+    return updated;
+  }
+
+  async deleteKeywordMonitoring(id: number): Promise<boolean> {
+    return this.keywordMonitoring.delete(id);
+  }
+
+  // Found Posts
+  async getFoundPosts(keywordId?: number): Promise<FoundPost[]> {
+    let posts = Array.from(this.foundPosts.values());
+    if (keywordId !== undefined) {
+      posts = posts.filter(post => post.keywordId === keywordId);
+    }
+    return posts;
+  }
+
+  async createFoundPost(foundPost: InsertFoundPost): Promise<FoundPost> {
+    const now = new Date();
+    const newFoundPost: FoundPost = {
+      ...foundPost,
+      id: this.currentFoundPostId++,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.foundPosts.set(newFoundPost.id, newFoundPost);
+    return newFoundPost;
+  }
+
+  async updateFoundPost(id: number, updates: Partial<InsertFoundPost>): Promise<FoundPost | undefined> {
+    const existing = this.foundPosts.get(id);
+    if (!existing) return undefined;
+
+    const updated: FoundPost = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.foundPosts.set(id, updated);
+    return updated;
+  }
+
+  // Postcard Drafts
+  async getPostcardDrafts(): Promise<PostcardDraft[]> {
+    return Array.from(this.postcardDrafts.values());
+  }
+
+  async getPostcardDraft(id: number): Promise<PostcardDraft | undefined> {
+    return this.postcardDrafts.get(id);
+  }
+
+  async updatePostcardDraft(id: number, updates: Partial<InsertPostcardDraft>): Promise<PostcardDraft | undefined> {
+    const existing = this.postcardDrafts.get(id);
+    if (!existing) return undefined;
+
+    const updated: PostcardDraft = {
+      ...existing,
+      ...updates,
+    };
+    this.postcardDrafts.set(id, updated);
+    return updated;
   }
 }
 
@@ -338,7 +443,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(contentMoodTracking).where(eq(contentMoodTracking.postId, id));
     await db.delete(contentRecycling).where(eq(contentRecycling.originalPostId, id));
     await db.delete(contentRecycling).where(eq(contentRecycling.recycledPostId, id));
-    
+
     // Then delete the post itself
     const result = await db.delete(posts).where(eq(posts.id, id));
     return (result.rowCount ?? 0) > 0;
@@ -483,6 +588,25 @@ export class DatabaseStorage implements IStorage {
       .update(foundPosts)
       .set(updates)
       .where(eq(foundPosts.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  // Postcard Drafts
+  async getPostcardDrafts(): Promise<PostcardDraft[]> {
+    return await db.select().from(postcardDrafts).orderBy(desc(postcardDrafts.createdAt));
+  }
+
+  async getPostcardDraft(id: number): Promise<PostcardDraft | undefined> {
+    const [draft] = await db.select().from(postcardDrafts).where(eq(postcardDrafts.id, id));
+    return draft || undefined;
+  }
+
+  async updatePostcardDraft(id: number, updates: Partial<InsertPostcardDraft>): Promise<PostcardDraft | undefined> {
+    const [updated] = await db
+      .update(postcardDrafts)
+      .set(updates)
+      .where(eq(postcardDrafts.id, id))
       .returning();
     return updated || undefined;
   }

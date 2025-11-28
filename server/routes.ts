@@ -40,7 +40,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/posts", async (req, res) => {
     try {
       const status = req.query.status as PostStatus | undefined;
-      const posts = status 
+      const posts = status
         ? await storage.getPostsByStatus(status)
         : await storage.getPosts();
       res.json(posts);
@@ -68,17 +68,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = "user1"; // Hardcoded for now
       const postData = { ...req.body, userId };
       console.log("Post data with userId:", postData);
-      
+
       const validatedData = insertPostSchema.parse(postData);
       console.log("Validated data:", validatedData);
       const post = await storage.createPost(validatedData);
       console.log("Created post:", post);
-      
+
       // If publishing, simulate platform posting
       if (post.status === "published") {
         await handlePostPublishing(post.id, post.platforms as string[]);
       }
-      
+
       res.status(201).json(post);
     } catch (error) {
       console.error("Post creation error:", error);
@@ -95,7 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const updates = insertPostSchema.partial().parse(req.body);
       const post = await storage.updatePost(id, updates);
-      
+
       if (!post) {
         return res.status(404).json({ message: "Post not found" });
       }
@@ -104,7 +104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (updates.status === "published") {
         await handlePostPublishing(post.id, post.platforms as string[]);
       }
-      
+
       res.json(post);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -118,11 +118,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const deleted = await storage.deletePost(id);
-      
+
       if (!deleted) {
         return res.status(404).json({ message: "Post not found" });
       }
-      
+
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting post:", error);
@@ -135,7 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const postId = parseInt(req.params.id);
       const post = await storage.getPost(postId);
-      
+
       if (!post) {
         return res.status(404).json({ message: "Post not found" });
       }
@@ -191,7 +191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const post of posts) {
         if (!post.platformData) continue;
-        
+
         try {
           const platformData = post.platformData as any;
           const updatedMetrics: any = {};
@@ -244,7 +244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const keyword = req.params.keyword;
       const platforms = req.query.platforms as string;
       const platformList = platforms ? platforms.split(',') : ['twitter', 'reddit'];
-      
+
       const results = await keywordSearchEngine.searchAllPlatforms(keyword, platformList);
       res.json(results);
     } catch (error) {
@@ -258,9 +258,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { platform, postId } = req.params;
       const { replyText } = req.body;
-      
+
       let success = false;
-      
+
       if (platform === 'twitter') {
         success = await keywordSearchEngine.replyToTwitterPost(postId, replyText);
       } else if (platform === 'reddit') {
@@ -268,7 +268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         return res.status(400).json({ message: 'Unsupported platform for replies' });
       }
-      
+
       if (success) {
         res.json({ message: 'Reply posted successfully' });
       } else {
@@ -294,11 +294,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const platform = req.params.platform as Platform;
       const connection = await storage.getPlatformConnection(platform);
-      
+
       if (!connection) {
         return res.status(404).json({ message: "Platform connection not found" });
       }
-      
+
       res.json(connection);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch platform connection" });
@@ -310,11 +310,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const platform = req.params.platform as Platform;
       const updates = insertPlatformConnectionSchema.partial().parse(req.body);
       const connection = await storage.updatePlatformConnection(platform, updates);
-      
+
       if (!connection) {
         return res.status(404).json({ message: "Platform connection not found" });
       }
-      
+
       res.json(connection);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -340,14 +340,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const post = await storage.getPost(id);
-      
+
       if (!post) {
         return res.status(404).json({ message: "Post not found" });
       }
-      
+
       const publishedPost = await storage.updatePost(id, { status: "published" });
       await handlePostPublishing(id, post.platforms as string[]);
-      
+
       res.json(publishedPost);
     } catch (error) {
       res.status(500).json({ message: "Failed to publish post" });
@@ -359,7 +359,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Get stored Twitter credentials from database (same as other functions)
       const twitterConnection = await storage.getPlatformConnection("twitter");
-      
+
       if (!twitterConnection || !twitterConnection.credentials || Object.keys(twitterConnection.credentials).length === 0) {
         return res.status(400).json({
           success: false,
@@ -368,7 +368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const credentials = twitterConnection.credentials;
-      
+
       // Use OAuth 1.0a User Context authentication (same as successful AIDebate app)
       const twitterClient = new TwitterApi({
         appKey: credentials.apiKey,
@@ -378,7 +378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const user = await twitterClient.v2.me();
-      
+
       res.json({
         success: true,
         user: {
@@ -402,7 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Get stored Discord credentials from database
       const discordConnection = await storage.getPlatformConnection("discord");
-      
+
       if (!discordConnection || !discordConnection.credentials) {
         return res.status(400).json({
           success: false,
@@ -411,7 +411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { webhookUrl } = discordConnection.credentials;
-      
+
       if (!webhookUrl) {
         return res.status(400).json({
           success: false,
@@ -462,7 +462,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Get stored Reddit credentials from database
       const redditConnection = await storage.getPlatformConnection("reddit");
-      
+
       if (!redditConnection || !redditConnection.credentials) {
         return res.status(400).json({
           success: false,
@@ -471,7 +471,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { clientId, clientSecret, username, password, userAgent } = redditConnection.credentials;
-      
+
       if (!clientId || !clientSecret || !username || !password) {
         return res.status(400).json({
           success: false,
@@ -488,15 +488,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Test authentication with exact Reddit API requirements
       const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
       console.log(`Auth header (base64): ${auth}`);
-      
+
       const requestBody = new URLSearchParams({
         grant_type: 'password',
         username: username,
         password: password,
       });
-      
+
       console.log(`Request body: ${requestBody.toString()}`);
-      
+
       const tokenResponse = await fetch('https://www.reddit.com/api/v1/access_token', {
         method: 'POST',
         headers: {
@@ -535,7 +535,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const userData = await userResponse.json();
-      
+
       res.json({
         success: true,
         user: {
@@ -569,11 +569,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const campaignId = parseInt(req.params.id);
       const campaign = await storage.getCampaign(campaignId);
-      
+
       if (!campaign) {
         return res.status(404).json({ error: "Campaign not found" });
       }
-      
+
       res.json(campaign);
     } catch (error) {
       console.error("Error fetching campaign:", error);
@@ -585,13 +585,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const campaignId = parseInt(req.params.id);
       const updates = req.body;
-      
+
       const campaign = await storage.updateCampaign(campaignId, updates);
-      
+
       if (!campaign) {
         return res.status(404).json({ error: "Campaign not found" });
       }
-      
+
       res.json(campaign);
     } catch (error) {
       console.error("Error updating campaign:", error);
@@ -602,13 +602,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/campaigns/:id", async (req, res) => {
     try {
       const campaignId = parseInt(req.params.id);
-      
+
       const success = await storage.deleteCampaign(campaignId);
-      
+
       if (!success) {
         return res.status(404).json({ error: "Campaign not found" });
       }
-      
+
       res.json({ message: "Campaign deleted successfully" });
     } catch (error) {
       console.error("Error deleting campaign:", error);
@@ -619,11 +619,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/campaigns/:id/posts", async (req, res) => {
     try {
       const campaignId = parseInt(req.params.id);
-      
+
       // Get all posts and filter by campaign ID
       const allPosts = await storage.getPosts();
       const campaignPosts = allPosts.filter(post => post.campaignId === campaignId);
-      
+
       res.json(campaignPosts);
     } catch (error) {
       console.error("Error fetching campaign posts:", error);
@@ -634,25 +634,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/campaigns/:id/launch", async (req, res) => {
     try {
       const campaignId = parseInt(req.params.id);
-      
+
       // Update campaign status to active
       const campaign = await storage.updateCampaign(campaignId, { status: "active" });
-      
+
       if (!campaign) {
         return res.status(404).json({ error: "Campaign not found" });
       }
-      
+
       // Get campaign posts and publish them
       const allPosts = await storage.getPosts();
       const campaignPosts = allPosts.filter(post => post.campaignId === campaignId);
-      
+
       // Publish all draft posts in the campaign
       for (const post of campaignPosts) {
         if (post.status === "draft") {
           await handlePostPublishing(post.id, post.platforms);
         }
       }
-      
+
       res.json({ message: "Campaign launched successfully", campaign });
     } catch (error) {
       console.error("Error launching campaign:", error);
@@ -686,7 +686,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Test Twitter API
     try {
       const twitterConnection = await storage.getPlatformConnection("twitter");
-      
+
       if (!twitterConnection || !twitterConnection.credentials) {
         results.twitter = {
           success: false,
@@ -733,13 +733,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/keywords/search", isAuthenticated, async (req, res) => {
     try {
       const { keyword, platforms = ['twitter', 'reddit'] } = req.body;
-      
+
       if (!keyword || typeof keyword !== 'string') {
         return res.status(400).json({ error: "Keyword is required" });
       }
 
       const results = await keywordSearchEngine.searchAllPlatforms(keyword, platforms);
-      
+
       res.json({
         keyword,
         platforms,
@@ -749,8 +749,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Keyword search error:", error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      res.status(500).json({ 
-        error: "Keyword search failed", 
+      res.status(500).json({
+        error: "Keyword search failed",
         details: errorMessage,
         needsApiConfiguration: errorMessage.includes('not configured') || errorMessage.includes('missing credentials')
       });
@@ -761,13 +761,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/keywords/auto-reply", isAuthenticated, async (req, res) => {
     try {
       const { postId, platform, replyText } = req.body;
-      
+
       if (!postId || !platform || !replyText) {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
       let success = false;
-      
+
       if (platform === 'twitter') {
         success = await keywordSearchEngine.replyToTwitterPost(postId, replyText);
       } else if (platform === 'reddit') {
@@ -792,21 +792,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const campaignId = parseInt(req.params.id);
       const { keywords = [], replyTemplate } = req.body;
-      
+
       const campaign = await storage.getCampaign(campaignId);
       if (!campaign) {
         return res.status(404).json({ error: "Campaign not found" });
       }
 
       const allResults = [];
-      
+
       // Search for each keyword
       for (const keyword of keywords) {
         const results = await keywordSearchEngine.searchAllPlatforms(
-          keyword, 
+          keyword,
           campaign.targetPlatforms
         );
-        
+
         allResults.push(...results.map(r => ({
           ...r,
           keyword,
@@ -823,15 +823,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalFound: allResults.length,
         message: `Found ${allResults.length} posts mentioning your keywords`
       });
-      
+
     } catch (error) {
       console.error("Campaign auto-engage error:", error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      res.status(500).json({ 
-        error: "Campaign auto-engagement failed", 
+      res.status(500).json({
+        error: "Campaign auto-engagement failed",
         details: errorMessage,
         needsApiConfiguration: errorMessage.includes('not configured') || errorMessage.includes('missing credentials')
       });
+    }
+  });
+
+  // Postcard Drafts Endpoints
+  app.get("/api/postcard-drafts", async (req, res) => {
+    try {
+      const drafts = await storage.getPostcardDrafts();
+      res.json(drafts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch drafts" });
+    }
+  });
+
+  app.post("/api/postcard-drafts/:id/approve", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const draft = await storage.getPostcardDraft(id);
+      if (!draft) return res.status(404).json({ error: "Draft not found" });
+
+      // Update status to approved
+      await storage.updatePostcardDraft(id, { status: "approved" });
+
+      // Trigger publishing
+      const success = await keywordSearchEngine.replyToTwitterPost(draft.originalTweetId, draft.draftText);
+
+      if (success) {
+        await storage.updatePostcardDraft(id, { status: "published" });
+        res.json({ success: true, message: "Published successfully" });
+      } else {
+        await storage.updatePostcardDraft(id, { status: "failed" });
+        res.status(500).json({ error: "Failed to publish to Twitter" });
+      }
+
+    } catch (error) {
+      res.status(500).json({ error: "Failed to approve draft" });
+    }
+  });
+
+  app.post("/api/postcard-drafts/:id/reject", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.updatePostcardDraft(id, { status: "rejected" });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to reject draft" });
+    }
+  });
+
+  app.patch("/api/postcard-drafts/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { draftText } = req.body;
+      await storage.updatePostcardDraft(id, { draftText });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update draft" });
     }
   });
 
@@ -855,7 +911,7 @@ async function fetchTwitterMetrics(tweetId: string) {
     });
 
     const metrics = tweet.data.public_metrics;
-    
+
     return {
       likes: metrics?.like_count || 0,
       retweets: metrics?.retweet_count || 0,
@@ -875,13 +931,13 @@ async function fetchRedditMetrics(postId: string) {
   try {
     // Get Reddit credentials from storage
     const redditConnection = await storage.getPlatformConnection("reddit");
-    
+
     if (!redditConnection?.credentials?.clientId || !redditConnection?.credentials?.username) {
       throw new Error("Reddit credentials not found");
     }
 
     const { clientId, clientSecret, username } = redditConnection.credentials;
-    
+
     // Get Reddit access token
     const authResponse = await fetch("https://www.reddit.com/api/v1/access_token", {
       method: "POST",
@@ -898,7 +954,7 @@ async function fetchRedditMetrics(postId: string) {
     }
 
     const authData = await authResponse.json();
-    
+
     // Fetch post details
     const postResponse = await fetch(`https://oauth.reddit.com/by_id/${postId}`, {
       headers: {
@@ -913,7 +969,7 @@ async function fetchRedditMetrics(postId: string) {
 
     const postData = await postResponse.json();
     const post = postData.data?.children?.[0]?.data;
-    
+
     if (!post) {
       throw new Error("Post not found on Reddit");
     }
@@ -949,9 +1005,9 @@ async function handlePostPublishing(postId: number, platforms: string[]) {
           await publishToReddit(postId);
           break;
       }
-      
+
       successCount++;
-      
+
       // Create analytics entry for the platform
       await storage.createPostAnalytics({
         postId,
@@ -983,17 +1039,17 @@ async function handlePostPublishing(postId: number, platforms: string[]) {
 async function publishToTwitter(postId: number) {
   const post = await storage.getPost(postId);
   if (!post) throw new Error("Post not found");
-  
+
   try {
     // Get stored Twitter credentials from database (same as test function)
     const twitterConnection = await storage.getPlatformConnection("twitter");
-    
+
     if (!twitterConnection || !twitterConnection.credentials || Object.keys(twitterConnection.credentials).length === 0) {
       throw new Error("Twitter API credentials not configured");
     }
 
     const credentials = twitterConnection.credentials;
-    
+
     // Initialize Twitter API client with database credentials
     const twitterClient = new TwitterApi({
       appKey: credentials.apiKey,
@@ -1005,11 +1061,11 @@ async function publishToTwitter(postId: number) {
     // Post the tweet
     console.log(`Publishing to Twitter: ${post.content}`);
     const tweet = await twitterClient.v2.tweet(post.content);
-    
+
     if (tweet.data) {
       const tweetUrl = `https://twitter.com/user/status/${tweet.data.id}`;
       console.log(`Successfully posted tweet: ${tweetUrl}`);
-      
+
       // Update platform data with real Twitter response
       await storage.updatePost(postId, {
         platformData: {
@@ -1044,17 +1100,17 @@ async function publishToTwitter(postId: number) {
 async function publishToDiscord(postId: number) {
   const post = await storage.getPost(postId);
   if (!post) throw new Error("Post not found");
-  
+
   try {
     // Get stored Discord credentials from database
     const discordConnection = await storage.getPlatformConnection("discord");
-    
+
     if (!discordConnection || !discordConnection.credentials) {
       throw new Error("Discord webhook URL not configured");
     }
 
     const { webhookUrl } = discordConnection.credentials;
-    
+
     if (!webhookUrl) {
       throw new Error("Discord webhook URL is required");
     }
@@ -1079,7 +1135,7 @@ async function publishToDiscord(postId: number) {
 
     // Discord webhooks don't return message data, so we create our own reference
     const messageId = `discord_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     await storage.updatePost(postId, {
       platformData: {
         ...post.platformData,
@@ -1102,17 +1158,17 @@ async function publishToDiscord(postId: number) {
 async function publishToReddit(postId: number) {
   const post = await storage.getPost(postId);
   if (!post) throw new Error("Post not found");
-  
+
   try {
     // Get stored Reddit credentials from database
     const redditConnection = await storage.getPlatformConnection("reddit");
-    
+
     if (!redditConnection || !redditConnection.credentials) {
       throw new Error("Reddit API credentials not configured");
     }
 
     const { clientId, clientSecret, username, password, userAgent } = redditConnection.credentials;
-    
+
     if (!clientId || !clientSecret || !username || !password) {
       throw new Error("Reddit API credentials incomplete");
     }
@@ -1145,9 +1201,9 @@ async function publishToReddit(postId: number) {
     // Post to Reddit (submit to r/test or specified subreddit)
     const subreddit = 'test'; // Default subreddit for testing
     const title = post.content.length > 100 ? post.content.substring(0, 97) + '...' : post.content;
-    
+
     console.log(`Publishing to Reddit r/${subreddit}: ${title}`);
-    
+
     const submitResponse = await fetch('https://oauth.reddit.com/api/submit', {
       method: 'POST',
       headers: {
@@ -1169,7 +1225,7 @@ async function publishToReddit(postId: number) {
     }
 
     const submitData = await submitResponse.json();
-    
+
     if (submitData.json && submitData.json.errors && submitData.json.errors.length > 0) {
       throw new Error(`Reddit API Error: ${submitData.json.errors[0][1]}`);
     }
@@ -1177,9 +1233,9 @@ async function publishToReddit(postId: number) {
     if (submitData.json && submitData.json.data) {
       const redditPost = submitData.json.data;
       const redditUrl = `https://www.reddit.com/r/${subreddit}/comments/${redditPost.id}/${redditPost.name}/`;
-      
+
       console.log(`Successfully posted to Reddit: ${redditUrl}`);
-      
+
       // Update platform data with real Reddit response
       await storage.updatePost(postId, {
         platformData: {
