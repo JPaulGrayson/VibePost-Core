@@ -500,7 +500,23 @@ export class DatabaseStorage implements IStorage {
       .set(updates)
       .where(eq(platformConnections.platform, platform))
       .returning();
-    return updated || undefined;
+
+    if (updated) {
+      return updated;
+    }
+
+    // If no record exists, create one
+    const [created] = await db
+      .insert(platformConnections)
+      .values({
+        platform,
+        isConnected: updates.isConnected ?? false,
+        credentials: updates.credentials ?? {},
+        metadata: updates.metadata ?? {},
+      })
+      .returning();
+
+    return created;
   }
 
   async getPostAnalytics(postId: number): Promise<PostAnalytics[]> {
