@@ -129,11 +129,11 @@ export default function PostHistory() {
   return (
     <>
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+      <header className="bg-card shadow-sm border-b border-border px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Post History</h2>
-            <p className="text-gray-600 mt-1">View and manage all your published posts</p>
+            <h2 className="text-2xl font-bold text-foreground">Post History</h2>
+            <p className="text-muted-foreground mt-1">View and manage all your published posts</p>
           </div>
         </div>
       </header>
@@ -177,9 +177,9 @@ export default function PostHistory() {
               <Card>
                 <CardContent className="p-8 text-center">
                   <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No posts found</h3>
-                  <p className="text-gray-600">
-                    {searchTerm || statusFilter !== "all" 
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No posts found</h3>
+                  <p className="text-muted-foreground">
+                    {searchTerm || statusFilter !== "all"
                       ? "Try adjusting your filters to see more posts."
                       : "Start by creating your first post!"}
                   </p>
@@ -192,7 +192,7 @@ export default function PostHistory() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
-                          <Badge 
+                          <Badge
                             className={statusColors[post.status as keyof typeof statusColors]}
                           >
                             {post.status}
@@ -203,7 +203,7 @@ export default function PostHistory() {
                             </Badge>
                           )}
                         </div>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                        <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                           <span>Created: {format(new Date(post.createdAt), "MMM d, yyyy 'at' h:mm a")}</span>
                           {post.publishedAt && (
                             <span>Published: {format(new Date(post.publishedAt), "MMM d, yyyy 'at' h:mm a")}</span>
@@ -211,16 +211,16 @@ export default function PostHistory() {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(post.id)}
                         >
                           <Edit2 className="h-4 w-4" />
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="text-red-600 hover:text-red-700"
                           onClick={() => handleDelete(post.id)}
                           disabled={deletePostMutation.isPending}
@@ -231,12 +231,22 @@ export default function PostHistory() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-gray-900 mb-4 whitespace-pre-line">
-                      {post.content.length > 200 
-                        ? `${post.content.substring(0, 200)}...` 
+                    {/* Replying To Context */}
+                    {(post.platformData as any)?.twitter?.replyingTo && (
+                      <div className="mb-3">
+                        <span className="inline-flex items-center text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
+                          <Twitter className="w-3 h-3 mr-1" />
+                          Replying to @{(post.platformData as any).twitter.replyingTo}
+                        </span>
+                      </div>
+                    )}
+
+                    <p className="text-foreground mb-4 whitespace-pre-line">
+                      {post.content.length > 200
+                        ? `${post.content.substring(0, 200)}...`
                         : post.content}
                     </p>
-                    
+
                     {/* Platforms */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
@@ -244,14 +254,14 @@ export default function PostHistory() {
                           const IconComponent = platformIcons[platform as keyof typeof platformIcons];
                           const iconColor = platformColors[platform as keyof typeof platformColors];
                           const postUrl = getPostUrl(post, platform);
-                          
+
                           return (
                             <div key={platform} className="flex items-center space-x-1">
                               {IconComponent && <IconComponent className={`${iconColor} text-sm`} />}
-                              <span className="text-sm text-gray-600 capitalize">{platform}</span>
+                              <span className="text-sm text-muted-foreground capitalize">{platform}</span>
                               {postUrl && (
                                 <Button
-                                  variant="ghost" 
+                                  variant="ghost"
                                   size="sm"
                                   className="p-0 h-auto"
                                   asChild
@@ -265,10 +275,10 @@ export default function PostHistory() {
                           );
                         })}
                       </div>
-                      
+
                       {/* Analytics Summary */}
                       {post.status === "published" && (
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                        <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                           <span>👍 0</span>
                           <span>💬 0</span>
                           <span>🔄 0</span>

@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function RecentPosts() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  
+
   const { data: posts = [] } = useQuery<Post[]>({
     queryKey: ["/api/posts"],
     select: (data) => data.slice(0, 5), // Only show recent 5 posts
@@ -103,51 +103,61 @@ export default function RecentPosts() {
 
 
   return (
-    <aside className="w-80 bg-white shadow-lg border-l border-gray-200 overflow-y-auto">
+    <aside className="w-80 bg-sidebar shadow-lg border-l border-sidebar-border overflow-y-auto">
       <div className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Posts</h3>
-        
+        <h3 className="text-lg font-semibold text-sidebar-foreground mb-4">Recent Posts</h3>
+
         {/* Recent Posts List */}
         <div className="space-y-4 mb-8">
           {posts.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-500">No posts yet</p>
-              <p className="text-sm text-gray-400">Create your first post to see it here</p>
+              <p className="text-muted-foreground">No posts yet</p>
+              <p className="text-sm text-muted-foreground/70">Create your first post to see it here</p>
             </div>
           ) : (
             posts.map((post) => {
               const primaryPlatform = (post.platforms as string[])[0];
               const IconComponent = platformIcons[primaryPlatform as keyof typeof platformIcons];
               const iconColor = platformColors[primaryPlatform as keyof typeof platformColors];
-              
+
               return (
-                <Card key={post.id} className={`${post.status === "failed" ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"}`}>
+                <Card key={post.id} className={`${post.status === "failed" ? "bg-red-950/20 border-red-900/50" : "bg-card border-border"}`}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">
                         {IconComponent && <IconComponent className={`${iconColor} text-sm`} />}
-                        <span className="text-sm font-medium text-gray-700">
+                        <span className="text-sm font-medium text-card-foreground">
                           {format(new Date(post.createdAt), "h:mm a")}
                         </span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <div className={`w-2 h-2 rounded-full ${getStatusIndicator(post.status)}`}></div>
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className={`text-xs ${statusColors[post.status as keyof typeof statusColors]}`}
                         >
                           {post.status}
                         </Badge>
                       </div>
                     </div>
-                    
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                      {post.content.length > 60 
-                        ? `${post.content.substring(0, 60)}...` 
+
+                    {/* Replying To Context */}
+                    {(post.platformData as any)?.twitter?.replyingTo && (
+                      <div className="mb-2 text-xs text-muted-foreground flex items-center gap-1">
+                        <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full inline-flex items-center">
+                          <Twitter className="w-2 h-2 mr-1" />
+                          @{(post.platformData as any).twitter.replyingTo}
+                        </span>
+                      </div>
+                    )}
+
+                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                      {post.content.length > 60
+                        ? `${post.content.substring(0, 60)}...`
                         : post.content}
                     </p>
-                    
-                    <div className="flex items-center justify-between text-xs text-gray-500">
+
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
                       {post.status === "published" ? (
                         <span className="text-green-600">
                           Published successfully
@@ -157,19 +167,19 @@ export default function RecentPosts() {
                       ) : (
                         <span>Draft saved</span>
                       )}
-                      
+
                       <div className="flex items-center space-x-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="p-0 h-auto text-social-primary hover:text-blue-700"
                           onClick={() => setLocation("/history")}
                         >
                           {post.status === "failed" ? "Retry" : "View"}
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="p-0 h-auto text-red-500 hover:text-red-700"
                           onClick={() => handleDelete(post.id)}
                           disabled={deletePostMutation.isPending}

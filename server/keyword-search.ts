@@ -8,28 +8,75 @@ interface SearchResult {
   content: string;
   url: string;
   createdAt: Date;
+  score?: number;
+  metadata?: {
+    likes?: number;
+    replies?: number;
+    shares?: number;
+    views?: number;
+  };
 }
 
 export class KeywordSearchEngine {
+  private calculateRelevanceScore(content: string, createdAt: Date, replies: number = 0): number {
+    let score = 100;
+    const lowerContent = content.toLowerCase();
+    const now = new Date();
+    const hoursOld = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+
+    // 1. Recency Decay (Freshness is key for leads)
+    // Lose 2 points per hour, max 50 points lost
+    score -= Math.min(50, hoursOld * 2);
+
+    // 2. Intent Bonuses
+    if (content.includes("?")) score += 20; // Questions are high intent
+    if (lowerContent.includes("recommend") || lowerContent.includes("suggestion")) score += 15;
+    if (lowerContent.includes("help") || lowerContent.includes("advice")) score += 15;
+    if (lowerContent.includes("plan") || lowerContent.includes("trip")) score += 10;
+
+    // 3. Opportunity Score (Low replies = better opportunity to be seen)
+    // If it has > 10 replies, it's crowded.
+    if (replies === 0) score += 10; // First mover advantage
+    else if (replies > 10) score -= 10; // Crowded
+    else if (replies > 50) score -= 30; // Very crowded
+
+    return Math.round(score);
+  }
+
   private async getTwitterClient(): Promise<TwitterApi | null> {
     try {
       // Get stored Twitter credentials from database
+      // Get stored Twitter credentials from database
       const twitterConnection = await storage.getPlatformConnection("twitter");
+      const credentials = twitterConnection?.credentials;
 
-      if (!twitterConnection || !twitterConnection.credentials || Object.keys(twitterConnection.credentials).length === 0) {
-        console.log('No stored credentials, cannot search X without authentication');
+      // Check for env vars first
+      const hasEnvVars = process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET;
+
+      if ((!twitterConnection || !credentials || Object.keys(credentials).length === 0) && !hasEnvVars) {
+        console.log('No stored credentials and no env vars, cannot search X without authentication');
         return null;
       }
 
-      const credentials = twitterConnection.credentials;
+      // Use OAuth 1.0a User Context authentication
+      // Prioritize .env for testing, fallback to DB
+      // Treat empty strings in DB as undefined
+      const apiKey = process.env.TWITTER_API_KEY || (credentials?.apiKey && credentials.apiKey.trim() !== "" ? credentials.apiKey : undefined);
+      const apiSecret = process.env.TWITTER_API_SECRET || (credentials?.apiSecret && credentials.apiSecret.trim() !== "" ? credentials.apiSecret : undefined);
+      const accessToken = process.env.TWITTER_ACCESS_TOKEN || (credentials?.accessToken && credentials.accessToken.trim() !== "" ? credentials.accessToken : undefined);
+      const accessSecret = process.env.TWITTER_ACCESS_TOKEN_SECRET || (credentials?.accessTokenSecret && credentials.accessTokenSecret.trim() !== "" ? credentials.accessTokenSecret : undefined);
 
-      // Use OAuth 1.0a User Context authentication (same as successful AIDebate app)
+      if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
+        console.log('No Twitter credentials found in DB or .env');
+        return null;
+      }
+
       console.log('Using OAuth 1.0a User Context authentication for X search');
       return new TwitterApi({
-        appKey: credentials.apiKey,
-        appSecret: credentials.apiSecret,
-        accessToken: credentials.accessToken,
-        accessSecret: credentials.accessTokenSecret,
+        appKey: apiKey,
+        appSecret: apiSecret,
+        accessToken: accessToken,
+        accessSecret: accessSecret,
       });
     } catch (error) {
       console.error('Failed to get Twitter client:', error);
@@ -37,7 +84,24 @@ export class KeywordSearchEngine {
     }
   }
 
-  async searchTwitter(keyword: string, maxResults: number = 10): Promise<SearchResult[]> {
+  private buildTravelQuery(city: string): string {
+    const BASE_FILTERS = " -is:retweet -is:reply -is:quote lang:en";
+    const SPAM_FILTERS = " -giveaway -win -crypto -bot -deal -discount";
+
+    // Intent-based phrasing
+    const intents = [
+      `"planning a trip to ${city}"`,
+      `"recommendations for ${city}"`,
+      `"anyone been to ${city}"`,
+      `"visiting ${city}"`,
+      `"best restaurants in ${city}"`,
+      `"must see in ${city}"`
+    ].join(" OR ");
+
+    return `(${intents}) ${BASE_FILTERS} ${SPAM_FILTERS}`;
+  }
+
+  async searchTwitter(keyword: string, maxResults: number = 10, strictMode: boolean = false): Promise<SearchResult[]> {
     const twitterClient = await this.getTwitterClient();
 
     if (!twitterClient) {
@@ -46,10 +110,12 @@ export class KeywordSearchEngine {
 
     try {
       // Use v2 search API recent endpoint
-      console.log(`Searching X using v2 API for keyword: ${keyword}`);
-      const searchResults = await twitterClient.v2.search(keyword, {
-        max_results: Math.min(maxResults, 10), // v2 API limit
-        'tweet.fields': ['created_at', 'author_id'],
+      const query = strictMode ? this.buildTravelQuery(keyword) : keyword;
+      console.log(`Searching X using v2 API for query: ${query} (Strict: ${strictMode})`);
+
+      const searchResults = await twitterClient.v2.search(query, {
+        max_results: Math.min(maxResults, 100), // v2 API limit is 100
+        'tweet.fields': ['created_at', 'author_id', 'public_metrics'],
         'user.fields': ['username'],
         expansions: ['author_id']
       });
@@ -75,17 +141,56 @@ export class KeywordSearchEngine {
 
       console.log(`Found ${tweets.length} tweets and ${users.length} users`);
 
+      const SPAM_KEYWORDS = ["giveaway", "nft", "crypto", "win", "contest", "airdrop", "whitelist", "mint"];
+      let filteredCount = 0;
+
       for (const tweet of tweets) {
         const author = users.find((user: any) => user.id === tweet.author_id);
+        const text = tweet.text.toLowerCase();
+
+        // 1. Filter out spam keywords (even in strict mode, extra safety)
+        if (SPAM_KEYWORDS.some(keyword => text.includes(keyword))) {
+          filteredCount++;
+          continue;
+        }
+
+        // 2. Filter out hashtag stuffing (more than 5 hashtags)
+        const hashtagCount = (tweet.text.match(/#/g) || []).length;
+        if (hashtagCount > 5) {
+          filteredCount++;
+          continue;
+        }
+
+        // 3. Filter out replies (if it's a reply, it usually starts with @)
+        // Note: A better way is checking in_reply_to_user_id but we didn't request that field. 
+        // For now, simple heuristic: if it starts with @ and isn't a self-thread, skip.
+        if (tweet.text.startsWith("@")) {
+          filteredCount++;
+          continue;
+        }
+
+        const createdAt = new Date(tweet.created_at || new Date());
+        const metrics = tweet.public_metrics || {};
+        const replyCount = metrics.reply_count || 0;
+
         results.push({
           platform: 'twitter',
           id: tweet.id,
           author: author?.username || 'unknown',
           content: tweet.text,
           url: `https://twitter.com/${author?.username || 'unknown'}/status/${tweet.id}`,
-          createdAt: new Date(tweet.created_at || new Date())
+          createdAt: createdAt,
+          score: this.calculateRelevanceScore(tweet.text, createdAt, replyCount),
+          metadata: {
+            likes: metrics.like_count,
+            replies: metrics.reply_count,
+            shares: metrics.retweet_count,
+            views: metrics.impression_count
+          }
         });
       }
+
+      console.log(`Filtered out ${filteredCount} low-quality/spam tweets.`);
 
       return results;
     } catch (error: any) {
@@ -144,6 +249,8 @@ export class KeywordSearchEngine {
 
       for (const post of data.data?.children || []) {
         const postData = post.data;
+        const createdAt = new Date(postData.created_utc * 1000);
+        const replyCount = postData.num_comments || 0;
 
         results.push({
           platform: 'reddit',
@@ -151,7 +258,12 @@ export class KeywordSearchEngine {
           author: postData.author,
           content: postData.title + (postData.selftext ? '\n\n' + postData.selftext : ''),
           url: `https://reddit.com${postData.permalink}`,
-          createdAt: new Date(postData.created_utc * 1000)
+          createdAt: createdAt,
+          score: this.calculateRelevanceScore(postData.title, createdAt, replyCount),
+          metadata: {
+            likes: postData.score,
+            replies: postData.num_comments
+          }
         });
       }
 
@@ -168,14 +280,14 @@ export class KeywordSearchEngine {
     throw new Error('Discord search not implemented - requires Discord bot integration with server access');
   }
 
-  async searchAllPlatforms(keyword: string, platforms: string[] = ['twitter', 'reddit']): Promise<SearchResult[]> {
+  async searchAllPlatforms(keyword: string, platforms: string[] = ['twitter', 'reddit'], strictMode: boolean = false): Promise<SearchResult[]> {
     const allResults: SearchResult[] = [];
     const errors: string[] = [];
 
     // Search Twitter if requested
     if (platforms.includes('twitter')) {
       try {
-        const twitterResults = await this.searchTwitter(keyword);
+        const twitterResults = await this.searchTwitter(keyword, 10, strictMode);
         allResults.push(...twitterResults);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown Twitter error';
@@ -185,7 +297,8 @@ export class KeywordSearchEngine {
 
     // Search Reddit if requested
     if (platforms.includes('reddit')) {
-      const subreddits = ['ChatGPTCoding', 'learnprogramming', 'webdev'];
+      // Updated to relevant travel subreddits
+      const subreddits = ['travel', 'solotravel', 'Paris', 'JapanTravel', 'digitalnomad'];
 
       for (const subreddit of subreddits) {
         try {
@@ -235,7 +348,11 @@ export class KeywordSearchEngine {
       console.warn(`Some searches failed: ${errors.join('; ')}`);
     }
 
-    return allResults.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    // Deduplicate results by ID (prevent same post from appearing multiple times if cross-posted or fetched twice)
+    const uniqueResults = Array.from(new Map(allResults.map(item => [item.id, item])).values());
+
+    // Sort by Relevance Score (descending)
+    return uniqueResults.sort((a, b) => (b.score || 0) - (a.score || 0));
   }
 
   async replyToTwitterPost(postId: string, replyText: string): Promise<boolean> {

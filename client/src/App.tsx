@@ -15,7 +15,7 @@ import TopicSearch from "@/pages/topic-search";
 import Settings from "@/pages/settings";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
-import ReviewQueue from "@/pages/review-queue";
+import SniperQueue from "@/pages/sniper-queue";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -47,7 +47,9 @@ function Router() {
         <Route path="/topic-search" component={TopicSearch} />
         <Route path="/search" component={TopicSearch} />
         <Route path="/settings" component={Settings} />
-        <Route path="/review-queue" component={ReviewQueue} />
+        <Route path="/settings" component={Settings} />
+        <Route path="/sniper-queue" component={SniperQueue} />
+        <Route path="/sniper" component={SniperQueue} />
         <Route component={NotFound} />
       </Switch>
     </MainLayout>

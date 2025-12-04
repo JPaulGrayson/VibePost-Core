@@ -1,111 +1,96 @@
 import { TwitterApi } from "twitter-api-v2";
-import { postcardDrafter } from "./postcard_drafter";
+import { storage } from "../storage"; // Your DB storage interface
+import { generateDraft } from "./postcard_drafter";
+import { analyzeTweetIntent } from "./intent_parser";
+import { processTourRequest } from "./tour_generator";
 
-export class TwitterListener {
-    private client: TwitterApi | null = null;
-    private isPolling = false;
-    private botUserId: string | null = null;
+// Initialize Client (User Context required for reading mentions)
+// Ensure token is present or handle gracefully
+const client = new TwitterApi({
+    appKey: process.env.TWITTER_API_KEY || "",
+    appSecret: process.env.TWITTER_API_SECRET || "",
+    accessToken: process.env.TWITTER_ACCESS_TOKEN || "",
+    accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET || "",
+});
 
-    constructor() {
-        this.initializeClient();
+export class TwitterListenerService {
+    private isRunning = false;
+    private checkIntervalMs = 60 * 1000; // 1 Minute (For Testing)
+
+    async startPolling() {
+        if (this.isRunning) return;
+        this.isRunning = true;
+        console.log("🟢 Sniper Listener Started (Polling every 60s)");
+
+        // Initial Run
+        await this.checkMentions();
+
+        // Loop
+        setInterval(() => this.checkMentions(), this.checkIntervalMs);
     }
 
-    private initializeClient() {
-        const appKey = process.env.TWITTER_API_KEY;
-        const appSecret = process.env.TWITTER_API_SECRET;
-        const accessToken = process.env.TWITTER_ACCESS_TOKEN;
-        const accessSecret = process.env.TWITTER_ACCESS_SECRET;
-
-        if (appKey && appSecret && accessToken && accessSecret) {
-            this.client = new TwitterApi({
-                appKey,
-                appSecret,
-                accessToken,
-                accessSecret,
-            });
-            console.log("Twitter client initialized for Listener.");
-        } else {
-            console.warn("Twitter credentials missing. Listener will not run.");
-        }
-    }
-
-    async startPolling(intervalMs: number = 60000) {
-        if (!this.client) return;
-        if (this.isPolling) return;
-
-        this.isPolling = true;
-        console.log("Starting Twitter Listener polling...");
-
-        // Initial poll
-        await this.pollMentions();
-
-        setInterval(async () => {
-            await this.pollMentions();
-        }, intervalMs);
-    }
-
-    private async pollMentions() {
-        if (!this.client) return;
-
+    private async checkMentions() {
         try {
-            if (!this.botUserId) {
-                this.botUserId = await this.getBotUserId();
-            }
-
-            if (!this.botUserId) return;
-
-            // Fetch recent mentions
-            const mentions = await this.client.v2.userMentionTimeline(this.botUserId, {
-                max_results: 10,
-                "tweet.fields": ["created_at", "author_id", "text"],
-                "user.fields": ["public_metrics", "username"],
-                expansions: ["author_id"],
-            });
-
-            if (!mentions.data.data || mentions.data.data.length === 0) {
+            // 1. Fetch Mentions (Only new ones)
+            const userId = process.env.BOT_USER_ID;
+            if (!userId) {
+                console.warn("BOT_USER_ID not set. Skipping mention check.");
                 return;
             }
 
-            for (const tweet of mentions.data.data) {
-                // Filter: Author follower count
-                const author = mentions.includes?.users?.find((u: any) => u.id === tweet.author_id);
+            console.log(`🔍 Checking mentions for user ${userId}...`);
 
-                if (author) {
-                    const followers = author.public_metrics?.followers_count || 0;
+            const mentions = await client.v2.userMentionTimeline(userId, {
+                "tweet.fields": ["author_id", "text", "created_at"],
+                "expansions": ["author_id"],
+                "user.fields": ["public_metrics", "username"]
+            });
 
-                    // Filter out bots (< 50) and high profile (> 100k)
-                    if (followers < 50) {
-                        console.log(`Skipping tweet from @${author.username} (Too few followers: ${followers})`);
-                        continue;
-                    }
-                    if (followers > 100000) {
-                        console.log(`Skipping tweet from @${author.username} (Too many followers: ${followers})`);
-                        continue;
-                    }
-
-                    // Trigger Drafter
-                    await postcardDrafter.draftReply({
-                        id: tweet.id,
-                        author: author.username,
-                        text: tweet.text,
-                    });
-                }
+            if (!mentions.data.data) {
+                console.log("   No new mentions found.");
+                return;
             }
 
-        } catch (error) {
-            console.error("Error polling Twitter mentions:", error);
-        }
-    }
+            console.log(`   Found ${mentions.data.data.length} mentions.`);
 
-    private async getBotUserId(): Promise<string | null> {
-        try {
-            const me = await this.client?.v2.me();
-            return me?.data.id || null;
+            for (const tweet of mentions.data.data) {
+                // 2. Filter: Have we processed this?
+                const existing = await storage.getDraftByOriginalTweetId(tweet.id);
+                if (existing) {
+                    // console.log(`   Skipping processed tweet ${tweet.id}`);
+                    continue;
+                }
+
+                // 3. Filter: Spam/Low Quality Check
+                const author = mentions.includes?.users?.find(u => u.id === tweet.author_id);
+
+                // DISABLED FOR TESTING: Follower count check
+                /*
+                if (author) {
+                    const followers = author.public_metrics?.followers_count || 0;
+                    if (followers < 25) {
+                        console.log(`Skipping low-quality user: ${author.username}`);
+                        continue;
+                    }
+                }
+                */
+
+                // 4. Check Intent
+                console.log(`🎯 Valid mention found from @${author?.username}`);
+                const analysis = await analyzeTweetIntent(tweet.text, author?.username || "unknown");
+
+                if (analysis.isRequest) {
+                    // Path A: It's a Tour Request -> Generate Link
+                    await processTourRequest(analysis, tweet);
+                } else {
+                    // Path B: It's just a mention -> Generate Postcard (Existing Logic)
+                    await generateDraft(tweet, author?.username || "unknown");
+                }
+            }
         } catch (error) {
-            console.error("Failed to get bot user ID:", error);
-            return null;
+            console.error("Listener Error:", error);
         }
     }
 }
 
-export const twitterListener = new TwitterListener();
+export const twitterListener = new TwitterListenerService();

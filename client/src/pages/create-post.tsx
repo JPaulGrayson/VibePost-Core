@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FolderOpen, Zap } from "lucide-react";
+import { FolderOpen, Zap, FileText } from "lucide-react";
 import PlatformSelector from "@/components/post/platform-selector";
 import TemplateSelector from "@/components/post/template-selector";
 import PostForm from "@/components/post/post-form";
@@ -9,12 +9,16 @@ import PostPreview from "@/components/post/post-preview";
 import type { Post } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { format } from "date-fns";
 
 export default function CreatePost() {
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(["twitter"]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("announcement");
   const [postContent, setPostContent] = useState("");
   const [currentPost, setCurrentPost] = useState<Post | null>(null);
+  const [isDraftDialogOpen, setIsDraftDialogOpen] = useState(false);
   const [location] = useLocation();
 
   // Get edit parameter from URL
@@ -27,6 +31,11 @@ export default function CreatePost() {
     enabled: !!editPostId,
   });
 
+  // Fetch drafts
+  const { data: drafts } = useQuery<Post[]>({
+    queryKey: ["/api/posts", { status: "draft" }],
+  });
+
   // Set form data when editing post is loaded
   useEffect(() => {
     if (editingPost) {
@@ -37,39 +46,82 @@ export default function CreatePost() {
     }
   }, [editingPost]);
 
-  const handleLoadDraft = () => {
-    // TODO: Implement draft loading functionality
-    console.log("Loading draft...");
+  const handleSelectDraft = (draft: Post) => {
+    setPostContent(draft.content);
+    setSelectedPlatforms(draft.platforms as string[]);
+    setSelectedTemplate(draft.template || "custom");
+    setCurrentPost(draft);
+    setIsDraftDialogOpen(false);
   };
 
   const handleQuickPost = () => {
-    // TODO: Implement quick post functionality
-    console.log("Quick posting...");
+    // Scroll to form and focus
+    const formElement = document.querySelector('textarea');
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth' });
+      formElement.focus();
+    }
   };
 
   return (
     <>
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+      <header className="bg-card shadow-sm border-b border-border px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-2xl font-bold text-foreground">
               {editPostId ? "Edit Post" : "Create New Post"}
             </h2>
-            <p className="text-gray-600 mt-1">
+            <p className="text-muted-foreground mt-1">
               {editPostId ? "Update your post content and settings" : "Compose and publish to multiple social media platforms"}
             </p>
           </div>
           <div className="flex items-center space-x-4">
-            <Button 
-              variant="outline" 
-              onClick={handleLoadDraft}
-              className="border-gray-300 hover:bg-gray-50"
-            >
-              <FolderOpen className="mr-2 h-4 w-4" />
-              Load Draft
-            </Button>
-            <Button 
+            <Dialog open={isDraftDialogOpen} onOpenChange={setIsDraftDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="border-border hover:bg-muted"
+                >
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  Load Draft
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Load Draft</DialogTitle>
+                </DialogHeader>
+                <ScrollArea className="h-[300px] pr-4">
+                  <div className="space-y-2">
+                    {drafts?.filter(p => p.status === 'draft').length === 0 ? (
+                      <p className="text-center text-muted-foreground py-8">No drafts found.</p>
+                    ) : (
+                      drafts?.filter(p => p.status === 'draft').map((draft) => (
+                        <div
+                          key={draft.id}
+                          className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                          onClick={() => handleSelectDraft(draft)}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-sm truncate w-40">
+                              {draft.template ? draft.template.charAt(0).toUpperCase() + draft.template.slice(1) : 'Custom'}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(draft.updatedAt), "MMM d, h:mm a")}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 line-clamp-2">
+                            {draft.content}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </DialogContent>
+            </Dialog>
+
+            <Button
               onClick={handleQuickPost}
               className="bg-social-primary hover:bg-blue-700"
             >
@@ -85,8 +137,8 @@ export default function CreatePost() {
           {/* Platform Selection */}
           <Card>
             <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Platforms</h3>
-              <PlatformSelector 
+              <h3 className="text-lg font-semibold text-foreground mb-4">Select Platforms</h3>
+              <PlatformSelector
                 selectedPlatforms={selectedPlatforms}
                 onPlatformsChange={setSelectedPlatforms}
               />
@@ -96,8 +148,8 @@ export default function CreatePost() {
           {/* Template Selection */}
           <Card>
             <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Post Template</h3>
-              <TemplateSelector 
+              <h3 className="text-lg font-semibold text-foreground mb-4">Post Template</h3>
+              <TemplateSelector
                 selectedTemplate={selectedTemplate}
                 onTemplateChange={setSelectedTemplate}
               />
@@ -107,7 +159,7 @@ export default function CreatePost() {
           {/* Post Composition */}
           <Card>
             <CardContent className="p-6">
-              <PostForm 
+              <PostForm
                 selectedPlatforms={selectedPlatforms}
                 selectedTemplate={selectedTemplate}
                 content={postContent}
@@ -122,8 +174,8 @@ export default function CreatePost() {
           {postContent && (
             <Card>
               <CardContent className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Platform Preview</h3>
-                <PostPreview 
+                <h3 className="text-lg font-semibold text-foreground mb-4">Platform Preview</h3>
+                <PostPreview
                   content={postContent}
                   selectedPlatforms={selectedPlatforms}
                 />

@@ -30,7 +30,7 @@ import {
 } from "@shared/schema";
 import { postcardDrafts } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, desc, and, lt } from "drizzle-orm";
 
 export interface IStorage {
   // Posts
@@ -74,7 +74,9 @@ export interface IStorage {
   // Postcard Drafts
   getPostcardDrafts(): Promise<PostcardDraft[]>;
   getPostcardDraft(id: number): Promise<PostcardDraft | undefined>;
+  getDraftByOriginalTweetId(tweetId: string): Promise<PostcardDraft | undefined>;
   updatePostcardDraft(id: number, updates: Partial<InsertPostcardDraft>): Promise<PostcardDraft | undefined>;
+  cleanupOldDrafts(): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -100,6 +102,10 @@ export class MemStorage implements IStorage {
     this.currentAnalyticsId = 1;
     this.postcardDrafts = new Map();
     this.currentPostcardDraftId = 1;
+    this.keywordMonitoring = new Map();
+    this.currentKeywordId = 1;
+    this.foundPosts = new Map();
+    this.currentFoundPostId = 1;
 
     // Initialize with default platform connections
     this.initializePlatformConnections();
@@ -167,6 +173,7 @@ export class MemStorage implements IStorage {
       createdAt: now,
       updatedAt: now,
       publishedAt: insertPost.status === "published" ? now : null,
+      campaignId: insertPost.campaignId || null,
     };
     this.posts.set(post.id, post);
     return post;
@@ -234,7 +241,6 @@ export class MemStorage implements IStorage {
     const updated: PlatformConnection = {
       ...existing,
       ...updates,
-      updatedAt: new Date(),
     };
 
     this.platformConnections.set(platform, updated);
@@ -268,7 +274,6 @@ export class MemStorage implements IStorage {
     const updated: PostAnalytics = {
       ...existing,
       ...updates,
-      updatedAt: new Date(),
     };
 
     this.postAnalytics.set(id, updated);
@@ -296,12 +301,13 @@ export class MemStorage implements IStorage {
   }
 
   // Keyword Monitoring
-  async getKeywordMonitoring(): Promise<KeywordMonitoring[]> {
+  async getKeywordMonitoring(): Promise<KeywordMonitoring[]>;
+  async getKeywordMonitoring(id: number): Promise<KeywordMonitoring | undefined>;
+  async getKeywordMonitoring(id?: number): Promise<KeywordMonitoring[] | KeywordMonitoring | undefined> {
+    if (id !== undefined) {
+      return this.keywordMonitoring.get(id);
+    }
     return Array.from(this.keywordMonitoring.values());
-  }
-
-  async getKeywordMonitoring(id: number): Promise<KeywordMonitoring | undefined> {
-    return this.keywordMonitoring.get(id);
   }
 
   async createKeywordMonitoring(keyword: InsertKeywordMonitoring): Promise<KeywordMonitoring> {
@@ -311,6 +317,9 @@ export class MemStorage implements IStorage {
       id: this.currentKeywordId++,
       createdAt: now,
       updatedAt: now,
+      userId: "system",
+      isActive: keyword.isActive ?? true,
+      replyTemplate: keyword.replyTemplate ?? null,
     };
     this.keywordMonitoring.set(newKeyword.id, newKeyword);
     return newKeyword;
@@ -323,7 +332,6 @@ export class MemStorage implements IStorage {
     const updated: KeywordMonitoring = {
       ...existing,
       ...updates,
-      updatedAt: new Date(),
     };
     this.keywordMonitoring.set(id, updated);
     return updated;
@@ -348,7 +356,13 @@ export class MemStorage implements IStorage {
       ...foundPost,
       id: this.currentFoundPostId++,
       createdAt: now,
-      updatedAt: now,
+      userId: "system",
+      status: foundPost.status || "new",
+      keywordId: foundPost.keywordId || null,
+      url: foundPost.url || null,
+      foundAt: foundPost.foundAt || now,
+      repliedAt: foundPost.repliedAt || null,
+      replyPostId: foundPost.replyPostId || null,
     };
     this.foundPosts.set(newFoundPost.id, newFoundPost);
     return newFoundPost;
@@ -361,7 +375,6 @@ export class MemStorage implements IStorage {
     const updated: FoundPost = {
       ...existing,
       ...updates,
-      updatedAt: new Date(),
     };
     this.foundPosts.set(id, updated);
     return updated;
@@ -376,6 +389,10 @@ export class MemStorage implements IStorage {
     return this.postcardDrafts.get(id);
   }
 
+  async getDraftByOriginalTweetId(tweetId: string): Promise<PostcardDraft | undefined> {
+    return Array.from(this.postcardDrafts.values()).find(draft => draft.originalTweetId === tweetId);
+  }
+
   async updatePostcardDraft(id: number, updates: Partial<InsertPostcardDraft>): Promise<PostcardDraft | undefined> {
     const existing = this.postcardDrafts.get(id);
     if (!existing) return undefined;
@@ -386,6 +403,10 @@ export class MemStorage implements IStorage {
     };
     this.postcardDrafts.set(id, updated);
     return updated;
+  }
+
+  async cleanupOldDrafts(): Promise<void> {
+    // No-op for MemStorage
   }
 }
 
@@ -411,7 +432,7 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
   async getPosts(): Promise<Post[]> {
-    return await db.select().from(posts);
+    return await db.select().from(posts).orderBy(desc(posts.createdAt));
   }
 
   async getPost(id: number): Promise<Post | undefined> {
@@ -422,7 +443,7 @@ export class DatabaseStorage implements IStorage {
   async createPost(insertPost: InsertPost): Promise<Post> {
     const [post] = await db
       .insert(posts)
-      .values(insertPost)
+      .values({ ...insertPost, platforms: insertPost.platforms as string[] })
       .returning();
     return post;
   }
@@ -430,7 +451,7 @@ export class DatabaseStorage implements IStorage {
   async updatePost(id: number, updates: Partial<InsertPost>): Promise<Post | undefined> {
     const [updatedPost] = await db
       .update(posts)
-      .set(updates)
+      .set({ ...updates, platforms: updates.platforms as string[] | undefined })
       .where(eq(posts.id, id))
       .returning();
     return updatedPost || undefined;
@@ -450,7 +471,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPostsByStatus(status: PostStatus): Promise<Post[]> {
-    return await db.select().from(posts).where(eq(posts.status, status));
+    return await db.select().from(posts).where(eq(posts.status, status)).orderBy(desc(posts.createdAt));
   }
 
   async getPlatformConnections(): Promise<PlatformConnection[]> {
@@ -515,7 +536,7 @@ export class DatabaseStorage implements IStorage {
   async createCampaign(campaign: InsertCampaign): Promise<Campaign> {
     const [newCampaign] = await db
       .insert(campaigns)
-      .values(campaign)
+      .values({ ...campaign, userId: "system", targetPlatforms: campaign.targetPlatforms as string[] })
       .returning();
     return newCampaign;
   }
@@ -523,7 +544,7 @@ export class DatabaseStorage implements IStorage {
   async updateCampaign(id: number, updates: Partial<InsertCampaign>): Promise<Campaign | undefined> {
     const [updated] = await db
       .update(campaigns)
-      .set(updates)
+      .set({ ...updates, targetPlatforms: updates.targetPlatforms as string[] })
       .where(eq(campaigns.id, id))
       .returning();
     return updated || undefined;
@@ -548,7 +569,7 @@ export class DatabaseStorage implements IStorage {
   async createKeywordMonitoring(keyword: InsertKeywordMonitoring): Promise<KeywordMonitoring> {
     const [result] = await db
       .insert(keywordMonitoring)
-      .values(keyword)
+      .values({ ...keyword, userId: "system" })
       .returning();
     return result;
   }
@@ -578,7 +599,7 @@ export class DatabaseStorage implements IStorage {
   async createFoundPost(foundPost: InsertFoundPost): Promise<FoundPost> {
     const [result] = await db
       .insert(foundPosts)
-      .values(foundPost)
+      .values({ ...foundPost, userId: "system" })
       .returning();
     return result;
   }
@@ -602,6 +623,11 @@ export class DatabaseStorage implements IStorage {
     return draft || undefined;
   }
 
+  async getDraftByOriginalTweetId(tweetId: string): Promise<PostcardDraft | undefined> {
+    const [draft] = await db.select().from(postcardDrafts).where(eq(postcardDrafts.originalTweetId, tweetId));
+    return draft || undefined;
+  }
+
   async updatePostcardDraft(id: number, updates: Partial<InsertPostcardDraft>): Promise<PostcardDraft | undefined> {
     const [updated] = await db
       .update(postcardDrafts)
@@ -609,6 +635,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(postcardDrafts.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  async cleanupOldDrafts(): Promise<void> {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    await db.delete(postcardDrafts)
+      .where(
+        and(
+          eq(postcardDrafts.status, "pending_review"),
+          lt(postcardDrafts.score, 70),
+          lt(postcardDrafts.createdAt, oneDayAgo)
+        )
+      );
   }
 }
 

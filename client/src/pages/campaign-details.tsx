@@ -19,14 +19,14 @@ export default function CampaignDetails() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const campaignId = parseInt(params.id!);
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "",
     description: "",
     status: "draft" as const,
   });
-  
+
   const [newPost, setNewPost] = useState({
     content: "",
     template: "custom" as const,
@@ -79,7 +79,7 @@ export default function CampaignDetails() {
 
   // Add post to campaign
   const addPostToCampaign = useMutation({
-    mutationFn: async (postData: InsertPost) => {
+    mutationFn: async (postData: { content: string; template?: string }) => {
       const response = await fetch("/api/posts", {
         method: "POST",
         headers: {
@@ -253,7 +253,7 @@ export default function CampaignDetails() {
 
   const handleAddPost = () => {
     if (!newPost.content.trim()) return;
-    
+
     addPostToCampaign.mutate({
       content: newPost.content,
       template: newPost.template,
@@ -274,8 +274,8 @@ export default function CampaignDetails() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="sm"
             onClick={() => setLocation("/campaigns")}
           >
@@ -283,9 +283,9 @@ export default function CampaignDetails() {
             Back to Campaigns
           </Button>
         </div>
-        
+
         <div className="flex items-center gap-2">
-          <Button 
+          <Button
             variant="outline"
             onClick={() => {
               const campaignData = {
@@ -312,14 +312,34 @@ export default function CampaignDetails() {
             Export Campaign
           </Button>
           {campaign.status === "draft" && (
-            <Button 
-              onClick={() => launchCampaign.mutate()}
-              disabled={launchCampaign.isPending || posts.length === 0}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Send className="w-4 h-4 mr-2" />
-              {launchCampaign.isPending ? "Launching..." : "Launch Campaign"}
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button className="bg-green-600 hover:bg-green-700">
+                  <Calendar className="w-4 h-4 mr-2" />
+                  Schedule Campaign
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Schedule Campaign?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will schedule all {posts.length} draft posts to be published.
+                    <br /><br />
+                    <strong>Note:</strong> To prevent spam detection, posts will be spaced out automatically.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => launchCampaign.mutate()}
+                    disabled={launchCampaign.isPending || posts.length === 0}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {launchCampaign.isPending ? "Scheduling..." : "Confirm Schedule"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
       </div>
@@ -394,7 +414,7 @@ export default function CampaignDetails() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction 
+                        <AlertDialogAction
                           onClick={() => deleteCampaign.mutate()}
                           disabled={deleteCampaign.isPending}
                           className="bg-red-600 hover:bg-red-700"
@@ -448,7 +468,7 @@ export default function CampaignDetails() {
               </SelectContent>
             </Select>
           </div>
-          
+
           <div>
             <Label htmlFor="content">Post Content</Label>
             <Textarea
@@ -459,8 +479,8 @@ export default function CampaignDetails() {
               rows={4}
             />
           </div>
-          
-          <Button 
+
+          <Button
             onClick={handleAddPost}
             disabled={!newPost.content.trim() || addPostToCampaign.isPending}
           >
@@ -469,12 +489,12 @@ export default function CampaignDetails() {
         </CardContent>
       </Card>
 
-      {/* Keyword Automation */}
+      {/* Lead Finder (formerly Campaign Automation) */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Search className="w-5 h-5" />
-            Campaign Automation
+            Lead Finder
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -488,10 +508,34 @@ export default function CampaignDetails() {
               className="mt-1"
             />
             <p className="text-sm text-muted-foreground mt-1">
-              Comma-separated keywords to search for across social media platforms
+              Find relevant posts across social media to engage with manually.
             </p>
+
+            <div className="mt-3">
+              <Label className="text-xs text-muted-foreground mb-2 block">Recommended Tags:</Label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  "#SlowTravel", "#DigitalNomad", "#HiddenGems", "#TravelGram",
+                  "#Wanderlust", "#SoloTravel", "#AdventureTravel", "#SustainableTravel"
+                ].map((tag) => (
+                  <Badge
+                    key={tag}
+                    variant="secondary"
+                    className="cursor-pointer hover:bg-secondary/80"
+                    onClick={() => {
+                      const current = keywordList.split(',').map(k => k.trim()).filter(k => k);
+                      if (!current.includes(tag)) {
+                        setKeywordList(current.length > 0 ? `${keywordList}, ${tag}` : tag);
+                      }
+                    }}
+                  >
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            </div>
           </div>
-          
+
           <Button
             onClick={() => {
               const keywords = keywordList.split(',').map(k => k.trim()).filter(k => k);
@@ -501,11 +545,11 @@ export default function CampaignDetails() {
             className="w-full"
           >
             {autoEngage.isPending ? (
-              "Searching for keywords..."
+              "Searching for leads..."
             ) : (
               <>
                 <Search className="w-4 h-4 mr-2" />
-                Find Posts to Engage With
+                Find Leads
               </>
             )}
           </Button>
@@ -518,10 +562,9 @@ export default function CampaignDetails() {
                   <div key={index} className="border rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Badge className={`text-white ${
-                          result.platform === 'twitter' ? 'bg-blue-500' :
+                        <Badge className={`text-white ${result.platform === 'twitter' ? 'bg-blue-500' :
                           result.platform === 'reddit' ? 'bg-orange-500' : 'bg-gray-500'
-                        }`}>
+                          }`}>
                           {result.platform}
                         </Badge>
                         <span className="font-medium text-sm">{result.author}</span>
@@ -536,8 +579,8 @@ export default function CampaignDetails() {
                       </Button>
                     </div>
                     <p className="text-sm bg-muted p-2 rounded">
-                      {result.content.length > 150 
-                        ? result.content.substring(0, 150) + '...' 
+                      {result.content.length > 150
+                        ? result.content.substring(0, 150) + '...'
                         : result.content}
                     </p>
                   </div>

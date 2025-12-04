@@ -48,7 +48,7 @@ export default function TemplateSelector({ selectedTemplate, onTemplateChange }:
   const colorMap = {
     announcement: "text-social-primary",
     tip: "text-social-warning",
-    question: "text-social-secondary", 
+    question: "text-social-secondary",
     share: "text-social-accent",
   };
 
@@ -66,8 +66,8 @@ export default function TemplateSelector({ selectedTemplate, onTemplateChange }:
             className={`template-card ${isSelected ? 'selected' : ''}`}
           >
             {IconComponent && <IconComponent className={`${iconColor} mb-2`} size={20} />}
-            <div className="font-medium text-gray-900">{template.name}</div>
-            <div className="text-xs text-gray-500">{template.description}</div>
+            <div className="font-medium text-foreground">{template.name}</div>
+            <div className="text-xs text-muted-foreground">{template.description}</div>
           </button>
         );
       })}

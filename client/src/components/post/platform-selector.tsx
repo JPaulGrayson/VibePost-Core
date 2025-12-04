@@ -64,11 +64,11 @@ export default function PlatformSelector({ selectedPlatforms, onPlatformsChange 
             <div className="flex items-center space-x-3 w-full">
               {IconComponent && <IconComponent className={`${iconColor} text-xl`} />}
               <div className="flex-1">
-                <div className="font-medium text-gray-900 capitalize">{platform.platform}</div>
-                <div className="text-sm text-gray-500">{metadata}</div>
+                <div className="font-medium text-foreground capitalize">{platform.platform}</div>
+                <div className="text-sm text-muted-foreground">{metadata}</div>
               </div>
               <div className="flex items-center space-x-2 ml-auto">
-                <div 
+                <div
                   className="w-4 h-4 rounded-full border-2"
                   style={{
                     backgroundColor: isConnected ? '#10b981' : '#9ca3af',

@@ -5,7 +5,9 @@ import { TwitterApi } from "twitter-api-v2";
 import { storage } from "./storage";
 import { insertPostSchema, insertPlatformConnectionSchema, insertCampaignSchema, Platform, PostStatus } from "@shared/schema";
 import { keywordSearchEngine } from "./keyword-search";
-
+import { postcardDrafter, generateDraft } from "./services/postcard_drafter";
+import { publishDraft } from "./services/twitter_publisher";
+import { sniperManager } from "./services/sniper_manager";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Simple authentication middleware
   const isAuthenticated = (req: any, res: any, next: any) => {
@@ -317,6 +319,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(connection);
     } catch (error) {
+      console.error("Error updating platform connection:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid connection data", errors: error.errors });
       }
@@ -355,26 +358,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Test Twitter API connection
-  app.get("/api/platforms/twitter/test", async (req, res) => {
+  app.post("/api/platforms/twitter/test", async (req, res) => {
     try {
-      // Get stored Twitter credentials from database (same as other functions)
-      const twitterConnection = await storage.getPlatformConnection("twitter");
+      let credentials = req.body;
 
-      if (!twitterConnection || !twitterConnection.credentials || Object.keys(twitterConnection.credentials).length === 0) {
+      // If no credentials provided in body, try to get from DB
+      if (!credentials || Object.keys(credentials).length === 0) {
+        const twitterConnection = await storage.getPlatformConnection("twitter");
+        if (twitterConnection && twitterConnection.credentials) {
+          credentials = twitterConnection.credentials;
+        }
+      }
+
+      // Check if we have credentials OR environment variables
+      const hasEnvVars = process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET;
+
+      if ((!credentials || Object.keys(credentials).length === 0) && !hasEnvVars) {
         return res.status(400).json({
           success: false,
-          message: "Twitter API credentials not configured. Please add your Twitter API credentials in Settings.",
+          message: "Twitter API credentials not provided and no environment variables found.",
         });
       }
 
-      const credentials = twitterConnection.credentials;
+      // Use OAuth 1.0a User Context authentication
+      // Treat empty strings as undefined to allow fallback to env vars
+      const appKey = (credentials?.apiKey && credentials.apiKey.trim() !== "") ? credentials.apiKey : process.env.TWITTER_API_KEY!;
+      const appSecret = (credentials?.apiSecret && credentials.apiSecret.trim() !== "") ? credentials.apiSecret : process.env.TWITTER_API_SECRET!;
+      const accessToken = (credentials?.accessToken && credentials.accessToken.trim() !== "") ? credentials.accessToken : process.env.TWITTER_ACCESS_TOKEN!;
+      const accessSecret = (credentials?.accessTokenSecret && credentials.accessTokenSecret.trim() !== "") ? credentials.accessTokenSecret : process.env.TWITTER_ACCESS_TOKEN_SECRET!;
 
-      // Use OAuth 1.0a User Context authentication (same as successful AIDebate app)
+      console.log("Testing Twitter Connection with keys:");
+      console.log("App Key source:", (credentials?.apiKey && credentials.apiKey.trim() !== "") ? "Request Body" : "Env Var");
+      console.log("App Key:", appKey ? appKey.substring(0, 5) + "..." : "MISSING");
+
+      if (!appKey || !appSecret || !accessToken || !accessSecret) {
+        console.error("Missing one or more Twitter API keys");
+        return res.status(400).json({
+          success: false,
+          message: "Missing one or more Twitter API keys. Please check your settings or .env file.",
+        });
+      }
+
       const twitterClient = new TwitterApi({
-        appKey: credentials.apiKey,
-        appSecret: credentials.apiSecret,
-        accessToken: credentials.accessToken,
-        accessSecret: credentials.accessTokenSecret,
+        appKey,
+        appSecret,
+        accessToken,
+        accessSecret,
+      });
+
+      const user = await twitterClient.v2.me();
+
+      res.json({
+        success: true,
+        user: {
+          id: user.data.id,
+          username: user.data.username,
+          name: user.data.name,
+        },
+        message: "Twitter API connection successful",
+      });
+    } catch (error) {
+      console.error("Twitter API test failed:", error);
+      res.status(400).json({
+        success: false,
+        message: `Twitter API connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    }
+  });
+
+  // Legacy GET handler for cached frontends
+  app.get("/api/platforms/twitter/test", async (req, res) => {
+    try {
+      // Use OAuth 1.0a User Context authentication with .env fallback
+      const appKey = process.env.TWITTER_API_KEY!;
+      const appSecret = process.env.TWITTER_API_SECRET!;
+      const accessToken = process.env.TWITTER_ACCESS_TOKEN!;
+      const accessSecret = process.env.TWITTER_ACCESS_TOKEN_SECRET!;
+
+      const twitterClient = new TwitterApi({
+        appKey,
+        appSecret,
+        accessToken,
+        accessSecret,
       });
 
       const user = await twitterClient.v2.me();
@@ -729,16 +794,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(results);
   });
 
+  // Manual Hunt Trigger (Debug)
+  app.post("/api/debug/hunt", async (req, res) => {
+    try {
+      console.log("🎯 Manual hunt triggered via API");
+      const result = await sniperManager.forceHunt();
+      res.json({ success: true, message: "Hunt completed", result });
+    } catch (error) {
+      console.error("Manual hunt failed:", error);
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
   // Keyword search endpoints
   app.post("/api/keywords/search", isAuthenticated, async (req, res) => {
     try {
-      const { keyword, platforms = ['twitter', 'reddit'] } = req.body;
+      const { keyword, platforms = ['twitter', 'reddit'], strictMode = false } = req.body;
 
       if (!keyword || typeof keyword !== 'string') {
         return res.status(400).json({ error: "Keyword is required" });
       }
 
-      const results = await keywordSearchEngine.searchAllPlatforms(keyword, platforms);
+      const results = await keywordSearchEngine.searchAllPlatforms(keyword, platforms, strictMode);
 
       res.json({
         keyword,
@@ -836,12 +913,437 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Postcard Drafts Endpoints
+
+
+
+
+
+  app.post("/api/postcard-drafts/:id/regenerate-text", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const newText = await postcardDrafter.regenerateReplyText(id);
+      res.json({ success: true, draftText: newText });
+    } catch (error) {
+      console.error("Regenerate text error:", error);
+      res.status(500).json({ error: "Failed to regenerate text" });
+    }
+  });
+
+  app.post("/api/postcard-drafts/:id/regenerate-image", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const newImageUrl = await postcardDrafter.regenerateImage(id);
+      res.json({ success: true, turaiImageUrl: newImageUrl });
+    } catch (error) {
+      console.error("Regenerate image error:", error);
+      res.status(500).json({ error: "Failed to regenerate image" });
+    }
+  });
+
+  app.post("/api/sniper/draft-from-search", async (req, res) => {
+    try {
+      const { tweetId, authorHandle, text } = req.body;
+
+      if (!tweetId || !authorHandle || !text) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Trigger the drafter
+      await generateDraft({
+        id: tweetId,
+        text: text
+      }, authorHandle);
+
+      res.json({ success: true, message: "Draft creation started" });
+    } catch (error) {
+      console.error("Error creating draft from search:", error);
+      res.status(500).json({ error: "Failed to create draft" });
+    }
+  });
+
+  // Helper functions for fetching real-time metrics
+  async function fetchTwitterMetrics(tweetId: string) {
+    try {
+      const twitterClient = new TwitterApi({
+        appKey: process.env.TWITTER_API_KEY || "36nXSUbfuzNyoLxEztzsDpgGW",
+        appSecret: process.env.TWITTER_API_SECRET || "6qYmel81UoJQWoBQ3Pzdym2iQC3FP2936i2yi4LlswSf6b49hk",
+        accessToken: process.env.TWITTER_ACCESS_TOKEN || "2885704441-S5x5tTuj1dAiPeamgNCLXjRCDJYAEuAUuOn0Brz",
+        accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET || "Y1BwEQPX6Swn4dA2iMmoLfBmxn73QBUVFJtrxLLF0AtWj",
+      });
+
+      // Fetch tweet details with public metrics
+      const tweet = await twitterClient.v2.singleTweet(tweetId, {
+        'tweet.fields': ['public_metrics', 'created_at'],
+      });
+
+      const metrics = tweet.data.public_metrics;
+
+      return {
+        likes: metrics?.like_count || 0,
+        retweets: metrics?.retweet_count || 0,
+        replies: metrics?.reply_count || 0,
+        quotes: metrics?.quote_count || 0,
+        impressions: metrics?.impression_count || 0,
+        bookmarks: metrics?.bookmark_count || 0,
+        lastUpdatedAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error("Error fetching Twitter metrics:", error);
+      throw error;
+    }
+  }
+
+  async function fetchRedditMetrics(postId: string) {
+    try {
+      // Get Reddit credentials from storage
+      const redditConnection = await storage.getPlatformConnection("reddit");
+
+      if (!redditConnection?.credentials?.clientId || !redditConnection?.credentials?.username) {
+        throw new Error("Reddit credentials not found");
+      }
+
+      const { clientId, clientSecret, username } = redditConnection.credentials;
+
+      // Get Reddit access token
+      const authResponse = await fetch("https://www.reddit.com/api/v1/access_token", {
+        method: "POST",
+        headers: {
+          "Authorization": `Basic ${Buffer.from(`${clientId}:${clientSecret || ""}`).toString("base64")}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": "SocialVibe/1.0 by " + username,
+        },
+        body: "grant_type=client_credentials",
+      });
+
+      if (!authResponse.ok) {
+        throw new Error(`Reddit auth failed: ${authResponse.statusText}`);
+      }
+
+      const authData = await authResponse.json();
+
+      // Fetch post details
+      const postResponse = await fetch(`https://oauth.reddit.com/by_id/${postId}`, {
+        headers: {
+          "Authorization": `Bearer ${authData.access_token}`,
+          "User-Agent": "SocialVibe/1.0 by " + username,
+        },
+      });
+
+      if (!postResponse.ok) {
+        throw new Error(`Reddit API failed: ${postResponse.statusText}`);
+      }
+
+      const postData = await postResponse.json();
+      const post = postData.data?.children?.[0]?.data;
+
+      if (!post) {
+        throw new Error("Post not found on Reddit");
+      }
+
+      return {
+        upvotes: post.ups || 0,
+        downvotes: post.downs || 0,
+        score: post.score || 0,
+        comments: post.num_comments || 0,
+        upvoteRatio: post.upvote_ratio || 0,
+        lastUpdatedAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.error("Error fetching Reddit metrics:", error);
+      throw error;
+    }
+  }
+
+  async function handlePostPublishing(postId: number, platforms: string[]) {
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (const platform of platforms) {
+      try {
+        switch (platform) {
+          case "twitter":
+            await publishToTwitter(postId);
+            break;
+          case "discord":
+            await publishToDiscord(postId);
+            break;
+          case "reddit":
+            await publishToReddit(postId);
+            break;
+        }
+
+        successCount++;
+
+        // Create analytics entry for the platform
+        await storage.createPostAnalytics({
+          postId,
+          platform,
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          views: 0,
+        });
+      } catch (error) {
+        console.error(`Failed to publish to ${platform}:`, error);
+        failureCount++;
+      }
+    }
+
+    // Update post status based on results
+    if (successCount > 0 && failureCount === 0) {
+      await storage.updatePost(postId, { status: "published" });
+    } else if (successCount > 0 && failureCount > 0) {
+      // Partial success - still mark as published but log the issues
+      await storage.updatePost(postId, { status: "published" });
+      console.log(`Post ${postId}: Published to ${successCount}/${platforms.length} platforms`);
+    } else {
+      // Total failure
+      await storage.updatePost(postId, { status: "failed" });
+    }
+  }
+
+  async function publishToTwitter(postId: number) {
+    const post = await storage.getPost(postId);
+    if (!post) throw new Error("Post not found");
+
+    try {
+      // Get stored Twitter credentials from database (same as test function)
+      const twitterConnection = await storage.getPlatformConnection("twitter");
+
+      if (!twitterConnection || !twitterConnection.credentials || Object.keys(twitterConnection.credentials).length === 0) {
+        throw new Error("Twitter API credentials not configured");
+      }
+
+      const credentials = twitterConnection.credentials;
+
+      // Initialize Twitter API client with database credentials
+      const twitterClient = new TwitterApi({
+        appKey: credentials.apiKey,
+        appSecret: credentials.apiSecret,
+        accessToken: credentials.accessToken,
+        accessSecret: credentials.accessTokenSecret,
+      });
+
+      // Post the tweet
+      console.log(`Publishing to Twitter: ${post.content}`);
+      const tweet = await twitterClient.v2.tweet(post.content);
+
+      if (tweet.data) {
+        const tweetUrl = `https://twitter.com/user/status/${tweet.data.id}`;
+        console.log(`Successfully posted tweet: ${tweetUrl}`);
+
+        // Update platform data with real Twitter response
+        await storage.updatePost(postId, {
+          platformData: {
+            ...(post.platformData as Record<string, any>),
+            twitter: {
+              id: tweet.data.id,
+              url: tweetUrl,
+              text: tweet.data.text,
+              publishedAt: new Date().toISOString(),
+            }
+          } as any
+        });
+
+        // Create analytics entry for the tweet
+        await storage.createPostAnalytics({
+          postId,
+          platform: "twitter",
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          views: 0,
+        });
+      } else {
+        throw new Error("Failed to get tweet data from Twitter API");
+      }
+    } catch (error) {
+      console.error("Twitter API Error:", error);
+      throw new Error(`Failed to post to Twitter: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async function publishToDiscord(postId: number) {
+    const post = await storage.getPost(postId);
+    if (!post) throw new Error("Post not found");
+
+    try {
+      // Get stored Discord credentials from database
+      const discordConnection = await storage.getPlatformConnection("discord");
+
+      if (!discordConnection || !discordConnection.credentials) {
+        throw new Error("Discord webhook URL not configured");
+      }
+
+      const { webhookUrl } = discordConnection.credentials;
+
+      if (!webhookUrl) {
+        throw new Error("Discord webhook URL is required");
+      }
+
+      // Send message to Discord via webhook
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: post.content,
+          username: 'SocialVibe Bot',
+          avatar_url: 'https://i.imgur.com/4M34hi2.png' // Optional bot avatar
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Discord webhook failed: ${response.status} - ${errorText}`);
+      }
+
+      // Discord webhooks don't return message data, so we create our own reference
+      const messageId = `discord_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      await storage.updatePost(postId, {
+        platformData: {
+          ...(post.platformData as Record<string, any>),
+          discord: {
+            id: messageId,
+            webhookUrl: webhookUrl,
+            publishedAt: new Date().toISOString(),
+            status: 'published'
+          }
+        } as any
+      });
+
+      console.log(`Successfully posted to Discord: ${post.content.substring(0, 50)}...`);
+    } catch (error) {
+      console.error("Discord API Error:", error);
+      throw new Error(`Failed to post to Discord: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async function publishToReddit(postId: number) {
+    const post = await storage.getPost(postId);
+    if (!post) throw new Error("Post not found");
+
+    try {
+      // Get stored Reddit credentials from database
+      const redditConnection = await storage.getPlatformConnection("reddit");
+
+      if (!redditConnection || !redditConnection.credentials) {
+        throw new Error("Reddit API credentials not configured");
+      }
+
+      const { clientId, clientSecret, username, password, userAgent } = redditConnection.credentials;
+
+      if (!clientId || !clientSecret || !username || !password) {
+        throw new Error("Reddit API credentials incomplete");
+      }
+
+      // Use a proper User Agent if none provided
+      const finalUserAgent = userAgent || `SocialVibe:v1.0.0 (by u/${username})`;
+
+      // Get OAuth token
+      const tokenResponse = await fetch('https://www.reddit.com/api/v1/access_token', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': finalUserAgent,
+        },
+        body: new URLSearchParams({
+          grant_type: 'password',
+          username: username,
+          password: password,
+        }),
+      });
+
+      if (!tokenResponse.ok) {
+        throw new Error(`Reddit auth failed: ${tokenResponse.statusText}`);
+      }
+
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData.access_token;
+
+      // Post to Reddit (submit to r/test or specified subreddit)
+      const subreddit = 'test'; // Default subreddit for testing
+      const title = post.content.length > 100 ? post.content.substring(0, 97) + '...' : post.content;
+
+      console.log(`Publishing to Reddit r/${subreddit}: ${title}`);
+
+      const submitResponse = await fetch('https://oauth.reddit.com/api/submit', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': finalUserAgent,
+        },
+        body: new URLSearchParams({
+          kind: 'self',
+          sr: subreddit,
+          title: title,
+          text: post.content,
+          api_type: 'json',
+        }),
+      });
+
+      if (!submitResponse.ok) {
+        throw new Error(`Reddit submission failed: ${submitResponse.statusText}`);
+      }
+
+      const submitData = await submitResponse.json();
+
+      if (submitData.json && submitData.json.errors && submitData.json.errors.length > 0) {
+        throw new Error(`Reddit API Error: ${submitData.json.errors[0][1]}`);
+      }
+
+      if (submitData.json && submitData.json.data) {
+        const redditPost = submitData.json.data;
+        const redditUrl = `https://www.reddit.com/r/${subreddit}/comments/${redditPost.id}/${redditPost.name}/`;
+
+        console.log(`Successfully posted to Reddit: ${redditUrl}`);
+
+        // Update platform data with real Reddit response
+        await storage.updatePost(postId, {
+          platformData: {
+            ...(post.platformData as Record<string, any>),
+            reddit: {
+              id: redditPost.id,
+              name: redditPost.name,
+              url: redditUrl,
+              subreddit: subreddit,
+              title: title,
+              publishedAt: new Date().toISOString(),
+            }
+          } as any
+        });
+
+        // Create analytics entry for the Reddit post
+        await storage.createPostAnalytics({
+          postId,
+          platform: "reddit",
+          likes: 0,
+          comments: 0,
+          shares: 0,
+          views: 0,
+        });
+      } else {
+        throw new Error("Failed to get Reddit post data");
+      }
+    } catch (error) {
+      console.error("Reddit API Error:", error);
+      throw new Error(`Failed to post to Reddit: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+  // Postcard Drafts (Sniper Queue)
   app.get("/api/postcard-drafts", async (req, res) => {
     try {
       const drafts = await storage.getPostcardDrafts();
-      res.json(drafts);
+      // Filter for pending drafts
+      const pendingDrafts = drafts.filter(d => d.status === "pending_review");
+      res.json(pendingDrafts);
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch drafts" });
+      console.error("Error fetching postcard drafts:", error);
+      res.status(500).json({ message: "Failed to fetch drafts" });
     }
   });
 
@@ -849,24 +1351,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const draft = await storage.getPostcardDraft(id);
-      if (!draft) return res.status(404).json({ error: "Draft not found" });
 
-      // Update status to approved
-      await storage.updatePostcardDraft(id, { status: "approved" });
-
-      // Trigger publishing
-      const success = await keywordSearchEngine.replyToTwitterPost(draft.originalTweetId, draft.draftText);
-
-      if (success) {
-        await storage.updatePostcardDraft(id, { status: "published" });
-        res.json({ success: true, message: "Published successfully" });
-      } else {
-        await storage.updatePostcardDraft(id, { status: "failed" });
-        res.status(500).json({ error: "Failed to publish to Twitter" });
+      if (!draft) {
+        return res.status(404).json({ message: "Draft not found" });
       }
 
+      if (draft.status !== "pending_review") {
+        return res.status(400).json({ message: "Draft is not pending review" });
+      }
+
+      // Update draft text if provided
+      const { text } = req.body;
+      if (text) {
+        draft.draftReplyText = text;
+        await storage.updatePostcardDraft(id, { draftReplyText: text });
+      }
+
+      // Publish the draft
+      const result = await publishDraft(draft);
+
+      if (result.success) {
+        await storage.updatePostcardDraft(id, {
+          status: "published",
+          publishedAt: new Date(),
+        });
+
+        // Create a record in the main posts table for history
+        await storage.createPost({
+          userId: "system", // or the user's ID if available
+          content: draft.draftReplyText || "",
+          platforms: ["twitter"],
+          status: "published",
+          publishedAt: new Date(),
+          platformData: {
+            twitter: {
+              url: `https://twitter.com/user/status/${result.tweetId}`,
+              tweetId: result.tweetId,
+              replyingTo: draft.originalAuthorHandle
+            }
+          } as any
+        } as any);
+
+        res.json({ message: "Draft published successfully", tweetId: result.tweetId });
+      } else {
+        await storage.updatePostcardDraft(id, { status: "failed" });
+        res.status(500).json({ message: "Failed to publish draft", error: result.error });
+      }
     } catch (error) {
-      res.status(500).json({ error: "Failed to approve draft" });
+      console.error("Error approving draft:", error);
+      res.status(500).json({ message: "Failed to approve draft" });
     }
   });
 
@@ -874,397 +1407,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       await storage.updatePostcardDraft(id, { status: "rejected" });
-      res.json({ success: true });
+      res.json({ message: "Draft rejected" });
     } catch (error) {
-      res.status(500).json({ error: "Failed to reject draft" });
+      console.error("Error rejecting draft:", error);
+      res.status(500).json({ message: "Failed to reject draft" });
     }
   });
 
   app.patch("/api/postcard-drafts/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { draftText } = req.body;
-      await storage.updatePostcardDraft(id, { draftText });
-      res.json({ success: true });
+      const { draftReplyText } = req.body;
+
+      if (!draftReplyText) {
+        return res.status(400).json({ message: "draftReplyText is required" });
+      }
+
+      const updated = await storage.updatePostcardDraft(id, { draftReplyText });
+      res.json(updated);
     } catch (error) {
-      res.status(500).json({ error: "Failed to update draft" });
+      console.error("Error updating draft:", error);
+      res.status(500).json({ message: "Failed to update draft" });
+    }
+  });
+
+  app.post("/api/postcard-drafts/:id/regenerate-image", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const newImageUrl = await postcardDrafter.regenerateImage(id);
+      res.json({ imageUrl: newImageUrl });
+    } catch (error) {
+      console.error("Error regenerating image:", error);
+      res.status(500).json({ message: "Failed to regenerate image" });
     }
   });
 
   const httpServer = createServer(app);
   return httpServer;
-}
-
-// Helper functions for fetching real-time metrics
-async function fetchTwitterMetrics(tweetId: string) {
-  try {
-    const twitterClient = new TwitterApi({
-      appKey: process.env.TWITTER_API_KEY || "36nXSUbfuzNyoLxEztzsDpgGW",
-      appSecret: process.env.TWITTER_API_SECRET || "6qYmel81UoJQWoBQ3Pzdym2iQC3FP2936i2yi4LlswSf6b49hk",
-      accessToken: process.env.TWITTER_ACCESS_TOKEN || "2885704441-S5x5tTuj1dAiPeamgNCLXjRCDJYAEuAUuOn0Brz",
-      accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET || "Y1BwEQPX6Swn4dA2iMmoLfBmxn73QBUVFJtrxLLF0AtWj",
-    });
-
-    // Fetch tweet details with public metrics
-    const tweet = await twitterClient.v2.singleTweet(tweetId, {
-      'tweet.fields': ['public_metrics', 'created_at'],
-    });
-
-    const metrics = tweet.data.public_metrics;
-
-    return {
-      likes: metrics?.like_count || 0,
-      retweets: metrics?.retweet_count || 0,
-      replies: metrics?.reply_count || 0,
-      quotes: metrics?.quote_count || 0,
-      impressions: metrics?.impression_count || 0,
-      bookmarks: metrics?.bookmark_count || 0,
-      lastUpdatedAt: new Date().toISOString(),
-    };
-  } catch (error) {
-    console.error("Error fetching Twitter metrics:", error);
-    throw error;
-  }
-}
-
-async function fetchRedditMetrics(postId: string) {
-  try {
-    // Get Reddit credentials from storage
-    const redditConnection = await storage.getPlatformConnection("reddit");
-
-    if (!redditConnection?.credentials?.clientId || !redditConnection?.credentials?.username) {
-      throw new Error("Reddit credentials not found");
-    }
-
-    const { clientId, clientSecret, username } = redditConnection.credentials;
-
-    // Get Reddit access token
-    const authResponse = await fetch("https://www.reddit.com/api/v1/access_token", {
-      method: "POST",
-      headers: {
-        "Authorization": `Basic ${Buffer.from(`${clientId}:${clientSecret || ""}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": "SocialVibe/1.0 by " + username,
-      },
-      body: "grant_type=client_credentials",
-    });
-
-    if (!authResponse.ok) {
-      throw new Error(`Reddit auth failed: ${authResponse.statusText}`);
-    }
-
-    const authData = await authResponse.json();
-
-    // Fetch post details
-    const postResponse = await fetch(`https://oauth.reddit.com/by_id/${postId}`, {
-      headers: {
-        "Authorization": `Bearer ${authData.access_token}`,
-        "User-Agent": "SocialVibe/1.0 by " + username,
-      },
-    });
-
-    if (!postResponse.ok) {
-      throw new Error(`Reddit API failed: ${postResponse.statusText}`);
-    }
-
-    const postData = await postResponse.json();
-    const post = postData.data?.children?.[0]?.data;
-
-    if (!post) {
-      throw new Error("Post not found on Reddit");
-    }
-
-    return {
-      upvotes: post.ups || 0,
-      downvotes: post.downs || 0,
-      score: post.score || 0,
-      comments: post.num_comments || 0,
-      upvoteRatio: post.upvote_ratio || 0,
-      lastUpdatedAt: new Date().toISOString(),
-    };
-  } catch (error) {
-    console.error("Error fetching Reddit metrics:", error);
-    throw error;
-  }
-}
-
-async function handlePostPublishing(postId: number, platforms: string[]) {
-  let successCount = 0;
-  let failureCount = 0;
-
-  for (const platform of platforms) {
-    try {
-      switch (platform) {
-        case "twitter":
-          await publishToTwitter(postId);
-          break;
-        case "discord":
-          await publishToDiscord(postId);
-          break;
-        case "reddit":
-          await publishToReddit(postId);
-          break;
-      }
-
-      successCount++;
-
-      // Create analytics entry for the platform
-      await storage.createPostAnalytics({
-        postId,
-        platform,
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        views: 0,
-      });
-    } catch (error) {
-      console.error(`Failed to publish to ${platform}:`, error);
-      failureCount++;
-    }
-  }
-
-  // Update post status based on results
-  if (successCount > 0 && failureCount === 0) {
-    await storage.updatePost(postId, { status: "published" });
-  } else if (successCount > 0 && failureCount > 0) {
-    // Partial success - still mark as published but log the issues
-    await storage.updatePost(postId, { status: "published" });
-    console.log(`Post ${postId}: Published to ${successCount}/${platforms.length} platforms`);
-  } else {
-    // Total failure
-    await storage.updatePost(postId, { status: "failed" });
-  }
-}
-
-async function publishToTwitter(postId: number) {
-  const post = await storage.getPost(postId);
-  if (!post) throw new Error("Post not found");
-
-  try {
-    // Get stored Twitter credentials from database (same as test function)
-    const twitterConnection = await storage.getPlatformConnection("twitter");
-
-    if (!twitterConnection || !twitterConnection.credentials || Object.keys(twitterConnection.credentials).length === 0) {
-      throw new Error("Twitter API credentials not configured");
-    }
-
-    const credentials = twitterConnection.credentials;
-
-    // Initialize Twitter API client with database credentials
-    const twitterClient = new TwitterApi({
-      appKey: credentials.apiKey,
-      appSecret: credentials.apiSecret,
-      accessToken: credentials.accessToken,
-      accessSecret: credentials.accessTokenSecret,
-    });
-
-    // Post the tweet
-    console.log(`Publishing to Twitter: ${post.content}`);
-    const tweet = await twitterClient.v2.tweet(post.content);
-
-    if (tweet.data) {
-      const tweetUrl = `https://twitter.com/user/status/${tweet.data.id}`;
-      console.log(`Successfully posted tweet: ${tweetUrl}`);
-
-      // Update platform data with real Twitter response
-      await storage.updatePost(postId, {
-        platformData: {
-          ...post.platformData,
-          twitter: {
-            id: tweet.data.id,
-            url: tweetUrl,
-            text: tweet.data.text,
-            publishedAt: new Date().toISOString(),
-          }
-        }
-      });
-
-      // Create analytics entry for the tweet
-      await storage.createPostAnalytics({
-        postId,
-        platform: "twitter",
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        views: 0,
-      });
-    } else {
-      throw new Error("Failed to get tweet data from Twitter API");
-    }
-  } catch (error) {
-    console.error("Twitter API Error:", error);
-    throw new Error(`Failed to post to Twitter: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
-
-async function publishToDiscord(postId: number) {
-  const post = await storage.getPost(postId);
-  if (!post) throw new Error("Post not found");
-
-  try {
-    // Get stored Discord credentials from database
-    const discordConnection = await storage.getPlatformConnection("discord");
-
-    if (!discordConnection || !discordConnection.credentials) {
-      throw new Error("Discord webhook URL not configured");
-    }
-
-    const { webhookUrl } = discordConnection.credentials;
-
-    if (!webhookUrl) {
-      throw new Error("Discord webhook URL is required");
-    }
-
-    // Send message to Discord via webhook
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        content: post.content,
-        username: 'SocialVibe Bot',
-        avatar_url: 'https://i.imgur.com/4M34hi2.png' // Optional bot avatar
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Discord webhook failed: ${response.status} - ${errorText}`);
-    }
-
-    // Discord webhooks don't return message data, so we create our own reference
-    const messageId = `discord_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    await storage.updatePost(postId, {
-      platformData: {
-        ...post.platformData,
-        discord: {
-          id: messageId,
-          webhookUrl: webhookUrl,
-          publishedAt: new Date().toISOString(),
-          status: 'published'
-        }
-      }
-    });
-
-    console.log(`Successfully posted to Discord: ${post.content.substring(0, 50)}...`);
-  } catch (error) {
-    console.error("Discord API Error:", error);
-    throw new Error(`Failed to post to Discord: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
-
-async function publishToReddit(postId: number) {
-  const post = await storage.getPost(postId);
-  if (!post) throw new Error("Post not found");
-
-  try {
-    // Get stored Reddit credentials from database
-    const redditConnection = await storage.getPlatformConnection("reddit");
-
-    if (!redditConnection || !redditConnection.credentials) {
-      throw new Error("Reddit API credentials not configured");
-    }
-
-    const { clientId, clientSecret, username, password, userAgent } = redditConnection.credentials;
-
-    if (!clientId || !clientSecret || !username || !password) {
-      throw new Error("Reddit API credentials incomplete");
-    }
-
-    // Use a proper User Agent if none provided
-    const finalUserAgent = userAgent || `SocialVibe:v1.0.0 (by u/${username})`;
-
-    // Get OAuth token
-    const tokenResponse = await fetch('https://www.reddit.com/api/v1/access_token', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': finalUserAgent,
-      },
-      body: new URLSearchParams({
-        grant_type: 'password',
-        username: username,
-        password: password,
-      }),
-    });
-
-    if (!tokenResponse.ok) {
-      throw new Error(`Reddit auth failed: ${tokenResponse.statusText}`);
-    }
-
-    const tokenData = await tokenResponse.json();
-    const accessToken = tokenData.access_token;
-
-    // Post to Reddit (submit to r/test or specified subreddit)
-    const subreddit = 'test'; // Default subreddit for testing
-    const title = post.content.length > 100 ? post.content.substring(0, 97) + '...' : post.content;
-
-    console.log(`Publishing to Reddit r/${subreddit}: ${title}`);
-
-    const submitResponse = await fetch('https://oauth.reddit.com/api/submit', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': finalUserAgent,
-      },
-      body: new URLSearchParams({
-        kind: 'self',
-        sr: subreddit,
-        title: title,
-        text: post.content,
-        api_type: 'json',
-      }),
-    });
-
-    if (!submitResponse.ok) {
-      throw new Error(`Reddit submission failed: ${submitResponse.statusText}`);
-    }
-
-    const submitData = await submitResponse.json();
-
-    if (submitData.json && submitData.json.errors && submitData.json.errors.length > 0) {
-      throw new Error(`Reddit API Error: ${submitData.json.errors[0][1]}`);
-    }
-
-    if (submitData.json && submitData.json.data) {
-      const redditPost = submitData.json.data;
-      const redditUrl = `https://www.reddit.com/r/${subreddit}/comments/${redditPost.id}/${redditPost.name}/`;
-
-      console.log(`Successfully posted to Reddit: ${redditUrl}`);
-
-      // Update platform data with real Reddit response
-      await storage.updatePost(postId, {
-        platformData: {
-          ...post.platformData,
-          reddit: {
-            id: redditPost.id,
-            name: redditPost.name,
-            url: redditUrl,
-            subreddit: subreddit,
-            title: title,
-            publishedAt: new Date().toISOString(),
-          }
-        }
-      });
-
-      // Create analytics entry for the Reddit post
-      await storage.createPostAnalytics({
-        postId,
-        platform: "reddit",
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        views: 0,
-      });
-    } else {
-      throw new Error("Failed to get Reddit post data");
-    }
-  } catch (error) {
-    console.error("Reddit API Error:", error);
-    throw new Error(`Failed to post to Reddit: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
 }

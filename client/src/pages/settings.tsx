@@ -8,11 +8,11 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Settings as SettingsIcon, 
-  Key, 
-  Bell, 
-  Shield, 
+import {
+  Settings as SettingsIcon,
+  Key,
+  Bell,
+  Shield,
   Trash2,
   Check,
   X,
@@ -71,7 +71,7 @@ export default function Settings() {
   useEffect(() => {
     const redditPlatform = platforms.find(p => p.platform === "reddit");
     const discordPlatform = platforms.find(p => p.platform === "discord");
-    
+
     if (redditPlatform?.credentials && typeof redditPlatform.credentials === 'object') {
       const creds = redditPlatform.credentials as any;
       setRedditCredentials({
@@ -93,7 +93,7 @@ export default function Settings() {
 
   // Direct Reddit connection check
   const [redditStatus, setRedditStatus] = useState(false);
-  
+
   // Direct API call to get Reddit status
   useEffect(() => {
     const checkRedditStatus = async () => {
@@ -101,7 +101,7 @@ export default function Settings() {
         const response = await fetch('/api/platforms');
         const data = await response.json();
         const reddit = data.find((p: any) => p.platform === 'reddit');
-        
+
         if (reddit && reddit.isConnected) {
           setRedditStatus(true);
           setRedditCredentials({
@@ -119,10 +119,10 @@ export default function Settings() {
         setRedditStatus(false);
       }
     };
-    
+
     checkRedditStatus();
   }, []);
-  
+
   const isRedditConnected = redditStatus;
 
   const [redditTestResult, setRedditTestResult] = useState<{
@@ -143,9 +143,9 @@ export default function Settings() {
   });
 
   const updatePlatformMutation = useMutation({
-    mutationFn: async ({ platform, credentials, isConnected }: { 
-      platform: string; 
-      credentials: Record<string, any>; 
+    mutationFn: async ({ platform, credentials, isConnected }: {
+      platform: string;
+      credentials: Record<string, any>;
       isConnected: boolean;
     }) => {
       const response = await apiRequest("PATCH", `/api/platforms/${platform}`, {
@@ -160,7 +160,7 @@ export default function Settings() {
         description: `${data.platform} connection has been updated.`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/platforms"] });
-      
+
       // Force Reddit state update
       if (data.platform === "reddit" && data.isConnected) {
         setRedditStatus(true);
@@ -188,20 +188,7 @@ export default function Settings() {
   };
 
   const handleConnectTwitter = () => {
-    const hasRequiredFields = twitterCredentials.apiKey && 
-                             twitterCredentials.apiSecret && 
-                             twitterCredentials.accessToken && 
-                             twitterCredentials.accessTokenSecret;
-    
-    if (!hasRequiredFields) {
-      toast({
-        title: "Missing credentials",
-        description: "Please fill in all required Twitter API credentials.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    // Allow empty fields to support .env fallback
     updatePlatformMutation.mutate({
       platform: "twitter",
       credentials: twitterCredentials,
@@ -211,10 +198,10 @@ export default function Settings() {
 
   const handleConnectDiscord = () => {
     const hasRequiredFields = discordCredentials.webhookUrl.trim() !== "";
-    
+
     if (!hasRequiredFields) {
       toast({
-        title: "Missing credentials", 
+        title: "Missing credentials",
         description: "Please fill in the Discord webhook URL.",
         variant: "destructive",
       });
@@ -229,11 +216,11 @@ export default function Settings() {
   };
 
   const handleConnectReddit = () => {
-    const hasRequiredFields = redditCredentials.clientId && 
-                             redditCredentials.clientSecret && 
-                             redditCredentials.username && 
-                             redditCredentials.password;
-    
+    const hasRequiredFields = redditCredentials.clientId &&
+      redditCredentials.clientSecret &&
+      redditCredentials.username &&
+      redditCredentials.password;
+
     if (!hasRequiredFields) {
       toast({
         title: "Missing credentials",
@@ -261,10 +248,10 @@ export default function Settings() {
   const testTwitterConnection = async () => {
     try {
       setTwitterTestResult(null);
-      const response = await fetch("/api/platforms/twitter/test");
+      const response = await apiRequest("POST", "/api/platforms/twitter/test", twitterCredentials);
       const result = await response.json();
       setTwitterTestResult(result);
-      
+
       if (result.success) {
         toast({
           title: "Twitter connection successful!",
@@ -278,10 +265,11 @@ export default function Settings() {
         });
       }
     } catch (error) {
+      console.error("Twitter connection test error:", error);
       const errorMessage = "Failed to test Twitter connection";
-      setTwitterTestResult({ 
-        success: false, 
-        message: errorMessage 
+      setTwitterTestResult({
+        success: false,
+        message: errorMessage
       });
       toast({
         title: "Connection test failed",
@@ -297,7 +285,7 @@ export default function Settings() {
       const response = await fetch("/api/platforms/discord/test");
       const result = await response.json();
       setDiscordTestResult(result);
-      
+
       if (result.success) {
         toast({
           title: "Discord connection successful!",
@@ -312,9 +300,9 @@ export default function Settings() {
       }
     } catch (error) {
       const errorMessage = "Failed to test Discord connection";
-      setDiscordTestResult({ 
-        success: false, 
-        message: errorMessage 
+      setDiscordTestResult({
+        success: false,
+        message: errorMessage
       });
       toast({
         title: "Connection test failed",
@@ -330,10 +318,10 @@ export default function Settings() {
       const response = await fetch("/api/platforms/reddit/test");
       const result = await response.json();
       setRedditTestResult(result);
-      
+
       // Refresh platform data after testing
       await refetchPlatforms();
-      
+
       if (result.success) {
         toast({
           title: "Reddit connection successful!",
@@ -348,9 +336,9 @@ export default function Settings() {
       }
     } catch (error) {
       const errorMessage = "Failed to test Reddit connection";
-      setRedditTestResult({ 
-        success: false, 
-        message: errorMessage 
+      setRedditTestResult({
+        success: false,
+        message: errorMessage
       });
       toast({
         title: "Connection test failed",
@@ -724,7 +712,7 @@ export default function Settings() {
                       <Switch
                         id="email-notifications"
                         checked={notificationSettings.emailNotifications}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           setNotificationSettings(prev => ({ ...prev, emailNotifications: checked }))
                         }
                       />
@@ -740,7 +728,7 @@ export default function Settings() {
                       <Switch
                         id="push-notifications"
                         checked={notificationSettings.pushNotifications}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           setNotificationSettings(prev => ({ ...prev, pushNotifications: checked }))
                         }
                       />
@@ -756,7 +744,7 @@ export default function Settings() {
                       <Switch
                         id="post-success"
                         checked={notificationSettings.postSuccess}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           setNotificationSettings(prev => ({ ...prev, postSuccess: checked }))
                         }
                       />
@@ -770,7 +758,7 @@ export default function Settings() {
                       <Switch
                         id="post-failure"
                         checked={notificationSettings.postFailure}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           setNotificationSettings(prev => ({ ...prev, postFailure: checked }))
                         }
                       />
@@ -784,7 +772,7 @@ export default function Settings() {
                       <Switch
                         id="schedule-reminders"
                         checked={notificationSettings.scheduleReminders}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           setNotificationSettings(prev => ({ ...prev, scheduleReminders: checked }))
                         }
                       />
@@ -798,7 +786,7 @@ export default function Settings() {
                       <Switch
                         id="weekly-report"
                         checked={notificationSettings.weeklyReport}
-                        onCheckedChange={(checked) => 
+                        onCheckedChange={(checked) =>
                           setNotificationSettings(prev => ({ ...prev, weeklyReport: checked }))
                         }
                       />

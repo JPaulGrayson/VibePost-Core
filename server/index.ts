@@ -1,4 +1,5 @@
 import "dotenv/config";
+// Trigger restart
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -48,10 +49,19 @@ import { twitterListener } from "./services/twitter_listener";
   try {
     console.log("Starting Twitter Listener...");
     // Don't await this, let it run in background
-    twitterListener.startPolling().catch(err => console.error("Twitter Listener error:", err));
-    console.log("Twitter Listener started.");
+    // twitterListener.startPolling().catch(err => console.error("Twitter Listener error:", err));
+    console.log("Twitter Listener started (MANUAL MODE ONLY).");
   } catch (error) {
     console.error("Failed to start Twitter Listener:", error);
+  }
+
+  // Start Sniper Manager (Keyword Hunter)
+  try {
+    // Start the Sniper Manager (Background Tweet Hunter)
+    // console.log("🔫 Initializing Sniper Manager...");
+    // sniperManager.startHunting();.catch(err => console.error("Sniper Manager error:", err));
+  } catch (error) {
+    console.error("Failed to start Sniper Manager:", error);
   }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -74,7 +84,7 @@ import { twitterListener } from "./services/twitter_listener";
   // ALWAYS serve the app on port 5002
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = 5002;
+  const port = process.env.PORT || 5000;
   server.listen({
     port,
     host: "0.0.0.0",

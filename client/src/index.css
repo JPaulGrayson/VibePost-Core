@@ -2,132 +2,100 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: hsl(0, 0%, 100%);
-  --foreground: hsl(20, 14.3%, 4.1%);
-  --muted: hsl(60, 4.8%, 95.9%);
-  --muted-foreground: hsl(25, 5.3%, 44.7%);
-  --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(20, 14.3%, 4.1%);
-  --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(20, 14.3%, 4.1%);
-  --border: hsl(20, 5.9%, 90%);
-  --input: hsl(20, 5.9%, 90%);
-  --primary: hsl(207, 90%, 54%);
-  --primary-foreground: hsl(211, 100%, 99%);
-  --secondary: hsl(60, 4.8%, 95.9%);
-  --secondary-foreground: hsl(24, 9.8%, 10%);
-  --accent: hsl(60, 4.8%, 95.9%);
-  --accent-foreground: hsl(24, 9.8%, 10%);
-  --destructive: hsl(0, 84.2%, 60.2%);
-  --destructive-foreground: hsl(60, 9.1%, 97.8%);
-  --ring: hsl(20, 14.3%, 4.1%);
-  --radius: 0.5rem;
-  
-  /* Custom colors from design */
-  --social-primary: hsl(207, 90%, 54%);
-  --social-secondary: hsl(243, 87%, 68%);
-  --social-accent: hsl(142, 69%, 58%);
-  --social-warning: hsl(36, 93%, 50%);
-  --social-danger: hsl(0, 84%, 60%);
-}
-
-.dark {
-  --background: hsl(240, 10%, 3.9%);
-  --foreground: hsl(0, 0%, 98%);
-  --muted: hsl(240, 3.7%, 15.9%);
-  --muted-foreground: hsl(240, 5%, 64.9%);
-  --popover: hsl(240, 10%, 3.9%);
-  --popover-foreground: hsl(0, 0%, 98%);
-  --card: hsl(240, 10%, 3.9%);
-  --card-foreground: hsl(0, 0%, 98%);
-  --border: hsl(240, 3.7%, 15.9%);
-  --input: hsl(240, 3.7%, 15.9%);
-  --primary: hsl(207, 90%, 54%);
-  --primary-foreground: hsl(211, 100%, 99%);
-  --secondary: hsl(240, 3.7%, 15.9%);
-  --secondary-foreground: hsl(0, 0%, 98%);
-  --accent: hsl(240, 3.7%, 15.9%);
-  --accent-foreground: hsl(0, 0%, 98%);
-  --destructive: hsl(0, 62.8%, 30.6%);
-  --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(240, 4.9%, 83.9%);
-  --radius: 0.5rem;
-}
-
 @layer base {
+  :root {
+    /* Cartographer Theme - Technical, Clean, Blueprint-like (Dark Mode by Default) */
+    --background: hsl(220, 13%, 18%);
+    /* Slate 900ish */
+    --foreground: hsl(220, 14%, 96%);
+    /* Slate 50 */
+
+    --card: hsl(220, 13%, 22%);
+    /* Slate 800ish */
+    --card-foreground: hsl(220, 14%, 96%);
+
+    --popover: hsl(220, 13%, 22%);
+    --popover-foreground: hsl(220, 14%, 96%);
+
+    --primary: hsl(217, 91%, 60%);
+    /* Blue 500 */
+    --primary-foreground: hsl(220, 14%, 96%);
+
+    --secondary: hsl(220, 13%, 28%);
+    /* Slate 700 */
+    --secondary-foreground: hsl(220, 14%, 96%);
+
+    --muted: hsl(220, 13%, 28%);
+    --muted-foreground: hsl(215, 20%, 65%);
+    /* Slate 400 */
+
+    --accent: hsl(217, 91%, 60%);
+    --accent-foreground: hsl(0, 0%, 100%);
+
+    --destructive: hsl(0, 84%, 60%);
+    --destructive-foreground: hsl(210, 40%, 98%);
+
+    --border: hsl(220, 13%, 28%);
+    --input: hsl(220, 13%, 28%);
+    --ring: hsl(217, 91%, 60%);
+
+    --radius: 0.5rem;
+
+    /* Sidebar specific variables to match the family look */
+    --sidebar-background: hsl(220, 13%, 18%);
+    --sidebar-foreground: hsl(220, 14%, 96%);
+    --sidebar-primary: hsl(217, 91%, 60%);
+    --sidebar-primary-foreground: hsl(0, 0%, 100%);
+    --sidebar-accent: hsl(220, 13%, 28%);
+    --sidebar-accent-foreground: hsl(220, 14%, 96%);
+    --sidebar-border: hsl(220, 13%, 28%);
+    --sidebar-ring: hsl(217, 91%, 60%);
+
+    /* Social Brand Colors */
+    --social-primary: hsl(207, 90%, 54%);
+    --social-secondary: hsl(243, 87%, 68%);
+    --social-accent: hsl(142, 69%, 58%);
+    --social-warning: hsl(36, 93%, 50%);
+    --social-danger: hsl(0, 84%, 60%);
+  }
+
   * {
     @apply border-border;
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
-  }
-
-  .social-primary {
-    color: var(--social-primary);
-  }
-
-  .bg-social-primary {
-    background-color: var(--social-primary);
-  }
-
-  .social-secondary {
-    color: var(--social-secondary);
-  }
-
-  .bg-social-secondary {
-    background-color: var(--social-secondary);
-  }
-
-  .social-accent {
-    color: var(--social-accent);
-  }
-
-  .bg-social-accent {
-    background-color: var(--social-accent);
-  }
-
-  .social-warning {
-    color: var(--social-warning);
-  }
-
-  .bg-social-warning {
-    background-color: var(--social-warning);
-  }
-
-  .social-danger {
-    color: var(--social-danger);
-  }
-
-  .bg-social-danger {
-    background-color: var(--social-danger);
+    @apply bg-background text-foreground font-sans antialiased;
+    /* Subtle grid pattern for that technical feel */
+    background-image:
+      linear-gradient(to right, hsl(220, 13%, 28%, 0.1) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(220, 13%, 28%, 0.1) 1px, transparent 1px);
+    background-size: 24px 24px;
   }
 }
 
 @layer components {
   .platform-card {
-    @apply flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all duration-200;
+    @apply flex items-center p-4 border rounded-lg cursor-pointer transition-all duration-200 bg-card hover:bg-accent;
   }
 
   .platform-card.selected {
-    @apply border-blue-500 bg-blue-50;
+    @apply border-primary bg-primary;
   }
 
   .platform-card:not(.selected) {
-    @apply border-gray-200 hover:border-gray-300;
+    @apply border-border;
   }
 
   .template-card {
-    @apply p-3 border-2 rounded-lg text-left cursor-pointer transition-all duration-200;
+    @apply p-3 border rounded-lg text-left cursor-pointer transition-all duration-200 bg-card hover:bg-accent;
   }
 
   .template-card.selected {
-    @apply border-blue-500 bg-blue-50;
+    @apply border-primary bg-primary;
   }
 
   .template-card:not(.selected) {
-    @apply border-gray-200 hover:border-gray-300;
+    @apply border-border;
   }
 
   .nav-link {
@@ -135,10 +103,10 @@
   }
 
   .nav-link.active {
-    @apply text-blue-500 bg-blue-50 font-medium;
+    @apply text-primary-foreground bg-primary font-medium;
   }
 
   .nav-link:not(.active) {
-    @apply text-gray-600 hover:text-gray-900 hover:bg-gray-50;
+    @apply text-muted-foreground hover:text-foreground hover:bg-muted;
   }
 }

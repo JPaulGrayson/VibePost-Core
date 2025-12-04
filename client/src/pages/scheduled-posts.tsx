@@ -72,17 +72,17 @@ export default function ScheduledPosts() {
     },
   });
 
-  const getTimeUntilPost = (scheduledAt: string) => {
+  const getTimeUntilPost = (scheduledAt: string | Date) => {
     const scheduled = new Date(scheduledAt);
     const now = new Date();
     const diff = scheduled.getTime() - now.getTime();
-    
+
     if (diff < 0) return "Overdue";
-    
+
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     if (days > 0) return `${days}d ${hours}h`;
     if (hours > 0) return `${hours}h ${minutes}m`;
     return `${minutes}m`;
@@ -90,14 +90,14 @@ export default function ScheduledPosts() {
 
   const filteredPosts = scheduledPosts.filter(post => {
     const matchesSearch = post.content.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     if (timeFilter === "all") return matchesSearch;
-    
+
     if (!post.scheduledAt) return false;
-    
+
     const scheduled = new Date(post.scheduledAt);
     const now = new Date();
-    
+
     switch (timeFilter) {
       case "today":
         return matchesSearch && isAfter(scheduled, now) && isBefore(scheduled, addDays(now, 1));
@@ -132,13 +132,13 @@ export default function ScheduledPosts() {
   return (
     <>
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+      <header className="bg-card shadow-sm border-b border-border px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Scheduled Posts</h2>
-            <p className="text-gray-600 mt-1">Manage your upcoming scheduled content</p>
+            <h2 className="text-2xl font-bold text-foreground">Scheduled Posts</h2>
+            <p className="text-muted-foreground mt-1">Manage your upcoming scheduled content</p>
           </div>
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-muted-foreground">
             {filteredPosts.length} scheduled posts
           </div>
         </div>
@@ -180,9 +180,9 @@ export default function ScheduledPosts() {
               <Card>
                 <CardContent className="p-8 text-center">
                   <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No scheduled posts</h3>
-                  <p className="text-gray-600">
-                    {searchTerm || timeFilter !== "all" 
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No scheduled posts</h3>
+                  <p className="text-muted-foreground">
+                    {searchTerm || timeFilter !== "all"
                       ? "Try adjusting your filters to see more posts."
                       : "Schedule your first post to see it here!"}
                   </p>
@@ -191,7 +191,7 @@ export default function ScheduledPosts() {
             ) : (
               filteredPosts.map((post) => {
                 const isOverdue = post.scheduledAt && isBefore(new Date(post.scheduledAt), new Date());
-                
+
                 return (
                   <Card key={post.id} className={isOverdue ? "border-red-200 bg-red-50" : ""}>
                     <CardHeader className="pb-3">
@@ -207,8 +207,8 @@ export default function ScheduledPosts() {
                               </Badge>
                             )}
                           </div>
-                          
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
+
+                          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                             {post.scheduledAt && (
                               <>
                                 <div className="flex items-center space-x-1">
@@ -227,7 +227,7 @@ export default function ScheduledPosts() {
                             )}
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center space-x-2">
                           <Button
                             variant="ghost"
@@ -254,24 +254,24 @@ export default function ScheduledPosts() {
                         </div>
                       </div>
                     </CardHeader>
-                    
+
                     <CardContent>
-                      <p className="text-gray-900 mb-4 whitespace-pre-line">
-                        {post.content.length > 200 
-                          ? `${post.content.substring(0, 200)}...` 
+                      <p className="text-foreground mb-4 whitespace-pre-line">
+                        {post.content.length > 200
+                          ? `${post.content.substring(0, 200)}...`
                           : post.content}
                       </p>
-                      
+
                       {/* Platforms */}
                       <div className="flex items-center space-x-3">
                         {(post.platforms as string[]).map((platform) => {
                           const IconComponent = platformIcons[platform as keyof typeof platformIcons];
                           const iconColor = platformColors[platform as keyof typeof platformColors];
-                          
+
                           return (
                             <div key={platform} className="flex items-center space-x-1">
                               {IconComponent && <IconComponent className={`${iconColor} text-sm`} />}
-                              <span className="text-sm text-gray-600 capitalize">{platform}</span>
+                              <span className="text-sm text-muted-foreground capitalize">{platform}</span>
                             </div>
                           );
                         })}

@@ -12,7 +12,8 @@ import {
   Circle,
   Target,
   Search,
-  Inbox
+  Inbox,
+  Sparkles
 } from "lucide-react";
 
 import { SiDiscord, SiReddit } from "react-icons/si";
@@ -30,7 +31,7 @@ export default function Sidebar() {
     { href: "/history", icon: History, label: "Post History", active: location === "/history" },
     { href: "/scheduled", icon: Calendar, label: "Scheduled Posts", active: location === "/scheduled" },
     { href: "/campaigns", icon: Target, label: "Campaigns", active: location === "/campaigns" },
-    { href: "/review-queue", icon: Inbox, label: "Sniper Queue", active: location === "/review-queue" },
+    { href: "/sniper-queue", icon: Sparkles, label: "Wizard's Tower", active: location === "/sniper-queue" },
     { href: "/topic-search", icon: Search, label: "Topic Search", active: location === "/topic-search" || location === "/search" },
     { href: "/analytics", icon: BarChart3, label: "Analytics", active: location === "/analytics" },
     { href: "/settings", icon: Settings, label: "Settings", active: location === "/settings" },
@@ -49,14 +50,14 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 bg-white shadow-lg border-r border-gray-200 flex flex-col">
+    <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
       {/* Logo Header */}
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-social-primary rounded-lg flex items-center justify-center">
-            <Share2 className="text-white text-lg" />
+          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+            <Share2 className="text-primary-foreground text-lg" />
           </div>
-          <h1 className="text-xl font-bold text-gray-900">VibePost</h1>
+          <h1 className="text-xl font-bold text-sidebar-foreground">VibePost</h1>
         </div>
       </div>
 
@@ -76,8 +77,8 @@ export default function Sidebar() {
       </nav>
 
       {/* Platform Connection Status */}
-      <div className="p-4 border-t border-gray-200">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">Connected Platforms</h3>
+      <div className="p-4 border-t border-sidebar-border">
+        <h3 className="text-sm font-semibold text-muted-foreground mb-3">Connected Platforms</h3>
         <div className="space-y-2">
           {platforms.map((platform) => {
             const IconComponent = platformIcons[platform.platform as keyof typeof platformIcons];
@@ -87,11 +88,11 @@ export default function Sidebar() {
               <div key={platform.platform} className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   {IconComponent && <IconComponent className={`${iconColor} text-sm`} />}
-                  <span className="text-sm text-gray-600 capitalize">{platform.platform}</span>
+                  <span className="text-sm text-sidebar-foreground capitalize">{platform.platform}</span>
                 </div>
                 <div title={platform.isConnected ? "Connected" : "Not Connected"}>
                   <Circle
-                    className={`w-2 h-2 ${platform.isConnected ? 'text-social-accent fill-current' : 'text-gray-300 fill-current'}`}
+                    className={`w-2 h-2 ${platform.isConnected ? 'text-green-500 fill-current' : 'text-muted fill-current'}`}
                   />
                 </div>
               </div>

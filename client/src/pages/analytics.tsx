@@ -6,12 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  BarChart3, 
-  TrendingUp, 
-  Heart, 
-  MessageCircle, 
-  Repeat2, 
+import {
+  BarChart3,
+  TrendingUp,
+  Heart,
+  MessageCircle,
+  Repeat2,
   Eye,
   Calendar,
   Filter
@@ -78,7 +78,7 @@ export default function Analytics() {
 
   // Calculate real analytics from published posts
   const publishedPosts = posts.filter(post => post.status === "published");
-  
+
   // Filter posts published today for consistency with sidebar
   const today = new Date();
   const postsPublishedToday = publishedPosts.filter(p => {
@@ -86,15 +86,15 @@ export default function Analytics() {
     const postDate = new Date(p.publishedAt);
     return postDate.toDateString() === today.toDateString();
   });
-  
+
   const allPlatforms = publishedPosts.flatMap(p => p.platforms as string[]);
   const uniquePlatforms = new Set(allPlatforms);
   const uniquePlatformArray = Array.from(uniquePlatforms);
-  
+
   // Calculate real metrics from platformData
   const totalMetrics = publishedPosts.reduce((totals, post) => {
     const platformData = post.platformData as any;
-    
+
     // Twitter metrics
     if (platformData?.twitter) {
       totals.likes += platformData.twitter.likes || 0;
@@ -102,7 +102,7 @@ export default function Analytics() {
       totals.shares += (platformData.twitter.retweets || 0) + (platformData.twitter.quotes || 0);
       totals.views += platformData.twitter.impressions || 0;
     }
-    
+
     // Reddit metrics
     if (platformData?.reddit) {
       totals.likes += platformData.reddit.upvotes || 0;
@@ -110,7 +110,7 @@ export default function Analytics() {
       totals.shares += 0; // Reddit doesn't have shares
       totals.views += 0; // Reddit views not available via API
     }
-    
+
     return totals;
   }, {
     posts: publishedPosts.length,
@@ -122,42 +122,87 @@ export default function Analytics() {
   });
 
   // Real engagement data over time based on actual posts
-  const analyticsData = publishedPosts.map(post => ({
-    date: format(new Date(post.createdAt), "MMM dd"),
-    fullDate: new Date(post.createdAt),
-    post: post.content.substring(0, 30) + "...",
-    platforms: (post.platforms as string[]).join(", "),
-    likes: 0, // Would be fetched from platform APIs
-    comments: 0,
-    shares: 0,
-    views: 0,
-  }));
+  const analyticsData = publishedPosts.map(post => {
+    const platformData = post.platformData as any;
+    let likes = 0;
+    let comments = 0;
+    let shares = 0;
+    let views = 0;
+
+    if (platformData?.twitter) {
+      likes += platformData.twitter.likes || 0;
+      comments += platformData.twitter.replies || 0;
+      shares += (platformData.twitter.retweets || 0) + (platformData.twitter.quotes || 0);
+      views += platformData.twitter.impressions || 0;
+    }
+
+    if (platformData?.reddit) {
+      likes += platformData.reddit.upvotes || 0;
+      comments += platformData.reddit.comments || 0;
+    }
+
+    return {
+      date: format(new Date(post.createdAt), "MMM dd"),
+      fullDate: new Date(post.createdAt),
+      post: post.content.substring(0, 30) + "...",
+      platforms: (post.platforms as string[]).join(", "),
+      likes,
+      comments,
+      shares,
+      views,
+    };
+  });
+
+  // Calculate engagement per platform
+  let twitterEngagement = 0;
+  let discordEngagement = 0;
+  let redditEngagement = 0;
+
+  publishedPosts.forEach(post => {
+    const pData = post.platformData as any;
+    if (pData?.twitter) {
+      twitterEngagement += (pData.twitter.likes || 0) + (pData.twitter.replies || 0) + (pData.twitter.retweets || 0) + (pData.twitter.quotes || 0);
+    }
+    if (pData?.reddit) {
+      redditEngagement += (pData.reddit.upvotes || 0) + (pData.reddit.comments || 0);
+    }
+  });
+
+  const totalEngagement = twitterEngagement + discordEngagement + redditEngagement;
+  const getPercentage = (val: number) => totalEngagement > 0 ? Math.round((val / totalEngagement) * 100) : 0;
 
   const platformData = [
-    { name: "Twitter", value: 45, color: platformColors.twitter, posts: posts.filter(p => (p.platforms as string[]).includes("twitter")).length },
-    { name: "Discord", value: 30, color: platformColors.discord, posts: posts.filter(p => (p.platforms as string[]).includes("discord")).length },
-    { name: "Reddit", value: 25, color: platformColors.reddit, posts: posts.filter(p => (p.platforms as string[]).includes("reddit")).length },
+    { name: "Twitter", value: getPercentage(twitterEngagement), color: platformColors.twitter, posts: posts.filter(p => (p.platforms as string[]).includes("twitter")).length },
+    { name: "Discord", value: getPercentage(discordEngagement), color: platformColors.discord, posts: posts.filter(p => (p.platforms as string[]).includes("discord")).length },
+    { name: "Reddit", value: getPercentage(redditEngagement), color: platformColors.reddit, posts: posts.filter(p => (p.platforms as string[]).includes("reddit")).length },
   ];
 
   const topPosts = publishedPosts
-    .slice(0, 5)
-    .map(post => ({
-      ...post,
-      totalEngagement: 0, // Real engagement would come from platform APIs
-      platforms: post.platforms as string[],
-    }));
+    .map(post => {
+      const pData = post.platformData as any;
+      let engagement = 0;
+      if (pData?.twitter) {
+        engagement += (pData.twitter.likes || 0) + (pData.twitter.replies || 0) + (pData.twitter.retweets || 0) + (pData.twitter.quotes || 0);
+      }
+      if (pData?.reddit) {
+        engagement += (pData.reddit.upvotes || 0) + (pData.reddit.comments || 0);
+      }
+      return { ...post, totalEngagement: engagement, platforms: post.platforms as string[] };
+    })
+    .sort((a, b) => b.totalEngagement - a.totalEngagement)
+    .slice(0, 5);
 
   return (
     <>
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+      <header className="bg-card shadow-sm border-b border-border px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Analytics</h2>
-            <p className="text-gray-600 mt-1">Track your social media performance across platforms</p>
+            <h2 className="text-2xl font-bold text-foreground">Analytics</h2>
+            <p className="text-muted-foreground mt-1">Track your social media performance across platforms</p>
           </div>
           <div className="flex items-center space-x-4">
-            <Button 
+            <Button
               onClick={() => syncAllMetrics.mutate()}
               disabled={syncAllMetrics.isPending}
               className="bg-blue-600 hover:bg-blue-700"
@@ -197,13 +242,13 @@ export default function Analytics() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">All Time Posts</p>
-                    <p className="text-2xl font-bold text-gray-900">{totalMetrics.posts}</p>
+                    <p className="text-sm font-medium text-muted-foreground">All Time Posts</p>
+                    <p className="text-2xl font-bold text-foreground">{totalMetrics.posts}</p>
                   </div>
                   <BarChart3 className="h-8 w-8 text-blue-500" />
                 </div>
                 <div className="flex items-center mt-4 text-sm">
-                  <span className="text-gray-500">Published posts only</span>
+                  <span className="text-muted-foreground">Published posts only</span>
                 </div>
               </CardContent>
             </Card>
@@ -212,13 +257,13 @@ export default function Analytics() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Total Likes</p>
-                    <p className="text-2xl font-bold text-gray-900">{totalMetrics.likes.toLocaleString()}</p>
+                    <p className="text-sm font-medium text-muted-foreground">Total Likes</p>
+                    <p className="text-2xl font-bold text-foreground">{totalMetrics.likes.toLocaleString()}</p>
                   </div>
                   <Heart className="h-8 w-8 text-red-500" />
                 </div>
                 <div className="flex items-center mt-4 text-sm">
-                  <span className="text-gray-500">
+                  <span className="text-muted-foreground">
                     {totalMetrics.likes > 0 ? "Live Twitter & Reddit data" : "Click 'Sync Metrics' for live data"}
                   </span>
                 </div>
@@ -229,13 +274,13 @@ export default function Analytics() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Total Comments</p>
-                    <p className="text-2xl font-bold text-gray-900">{totalMetrics.comments.toLocaleString()}</p>
+                    <p className="text-sm font-medium text-muted-foreground">Total Comments</p>
+                    <p className="text-2xl font-bold text-foreground">{totalMetrics.comments.toLocaleString()}</p>
                   </div>
                   <MessageCircle className="h-8 w-8 text-blue-500" />
                 </div>
                 <div className="flex items-center mt-4 text-sm">
-                  <span className="text-gray-500">
+                  <span className="text-muted-foreground">
                     {totalMetrics.comments > 0 ? "Live platform data" : "API sync required"}
                   </span>
                 </div>
@@ -246,13 +291,13 @@ export default function Analytics() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Total Views</p>
-                    <p className="text-2xl font-bold text-gray-900">{totalMetrics.views.toLocaleString()}</p>
+                    <p className="text-sm font-medium text-muted-foreground">Total Views</p>
+                    <p className="text-2xl font-bold text-foreground">{totalMetrics.views.toLocaleString()}</p>
                   </div>
                   <Eye className="h-8 w-8 text-purple-500" />
                 </div>
                 <div className="flex items-center mt-4 text-sm">
-                  <span className="text-gray-500">
+                  <span className="text-muted-foreground">
                     {totalMetrics.views > 0 ? "Live impression data" : "Twitter API quota exceeded"}
                   </span>
                 </div>
@@ -272,7 +317,7 @@ export default function Analytics() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg text-center">
                   <div className="text-2xl font-bold text-blue-600">{postsPublishedToday.length}</div>
-                  <div className="text-sm text-gray-600">Posts Published</div>
+                  <div className="text-sm text-muted-foreground">Posts Published</div>
                 </div>
                 <div className="bg-green-50 p-4 rounded-lg text-center">
                   <div className="text-2xl font-bold text-green-600">
@@ -284,19 +329,19 @@ export default function Analytics() {
                       return total + likes;
                     }, 0)}
                   </div>
-                  <div className="text-sm text-gray-600">Today's Engagement</div>
+                  <div className="text-sm text-muted-foreground">Today's Engagement</div>
                 </div>
                 <div className="bg-yellow-50 p-4 rounded-lg text-center">
                   <div className="text-2xl font-bold text-yellow-600">
                     {posts.filter(p => p.status === "scheduled").length}
                   </div>
-                  <div className="text-sm text-gray-600">Scheduled Posts</div>
+                  <div className="text-sm text-muted-foreground">Scheduled Posts</div>
                 </div>
                 <div className="bg-purple-50 p-4 rounded-lg text-center">
                   <div className="text-2xl font-bold text-purple-600">
                     {posts.filter(p => p.status === "draft").length}
                   </div>
-                  <div className="text-sm text-gray-600">Draft Posts</div>
+                  <div className="text-sm text-muted-foreground">Draft Posts</div>
                 </div>
               </div>
             </CardContent>
@@ -388,12 +433,12 @@ export default function Analytics() {
                             {IconComponent && <IconComponent className="text-lg" style={{ color: platform.color }} />}
                             <div>
                               <p className="font-medium">{platform.name}</p>
-                              <p className="text-sm text-gray-500">{platform.posts} posts published</p>
+                              <p className="text-sm text-muted-foreground">{platform.posts} posts published</p>
                             </div>
                           </div>
                           <div className="text-right">
                             <p className="text-lg font-bold" style={{ color: platform.color }}>{platform.value}%</p>
-                            <p className="text-sm text-gray-500">of total engagement</p>
+                            <p className="text-sm text-muted-foreground">of total engagement</p>
                           </div>
                         </div>
                       );
@@ -413,8 +458,8 @@ export default function Analytics() {
                     {topPosts.length === 0 ? (
                       <div className="text-center py-8">
                         <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-500">No published posts yet</p>
-                        <p className="text-sm text-gray-400">Publish some posts to see analytics here</p>
+                        <p className="text-muted-foreground">No published posts yet</p>
+                        <p className="text-sm text-muted-foreground">Publish some posts to see analytics here</p>
                       </div>
                     ) : (
                       topPosts.map((post, index) => (
@@ -425,13 +470,13 @@ export default function Analytics() {
                             </div>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm text-gray-900 truncate">
-                              {post.content.length > 100 
-                                ? `${post.content.substring(0, 100)}...` 
+                            <p className="text-sm text-foreground truncate">
+                              {post.content.length > 100
+                                ? `${post.content.substring(0, 100)}...`
                                 : post.content}
                             </p>
                             <div className="flex items-center space-x-4 mt-2">
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-muted-foreground">
                                 {post.publishedAt && format(new Date(post.publishedAt), "MMM d, yyyy")}
                               </span>
                               <div className="flex items-center space-x-2">
@@ -445,8 +490,8 @@ export default function Analytics() {
                             </div>
                           </div>
                           <div className="flex-shrink-0 text-right">
-                            <p className="text-lg font-bold text-gray-900">{post.totalEngagement}</p>
-                            <p className="text-xs text-gray-500">total engagement</p>
+                            <p className="text-lg font-bold text-foreground">{post.totalEngagement}</p>
+                            <p className="text-xs text-muted-foreground">total engagement</p>
                           </div>
                         </div>
                       ))

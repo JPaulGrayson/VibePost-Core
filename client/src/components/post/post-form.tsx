@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,8 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Image, Hash, Clock, Save, Send } from "lucide-react";
+import { Image, Hash, Clock, Save, Send, Calendar as CalendarIcon, X } from "lucide-react";
 import type { Post } from "@shared/schema";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const templates = {
   announcement: "🚀 Excited to announce [your announcement here]!\n\n✨ Key highlights:\n• [Feature 1]\n• [Feature 2]\n• [Feature 3]\n\n[Call to action]\n\n#hashtag1 #hashtag2",
@@ -31,10 +35,10 @@ interface PostFormProps {
   editingPost?: Post | null;
 }
 
-export default function PostForm({ 
-  selectedPlatforms, 
-  selectedTemplate, 
-  content, 
+export default function PostForm({
+  selectedPlatforms,
+  selectedTemplate,
+  content,
   onContentChange,
   onPostCreated,
   editingPost
@@ -42,6 +46,9 @@ export default function PostForm({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [characterCount, setCharacterCount] = useState(0);
+  const [date, setDate] = useState<Date | undefined>(undefined);
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof postSchema>>({
     resolver: zodResolver(postSchema),
@@ -65,7 +72,7 @@ export default function PostForm({
   }, [selectedTemplate, onContentChange]);
 
   const createPostMutation = useMutation({
-    mutationFn: async (data: { content: string; platforms: string[]; template: string; status: string }) => {
+    mutationFn: async (data: { content: string; platforms: string[]; template: string; status: string; scheduledAt?: string }) => {
       if (editingPost) {
         // Update existing post
         const response = await fetch(`/api/posts/${editingPost.id}`, {
@@ -87,17 +94,25 @@ export default function PostForm({
     },
     onSuccess: (post: Post) => {
       toast({
-        title: editingPost 
+        title: editingPost
           ? (post.status === "published" ? "Post updated and published!" : "Post updated!")
-          : (post.status === "published" ? "Post published!" : "Draft saved!"),
+          : (post.status === "published" ? "Post published!" : (post.status === "scheduled" ? "Post scheduled!" : "Draft saved!")),
         description: editingPost
           ? "Your post has been updated successfully."
-          : (post.status === "published" 
-            ? "Your post has been published to selected platforms." 
-            : "Your draft has been saved successfully."),
+          : (post.status === "published"
+            ? "Your post has been published to selected platforms."
+            : (post.status === "scheduled"
+              ? `Your post has been scheduled for ${format(new Date(post.scheduledAt!), "PPP")}.`
+              : "Your draft has been saved successfully.")),
       });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
       onPostCreated?.(post);
+
+      // Reset form if creating new
+      if (!editingPost) {
+        setDate(undefined);
+        setMediaFiles([]);
+      }
     },
     onError: (error: any) => {
       toast({
@@ -119,6 +134,7 @@ export default function PostForm({
       platforms: selectedPlatforms,
       template: selectedTemplate,
       status: "draft",
+      scheduledAt: date ? date.toISOString() : undefined,
     };
     createPostMutation.mutate(data);
   };
@@ -137,22 +153,45 @@ export default function PostForm({
       content: data.content,
       platforms: selectedPlatforms,
       template: selectedTemplate,
-      status: "published",
+      status: date ? "scheduled" : "published",
+      scheduledAt: date ? date.toISOString() : undefined,
     };
     createPostMutation.mutate(postData);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
+      setMediaFiles(prev => [...prev, ...files]);
+      toast({
+        title: "Media added",
+        description: `Added ${files.length} file(s). (Mock upload)`,
+      });
+    }
+  };
+
+  const handleAddTags = () => {
+    const currentContent = form.getValues("content");
+    const newContent = currentContent + "\n\n#VibePost #SocialMedia #Growth";
+    form.setValue("content", newContent);
+    handleContentChange(newContent);
+    toast({
+      title: "Tags added",
+      description: "Added common hashtags to your post.",
+    });
   };
 
   const getCharacterCountColor = () => {
     if (characterCount > 280) return "text-red-600";
     if (characterCount > 250) return "text-yellow-600";
-    return "text-gray-500";
+    return "text-muted-foreground";
   };
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handlePublish)} className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Compose Post</h3>
+          <h3 className="text-lg font-semibold text-foreground">Compose Post</h3>
           <div className={`text-sm ${getCharacterCountColor()}`}>
             {characterCount} / 280 characters
           </div>
@@ -179,14 +218,41 @@ export default function PostForm({
           )}
         />
 
+        {/* Media Preview */}
+        {mediaFiles.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto py-2">
+            {mediaFiles.map((file, index) => (
+              <div key={index} className="relative w-20 h-20 bg-muted rounded-md flex items-center justify-center border">
+                <span className="text-xs text-center truncate px-1">{file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setMediaFiles(prev => prev.filter((_, i) => i !== index))}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Post Options */}
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+        <div className="flex items-center justify-between pt-4 border-t border-border">
           <div className="flex items-center space-x-4">
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              multiple
+              accept="image/*,video/*"
+              onChange={handleFileChange}
+            />
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="text-gray-600 hover:text-gray-900"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => fileInputRef.current?.click()}
             >
               <Image className="mr-2 h-4 w-4" />
               Add Media
@@ -195,20 +261,38 @@ export default function PostForm({
               type="button"
               variant="ghost"
               size="sm"
-              className="text-gray-600 hover:text-gray-900"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={handleAddTags}
             >
               <Hash className="mr-2 h-4 w-4" />
               Add Tags
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-gray-600 hover:text-gray-900"
-            >
-              <Clock className="mr-2 h-4 w-4" />
-              Schedule
-            </Button>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant={date ? "secondary" : "ghost"}
+                  size="sm"
+                  className={cn(
+                    "text-muted-foreground hover:text-foreground",
+                    date && "bg-blue-50 text-blue-600"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date ? format(date, "MMM d") : "Schedule"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={date}
+                  onSelect={setDate}
+                  initialFocus
+                  disabled={(date) => date < new Date()}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="flex items-center space-x-3">
@@ -224,10 +308,22 @@ export default function PostForm({
             <Button
               type="submit"
               disabled={createPostMutation.isPending || selectedPlatforms.length === 0}
-              className="bg-social-primary hover:bg-blue-700"
+              className={cn(
+                "hover:bg-blue-700",
+                date ? "bg-green-600 hover:bg-green-700" : "bg-social-primary"
+              )}
             >
-              <Send className="mr-2 h-4 w-4" />
-              {createPostMutation.isPending ? "Publishing..." : "Publish Now"}
+              {date ? (
+                <>
+                  <Clock className="mr-2 h-4 w-4" />
+                  {createPostMutation.isPending ? "Scheduling..." : "Schedule Post"}
+                </>
+              ) : (
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  {createPostMutation.isPending ? "Publishing..." : "Publish Now"}
+                </>
+              )}
             </Button>
           </div>
         </div>

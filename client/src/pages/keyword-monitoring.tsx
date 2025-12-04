@@ -34,7 +34,7 @@ export default function KeywordMonitoring() {
   // Test API connections mutation
   const testMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("/api/keywords/test", "GET");
+      const response = await apiRequest("GET", "/api/keywords/test");
       return await response.json();
     },
     onSuccess: (data) => {
@@ -58,7 +58,7 @@ export default function KeywordMonitoring() {
   // Search mutation
   const searchMutation = useMutation({
     mutationFn: async (data: { keyword: string; platforms: string[] }) => {
-      const response = await apiRequest("/api/keywords/search", "POST", data);
+      const response = await apiRequest("POST", "/api/keywords/search", data);
       return await response.json();
     },
     onSuccess: (data: any) => {
@@ -82,7 +82,7 @@ export default function KeywordMonitoring() {
   // Auto-reply mutation
   const replyMutation = useMutation({
     mutationFn: async (data: { postId: string; platform: string; replyText: string }) => {
-      return await apiRequest("/api/keywords/auto-reply", "POST", data);
+      return await apiRequest("POST", "/api/keywords/auto-reply", data);
     },
     onSuccess: () => {
       toast({
@@ -208,7 +208,7 @@ export default function KeywordMonitoring() {
                 Test Connections
               </Button>
             </div>
-            
+
             {testResults && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -245,8 +245,8 @@ export default function KeywordMonitoring() {
             />
           </div>
 
-          <Button 
-            onClick={handleSearch} 
+          <Button
+            onClick={handleSearch}
             disabled={searchMutation.isPending || selectedPlatforms.length === 0}
             className="w-full"
           >

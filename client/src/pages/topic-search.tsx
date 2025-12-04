@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Search, Reply, ExternalLink, Calendar, User, AlertTriangle, Info, Loader2, Send } from "lucide-react";
+import { Search, Reply, ExternalLink, Calendar, User, AlertTriangle, Info, Loader2, Send, Crosshair } from "lucide-react";
 import { SiX, SiReddit, SiDiscord } from "react-icons/si";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -20,6 +20,7 @@ interface SearchResult {
   content: string;
   url: string;
   createdAt: string;
+  score?: number;
 }
 
 const CAMPAIGN_TEMPLATES = [
@@ -44,20 +45,27 @@ const CAMPAIGN_TEMPLATES = [
 export default function TopicSearch() {
   const [keyword, setKeyword] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState(["twitter", "reddit"]);
+  const [strictMode, setStrictMode] = useState(false);
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [selectedPosts, setSelectedPosts] = useState<Set<string>>(new Set());
-  const [bulkReplyText, setBulkReplyText] = useState("");
   const { toast } = useToast();
 
   const searchMutation = useMutation({
-    mutationFn: async ({ keyword, platforms }: { keyword: string; platforms: string[] }) => {
-      const response = await fetch(`/api/search/${encodeURIComponent(keyword)}?platforms=${platforms.join(',')}`);
+    mutationFn: async ({ keyword, platforms, strictMode }: { keyword: string; platforms: string[], strictMode: boolean }) => {
+      const response = await fetch("/api/keywords/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ keyword, platforms, strictMode }),
+      });
+
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to search topics');
+        throw new Error(error.details || error.error || error.message || 'Failed to search topics');
       }
-      return response.json();
+      const data = await response.json();
+      return data.results || [];
     },
     onSuccess: (data) => {
       setSearchResults(data);
@@ -75,31 +83,30 @@ export default function TopicSearch() {
     },
   });
 
-  const replyMutation = useMutation({
-    mutationFn: async ({ platform, postId, replyText }: { platform: string; postId: string; replyText: string }) => {
-      const response = await fetch(`/api/reply/${platform}/${postId}`, {
+  const sniperMutation = useMutation({
+    mutationFn: async ({ tweetId, authorHandle, text }: { tweetId: string; authorHandle: string; text: string }) => {
+      const response = await fetch("/api/sniper/draft-from-search", {
         method: "POST",
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ replyText }),
+        body: JSON.stringify({ tweetId, authorHandle, text }),
       });
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to post reply');
+        throw new Error(error.message || 'Failed to send to sniper queue');
       }
       return response.json();
     },
-    onSuccess: (data, variables) => {
+    onSuccess: () => {
       toast({
-        title: "Reply posted",
-        description: `Successfully replied to ${variables.platform} post`,
+        title: "Sent to Sniper Queue",
+        description: "Draft is being generated. Check the Review Queue shortly.",
       });
-      setReplyTexts(prev => ({ ...prev, [`${variables.platform}-${variables.postId}`]: "" }));
     },
     onError: (error: Error) => {
       toast({
-        title: "Reply failed",
+        title: "Failed to send",
         description: error.message,
         variant: "destructive",
       });
@@ -115,7 +122,7 @@ export default function TopicSearch() {
       });
       return;
     }
-    
+
     if (selectedPlatforms.length === 0) {
       toast({
         title: "Select platforms",
@@ -125,119 +132,12 @@ export default function TopicSearch() {
       return;
     }
 
-    searchMutation.mutate({ keyword: keyword.trim(), platforms: selectedPlatforms });
+    searchMutation.mutate({ keyword: keyword.trim(), platforms: selectedPlatforms, strictMode });
   };
 
-  const handleReply = (platform: string, postId: string) => {
-    const replyKey = `${platform}-${postId}`;
-    const replyText = replyTexts[replyKey];
-    
-    if (!replyText?.trim()) {
-      toast({
-        title: "Enter reply text",
-        description: "Please enter your reply message",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    replyMutation.mutate({ platform, postId, replyText: replyText.trim() });
-  };
-
-  const useTemplate = (platform: string, postId: string, template: string) => {
-    setReplyTexts(prev => ({ ...prev, [`${platform}-${postId}`]: template }));
-  };
-
-  const togglePostSelection = (platform: string, postId: string) => {
-    const key = `${platform}-${postId}`;
-    setSelectedPosts(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(key)) {
-        newSet.delete(key);
-      } else {
-        newSet.add(key);
-      }
-      return newSet;
-    });
-  };
-
-  const selectAllTwitterPosts = () => {
-    const twitterPosts = searchResults.filter(r => r.platform === 'twitter');
-    const allKeys = twitterPosts.map(r => `${r.platform}-${r.id}`);
-    setSelectedPosts(new Set(allKeys));
-  };
-
-  const clearSelection = () => {
-    setSelectedPosts(new Set());
-  };
-
-  const bulkReplyMutation = useMutation({
-    mutationFn: async (posts: { platform: string; postId: string; replyText: string }[]) => {
-      const results = await Promise.allSettled(
-        posts.map(async ({ platform, postId, replyText }) => {
-          const response = await fetch(`/api/reply/${platform}/${postId}`, {
-            method: "POST",
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ replyText }),
-          });
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Failed to post reply');
-          }
-          return { platform, postId, success: true };
-        })
-      );
-      return results;
-    },
-    onSuccess: (results) => {
-      const succeeded = results.filter(r => r.status === 'fulfilled').length;
-      const failed = results.filter(r => r.status === 'rejected').length;
-      
-      toast({
-        title: "Bulk replies completed",
-        description: `${succeeded} replies posted successfully${failed > 0 ? `, ${failed} failed` : ''}`,
-      });
-      
-      // Clear selections and reset form
-      setSelectedPosts(new Set());
-      setBulkReplyText("");
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Bulk reply failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleBulkReply = () => {
-    if (!bulkReplyText.trim()) {
-      toast({
-        title: "Enter reply text",
-        description: "Please enter your bulk reply message",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const selectedTwitterPosts = Array.from(selectedPosts)
-      .filter(key => key.startsWith('twitter-'))
-      .map(key => {
-        const postId = key.replace('twitter-', '');
-        return { platform: 'twitter', postId, replyText: bulkReplyText.trim() };
-      });
-
-    if (selectedTwitterPosts.length === 0) {
-      toast({
-        title: "No posts selected",
-        description: "Please select Twitter posts to reply to",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    bulkReplyMutation.mutate(selectedTwitterPosts);
+  const handleSendToSniper = (platform: string, postId: string, author: string, content: string) => {
+    if (platform !== 'twitter') return;
+    sniperMutation.mutate({ tweetId: postId, authorHandle: author, text: content });
   };
 
   const getPlatformIcon = (platform: string) => {
@@ -273,12 +173,12 @@ export default function TopicSearch() {
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          <strong>Search Status:</strong> X/Twitter search is fully operational using v2 API. 
+          <strong>Search Status:</strong> X/Twitter search is fully operational using v2 API.
           Reddit has limited search access for script apps. Discord search is not available through webhooks.
           All platforms work perfectly for posting content.
         </AlertDescription>
       </Alert>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Search for Topics</CardTitle>
@@ -286,21 +186,21 @@ export default function TopicSearch() {
         <CardContent className="space-y-4">
           <div className="flex space-x-2">
             <Input
-              placeholder="Enter keyword (e.g., 'Vibe Coding', 'React tutorial')"
+              placeholder="Enter keyword (e.g., 'Paris travel', 'Kyoto hidden gems')"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
               className="flex-1"
             />
-            <Button 
-              onClick={handleSearch} 
+            <Button
+              onClick={handleSearch}
               disabled={searchMutation.isPending}
               className="min-w-[100px]"
             >
               {searchMutation.isPending ? "Searching..." : "Search"}
             </Button>
           </div>
-          
+
           <div className="space-y-2">
             <label className="text-sm font-medium">Platforms to search:</label>
             <div className="flex space-x-4">
@@ -326,6 +226,23 @@ export default function TopicSearch() {
               ))}
             </div>
           </div>
+
+          <div className="flex items-center space-x-2 pt-2">
+            <Checkbox
+              id="strict-mode"
+              checked={strictMode}
+              onCheckedChange={(checked) => setStrictMode(checked as boolean)}
+            />
+            <label
+              htmlFor="strict-mode"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+            >
+              Travel Intent Mode (Strict)
+            </label>
+            <span className="text-xs text-muted-foreground ml-2">
+              (Filters for "planning a trip", "recommendations", etc. + removes spam)
+            </span>
+          </div>
         </CardContent>
       </Card>
 
@@ -333,101 +250,25 @@ export default function TopicSearch() {
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold">Search Results ({searchResults.length})</h2>
-            <Badge variant="outline" className="text-sm">
-              {selectedPosts.size} selected for bulk reply
-            </Badge>
+
           </div>
 
-          {/* Bulk Reply Controls */}
-          {searchResults.some(r => r.platform === 'twitter') && (
-            <Card className="border-blue-200 bg-blue-50/50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Reply className="w-5 h-5" />
-                  Bulk Reply to Twitter Posts
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2 flex-wrap">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={selectAllTwitterPosts}
-                    disabled={searchResults.filter(r => r.platform === 'twitter').length === 0}
-                  >
-                    Select All Twitter Posts ({searchResults.filter(r => r.platform === 'twitter').length})
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearSelection}
-                    disabled={selectedPosts.size === 0}
-                  >
-                    Clear Selection
-                  </Button>
-                </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Quick Templates:</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {CAMPAIGN_TEMPLATES.map((template, index) => (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setBulkReplyText(template.message)}
-                        className="text-xs h-auto py-2 px-3 whitespace-normal"
-                      >
-                        {template.name}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
 
-                <Textarea
-                  placeholder="Enter your bulk reply message..."
-                  value={bulkReplyText}
-                  onChange={(e) => setBulkReplyText(e.target.value)}
-                  className="min-h-[100px]"
-                />
-
-                <Button
-                  onClick={handleBulkReply}
-                  disabled={bulkReplyMutation.isPending || !bulkReplyText.trim() || selectedPosts.size === 0}
-                  className="w-full"
-                >
-                  {bulkReplyMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Posting {selectedPosts.size} replies...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-2" />
-                      Reply to {selectedPosts.size} Selected Posts
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-          
           {searchResults.map((result, index) => (
             <Card key={`${result.platform}-${result.id}`} className="border-l-4" style={{ borderLeftColor: getPlatformColor(result.platform) === 'bg-blue-500' ? '#3b82f6' : getPlatformColor(result.platform) === 'bg-orange-500' ? '#f97316' : '#6366f1' }}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    {result.platform === 'twitter' && (
-                      <Checkbox
-                        checked={selectedPosts.has(`${result.platform}-${result.id}`)}
-                        onCheckedChange={() => togglePostSelection(result.platform, result.id)}
-                        className="mr-2"
-                      />
-                    )}
                     {getPlatformIcon(result.platform)}
                     <Badge variant="secondary" className={`${getPlatformColor(result.platform)} text-white`}>
                       {result.platform.toUpperCase()}
                     </Badge>
+                    {result.score !== undefined && (
+                      <Badge variant="outline" className={result.score > 80 ? "border-green-500 text-green-500" : "border-gray-300"}>
+                        Score: {result.score}
+                      </Badge>
+                    )}
                     <div className="flex items-center space-x-1 text-sm text-muted-foreground">
                       <User className="w-3 h-3" />
                       <span>@{result.author}</span>
@@ -444,52 +285,38 @@ export default function TopicSearch() {
                   </Button>
                 </div>
               </CardHeader>
-              
+
               <CardContent className="space-y-4">
                 <div className="bg-muted p-3 rounded-md">
                   <p className="text-sm whitespace-pre-wrap">{result.content}</p>
                 </div>
-                
+
                 <Separator />
-                
+
                 <div className="space-y-3">
                   <div className="flex items-center space-x-2">
-                    <Reply className="w-4 h-4" />
-                    <span className="text-sm font-medium">Reply to this post:</span>
+                    <Crosshair className="w-4 h-4" />
+                    <span className="text-sm font-medium">Sniper Actions:</span>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-muted-foreground">Quick Templates:</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {CAMPAIGN_TEMPLATES.map((template, index) => (
-                        <Button
-                          key={index}
-                          variant="outline"
-                          size="sm"
-                          onClick={() => useTemplate(result.platform, result.id, template.message)}
-                          className="text-xs h-auto py-2 px-3 whitespace-normal"
-                        >
-                          {template.name}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <Textarea
-                    placeholder="Enter your reply message or use a template above..."
-                    value={replyTexts[`${result.platform}-${result.id}`] || ""}
-                    onChange={(e) => setReplyTexts(prev => ({ ...prev, [`${result.platform}-${result.id}`]: e.target.value }))}
-                    className="min-h-[120px]"
-                  />
-                  
+
                   <div className="flex space-x-2">
                     <Button
-                      onClick={() => handleReply(result.platform, result.id)}
-                      disabled={replyMutation.isPending || !replyTexts[`${result.platform}-${result.id}`]?.trim() || result.platform !== 'twitter'}
+                      onClick={() => handleSendToSniper(result.platform, result.id, result.author, result.content)}
+                      disabled={sniperMutation.isPending || result.platform !== 'twitter'}
                       size="sm"
-                      className="flex-1"
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white"
                     >
-                      {replyMutation.isPending ? "Posting..." : "Post Reply"}
+                      {sniperMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Crosshair className="w-4 h-4 mr-2" />
+                          Send to Sniper Queue
+                        </>
+                      )}
                     </Button>
                     {result.platform !== 'twitter' && (
                       <Badge variant="secondary" className="text-xs">
@@ -502,27 +329,32 @@ export default function TopicSearch() {
             </Card>
           ))}
         </div>
-      )}
-      
-      {searchMutation.isPending && (
-        <Card>
-          <CardContent className="p-6 text-center">
-            <div className="space-y-2">
-              <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
-              <p className="text-muted-foreground">Searching across platforms...</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      
-      {!searchMutation.isPending && searchResults.length === 0 && keyword && (
-        <Card>
-          <CardContent className="p-6 text-center text-muted-foreground">
-            <Search className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p>No results found for "{keyword}". Try different keywords or select different platforms.</p>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+      )
+      }
+
+      {
+        searchMutation.isPending && (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <div className="space-y-2">
+                <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
+                <p className="text-muted-foreground">Searching across platforms...</p>
+              </div>
+            </CardContent>
+          </Card>
+        )
+      }
+
+      {
+        !searchMutation.isPending && searchResults.length === 0 && keyword && (
+          <Card>
+            <CardContent className="p-6 text-center text-muted-foreground">
+              <Search className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No results found for "{keyword}". Try different keywords or select different platforms.</p>
+            </CardContent>
+          </Card>
+        )
+      }
+    </div >
   );
 }
