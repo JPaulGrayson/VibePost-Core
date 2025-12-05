@@ -140,7 +140,7 @@ export const postcardDrafts = pgTable("postcard_drafts", {
   id: serial("id").primaryKey(),
 
   // Origin Data (The User's Tweet)
-  originalTweetId: text("original_tweet_id").notNull(),
+  originalTweetId: text("original_tweet_id").notNull().unique(),
   originalAuthorHandle: text("original_author_handle").notNull(),
   originalTweetText: text("original_tweet_text").notNull(),
   detectedLocation: text("detected_location"), // e.g., "Kyoto, Japan"
