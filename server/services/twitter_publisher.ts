@@ -111,8 +111,22 @@ export async function publishDraft(draft: PostcardDraft) {
         return { success: true, tweetId: result.data.id };
     } catch (error: any) {
         console.error("Error publishing draft:", error);
-        const fs = require('fs');
-        fs.appendFileSync('publish_error.log', `${new Date().toISOString()} - Error: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}\n`);
+
+        // Log to console in a way that Replit captures
+        if (error.data) {
+            console.error("Twitter API Error Data:", JSON.stringify(error.data, null, 2));
+        }
+
+        // Try to write to a log file, but don't crash if it fails
+        try {
+            const fs = await import('fs');
+            fs.appendFileSync('publish_error.log', `${new Date().toISOString()} - Error: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}\n`);
+            if (error.data) {
+                fs.appendFileSync('publish_error.log', `${new Date().toISOString()} - API Data: ${JSON.stringify(error.data)}\n`);
+            }
+        } catch (fsError) {
+            console.error("Failed to write to log file:", fsError);
+        }
 
         // Extract more details from Twitter API errors
         if (error.data) {
