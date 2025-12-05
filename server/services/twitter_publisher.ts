@@ -1,4 +1,6 @@
 import { TwitterApi } from "twitter-api-v2";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
 import { PostcardDraft } from "@shared/schema";
 import { storage } from "../storage";
 

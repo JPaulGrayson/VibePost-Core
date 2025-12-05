@@ -8,12 +8,16 @@ import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { PostcardDraft } from "@shared/schema";
 import { RefreshCw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function SniperQueue() {
     const { data: drafts, isLoading } = useQuery<PostcardDraft[]>({
         queryKey: ["/api/postcard-drafts"],
         refetchInterval: 30000 // Poll for new drafts every 30s
     });
+
+    const { toast } = useToast();
+
 
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -32,22 +36,24 @@ export default function SniperQueue() {
             queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] });
             const stats = data.result?.stats;
             if (stats) {
-                alert(`Hunt Complete!
-                
-Found: ${stats.tweetsFound} tweets
-Created: ${stats.draftsCreated} new drafts
-Skipped: ${stats.duplicatesSkipped} duplicates
-Errors: ${stats.errors}
-
-Last Error: ${stats.lastError || "None"}
-                `);
+                toast({
+                    title: "Hunt Complete! 🧙‍♂️",
+                    description: `Found ${stats.tweetsFound} tweets, created ${stats.draftsCreated} new drafts.`,
+                });
             } else {
-                alert(`Hunt Complete! Generated ${data.result?.draftsGenerated || 0} new drafts.`);
+                toast({
+                    title: "Hunt Complete!",
+                    description: `Generated ${data.result?.draftsGenerated || 0} new drafts.`,
+                });
             }
         },
         onError: (error) => {
             console.error("Hunt failed:", error);
-            alert("Manual hunt failed. Check console.");
+            toast({
+                variant: "destructive",
+                title: "Hunt Failed",
+                description: "Check console for details.",
+            });
         }
     });
 
@@ -58,11 +64,18 @@ Last Error: ${stats.lastError || "None"}
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] });
-            alert("Database wiped successfully!");
+            toast({
+                title: "Database Wiped",
+                description: "All drafts have been removed.",
+            });
         },
         onError: (error) => {
             console.error("Wipe failed:", error);
-            alert("Failed to wipe database.");
+            toast({
+                variant: "destructive",
+                title: "Wipe Failed",
+                description: "Failed to wipe database.",
+            });
         }
     });
 
@@ -122,6 +135,7 @@ Last Error: ${stats.lastError || "None"}
 function DraftCard({ draft }: { draft: PostcardDraft }) {
     const [text, setText] = useState(draft.draftReplyText || "");
     const score = draft.score || 0;
+    const { toast } = useToast();
 
     // Score Color Logic
     let scoreColor = "bg-gray-500";
@@ -134,10 +148,18 @@ function DraftCard({ draft }: { draft: PostcardDraft }) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] });
+            toast({
+                title: "Published! 🚀",
+                description: `Reply sent to @${draft.originalAuthorHandle}`,
+            });
         },
         onError: (error) => {
             console.error("Failed to publish:", error);
-            alert("Failed to publish draft. Check console for details.");
+            toast({
+                variant: "destructive",
+                title: "Publish Failed",
+                description: "Check console for details.",
+            });
         }
     });
 
@@ -145,7 +167,13 @@ function DraftCard({ draft }: { draft: PostcardDraft }) {
         mutationFn: async () => {
             await apiRequest("POST", `/api/postcard-drafts/${draft.id}/reject`);
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] })
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] });
+            toast({
+                title: "Rejected",
+                description: "Draft removed from queue.",
+            });
+        }
     });
 
     const regenerateImage = useMutation({

@@ -80,7 +80,8 @@ export class PostcardDrafter {
     // Helper to expose image generation logic if needed by generateDraft
     async generateTuraiImage(location: string): Promise<{ imageUrl: string; attribution: string | null }> {
         // Default to the mock URL initially
-        let turaiImageUrl = `https://turai.com/mock-image/${encodeURIComponent(location)}`;
+        // Use Pollinations AI as a reliable fallback for real images
+        let turaiImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(location + " travel postcard scenic")}`;
         let attribution = null;
 
         // Use localhost:5003 as default for dev environment
