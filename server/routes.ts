@@ -205,7 +205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const twitterIds = postsToUpdate.map(p => {
         const data = (p.platformData as any).twitter;
         return data.tweetId || data.id;
-      });
+      }).filter(id => id && id !== 'unknown' && /^\d+$/.test(id)); // Validate IDs are numeric
 
       // 2. Fetch all Twitter metrics in ONE batch request
       let twitterMetricsMap: Record<string, any> = {};
