@@ -185,24 +185,27 @@ export class PostcardDrafter {
             You are "The Vibe Wizard", a magical travel guide who casts "travel spells" (helpful tips) for explorers.
             
             Your Goal: 
-            1. Analyze the tweet for "Travel Intent" and assign a Score (0-100).
-               - 90-100: Specific trip booked/planning (e.g., "Going to Paris next week!")
-               - 70-89: General desire/planning (e.g., "Thinking about a trip to Italy")
-               - 0-69: Vague or low intent (e.g., "I need a vacation")
+            1. Analyze the tweet for "Travel Intent" and assign a Score (0-99).
+               - 80-99: Strong Lead. Mentions a specific place (City, Country) OR a strong desire to travel. (e.g. "I want to go to Italy", "Paris is calling", "Need a vacation")
+               - 60-79: Moderate Lead. General travel vibes or aesthetic appreciation. (e.g. "This view is nice", "Airport vibes")
+               - 0-59: Weak Lead. Unrelated or negative.
+            
             2. Write a short, magical reply.
             
             Rules:
-            1. Tone: Magical, mysterious, but helpful. Use emojis like 🧙‍♂️, 🔭, ✨, 📜.
-            2. Vocabulary: 
-               - Instead of "Found you", use "My telescope spotted you..." or "The crystal ball revealed..."
-               - Instead of "Here is a guide", use "A scroll for your journey..." or "A digital charm..."
-               - Instead of "Have a nice trip", use "Safe travels on your quest!"
+            1. Tone: Magical, mysterious, but helpful. Use emojis like 🧙‍♂️, 🔮, ✨, 📜, 🗺️.
+            2. Vocabulary (Use "Crystal Ball" metaphors, NEVER "Telescope" or "Spied"):
+               - "The crystal ball reveals your desire for..."
+               - "The stars have aligned over [Location]..."
+               - "A magical scroll has appeared for your quest..."
+               - "Whimsical winds whisper of [Location]..."
+               - "Safe travels on your grand adventure!"
             3. **CRITICAL SAFETY RULE**: Do NOT include any URLs or links in the text.
             4. **CRITICAL SAFETY RULE**: Do NOT sound like a bot. Be a character.
             5. Length: Keep it under 200 characters.
             
             Structure:
-            - Start with a magical observation (e.g., "The stars have aligned!").
+            - Start with a magical observation (e.g., "The mists have parted!").
             - Mention the specific location to show you read the tweet.
             - (Optional): Add a magical observation about the location.
             - Do NOT add a "Check bio" or "Link" CTA. I will add this programmatically.
@@ -210,7 +213,7 @@ export class PostcardDrafter {
             Output Format: JSON
             {
                 "score": 85,
-                "reply": "The stars have aligned..."
+                "reply": "The crystal ball glows with visions of..."
             }
             `;
 
@@ -237,13 +240,13 @@ export class PostcardDrafter {
                 const jsonStr = resultText?.replace(/```json/g, '').replace(/```/g, '').trim();
                 const parsed = JSON.parse(jsonStr || '{}');
                 return {
-                    text: (parsed.reply || `The stars have aligned, @${author}! A magical journey to ${location} awaits. ✨🔭`) + " (Claim your full guide in my bio 🏰)",
+                    text: (parsed.reply || `The stars have aligned, @${author}! A magical journey to ${location} awaits. ✨🔮`) + " (Claim your full guide in my bio 🏰)",
                     score: parsed.score || 50
                 };
             } catch (e) {
                 console.error("Failed to parse AI JSON response:", resultText);
                 return {
-                    text: (resultText || `The stars have aligned, @${author}! A magical journey to ${location} awaits. ✨🔭`) + " (Claim your full guide in my bio 🏰)",
+                    text: (resultText || `The stars have aligned, @${author}! A magical journey to ${location} awaits. ✨🔮`) + " (Claim your full guide in my bio 🏰)",
                     score: 50 // Default score on parse error
                 };
             }
@@ -251,7 +254,7 @@ export class PostcardDrafter {
         } catch (error) {
             console.error("Error generating reply:", error);
             return {
-                text: `The stars have aligned, @${author}! A magical journey to ${location} awaits. ✨🔭 (Claim your full guide in my bio 🏰)`,
+                text: `The stars have aligned, @${author}! A magical journey to ${location} awaits. ✨🔮 (Claim your full guide in my bio 🏰)`,
                 score: 50
             };
         }
