@@ -23,19 +23,51 @@ export default function SniperQueue() {
         (draft.detectedLocation && draft.detectedLocation.toLowerCase().includes(searchQuery.toLowerCase()))
     ).sort((a, b) => (b.score || 0) - (a.score || 0)); // Sort by Score DESC
 
+    const manualHunt = useMutation({
+        mutationFn: async () => {
+            const res = await apiRequest("POST", "/api/debug/hunt");
+            return res.json();
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] });
+            alert(`Hunt Complete! Generated ${data.result?.draftsGenerated || 0} new drafts.`);
+        },
+        onError: (error) => {
+            console.error("Hunt failed:", error);
+            alert("Manual hunt failed. Check console.");
+        }
+    });
+
     if (isLoading) return <div>Loading Queue...</div>;
 
     return (
         <div className="p-6 max-w-4xl mx-auto">
             <h1 className="text-2xl font-bold mb-6">🧙‍♂️ Wizard's Tower (Review Queue)</h1>
 
-            <div className="mb-6">
+            <div className="mb-6 flex gap-4">
                 <Input
                     placeholder="Search by username, text, or location..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="max-w-md"
                 />
+                <Button
+                    variant="outline"
+                    onClick={() => manualHunt.mutate()}
+                    disabled={manualHunt.isPending}
+                >
+                    {manualHunt.isPending ? (
+                        <>
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            Hunting...
+                        </>
+                    ) : (
+                        <>
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            Manual Hunt
+                        </>
+                    )}
+                </Button>
             </div>
 
             <div className="grid gap-6">
