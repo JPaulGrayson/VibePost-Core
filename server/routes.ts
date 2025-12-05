@@ -1410,7 +1410,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       console.error("Error approving draft:", error);
-      res.status(500).json({ message: "Failed to approve draft" });
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.status(500).json({ message: `Failed to approve draft: ${errorMessage}` });
     }
   });
 
