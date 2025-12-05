@@ -114,7 +114,7 @@ export class KeywordSearchEngine {
       console.log(`Searching X using v2 API for query: ${query} (Strict: ${strictMode})`);
 
       const searchResults = await twitterClient.v2.search(query, {
-        max_results: Math.min(maxResults, 100), // v2 API limit is 100
+        max_results: Math.max(10, Math.min(maxResults, 100)), // v2 API requires 10-100
         'tweet.fields': ['created_at', 'author_id', 'public_metrics'],
         'user.fields': ['username'],
         expansions: ['author_id']
