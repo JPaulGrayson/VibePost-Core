@@ -975,11 +975,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Helper functions for fetching real-time metrics
   async function fetchTwitterMetrics(tweetId: string) {
     try {
+      // Get stored Twitter credentials from database to match other services
+      const twitterConnection = await storage.getPlatformConnection("twitter");
+      const credentials = twitterConnection?.credentials;
+
+      // Use env vars if DB is empty, otherwise prefer DB
+      const appKey = (credentials?.apiKey && credentials.apiKey.trim() !== "") ? credentials.apiKey : process.env.TWITTER_API_KEY;
+      const appSecret = (credentials?.apiSecret && credentials.apiSecret.trim() !== "") ? credentials.apiSecret : process.env.TWITTER_API_SECRET;
+      const accessToken = (credentials?.accessToken && credentials.accessToken.trim() !== "") ? credentials.accessToken : process.env.TWITTER_ACCESS_TOKEN;
+      const accessSecret = (credentials?.accessTokenSecret && credentials.accessTokenSecret.trim() !== "") ? credentials.accessTokenSecret : process.env.TWITTER_ACCESS_TOKEN_SECRET;
+
+      if (!appKey || !appSecret || !accessToken || !accessSecret) {
+        console.warn("Skipping metrics sync: No Twitter credentials found.");
+        return {}; // Return empty object to gracefully skip
+      }
+
       const twitterClient = new TwitterApi({
-        appKey: process.env.TWITTER_API_KEY || "36nXSUbfuzNyoLxEztzsDpgGW",
-        appSecret: process.env.TWITTER_API_SECRET || "6qYmel81UoJQWoBQ3Pzdym2iQC3FP2936i2yi4LlswSf6b49hk",
-        accessToken: process.env.TWITTER_ACCESS_TOKEN || "2885704441-S5x5tTuj1dAiPeamgNCLXjRCDJYAEuAUuOn0Brz",
-        accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET || "Y1BwEQPX6Swn4dA2iMmoLfBmxn73QBUVFJtrxLLF0AtWj",
+        appKey,
+        appSecret,
+        accessToken,
+        accessSecret,
       });
 
       // Fetch tweet details with public metrics
