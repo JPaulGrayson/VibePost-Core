@@ -1,14 +1,28 @@
 import { TwitterApi } from "twitter-api-v2";
 import { PostcardDraft } from "@shared/schema";
+import { storage } from "../storage";
 
 export async function publishDraft(draft: PostcardDraft) {
     console.log(`Starting publish for draft ${draft.id}`);
     try {
+        // Try to get credentials from DB first, fall back to env vars
+        const twitterConnection = await storage.getPlatformConnection("twitter");
+        const dbCreds = twitterConnection?.credentials || {};
+
+        const appKey = dbCreds.apiKey || process.env.TWITTER_API_KEY;
+        const appSecret = dbCreds.apiSecret || process.env.TWITTER_API_SECRET;
+        const accessToken = dbCreds.accessToken || process.env.TWITTER_ACCESS_TOKEN;
+        const accessSecret = dbCreds.accessTokenSecret || process.env.TWITTER_ACCESS_TOKEN_SECRET;
+
+        if (!appKey || !appSecret || !accessToken || !accessSecret) {
+            throw new Error("Missing Twitter API credentials. Please configure them in Settings.");
+        }
+
         const client = new TwitterApi({
-            appKey: process.env.TWITTER_API_KEY!,
-            appSecret: process.env.TWITTER_API_SECRET!,
-            accessToken: process.env.TWITTER_ACCESS_TOKEN!,
-            accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET!,
+            appKey,
+            appSecret,
+            accessToken,
+            accessSecret,
         });
 
         // Verify credentials first
@@ -115,7 +129,7 @@ export async function publishDraft(draft: PostcardDraft) {
             console.error("Twitter API Error Data:", JSON.stringify(error.data, null, 2));
         }
 
-        // Try to write to a log file, but don't crash if it fails
+        // Try to write to a log file
         try {
             const fs = await import('fs');
             fs.appendFileSync('publish_error.log', `${new Date().toISOString()} - Error: ${JSON.stringify(error, Object.getOwnPropertyNames(error))}\n`);
@@ -124,12 +138,6 @@ export async function publishDraft(draft: PostcardDraft) {
             }
         } catch (fsError) {
             console.error("Failed to write to log file:", fsError);
-        }
-
-        // Extract more details from Twitter API errors
-        if (error.data) {
-            console.error("Twitter API Error Data:", JSON.stringify(error.data, null, 2));
-            fs.appendFileSync('publish_error.log', `${new Date().toISOString()} - API Data: ${JSON.stringify(error.data)}\n`);
         }
 
         return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
