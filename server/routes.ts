@@ -150,10 +150,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedMetrics: any = {};
 
       // Sync Twitter metrics
-      if (platformData.twitter?.id) {
+      const twitterId = platformData.twitter?.tweetId || platformData.twitter?.id;
+      if (twitterId) {
         try {
-          const metricsMap = await fetchTwitterMetricsBatch([platformData.twitter.id]);
-          const twitterMetrics = metricsMap[platformData.twitter.id];
+          const metricsMap = await fetchTwitterMetricsBatch([twitterId]);
+          const twitterMetrics = metricsMap[twitterId];
           if (twitterMetrics) {
             updatedMetrics.twitter = { ...platformData.twitter, ...twitterMetrics };
           }
@@ -195,8 +196,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const results = [];
 
       // 1. Collect all Twitter IDs needing sync
-      const postsToUpdate = posts.filter(p => p.platformData && (p.platformData as any).twitter?.id);
-      const twitterIds = postsToUpdate.map(p => (p.platformData as any).twitter.id);
+      // Look for tweetId (new standard) or id (old standard)
+      const postsToUpdate = posts.filter(p => {
+        const data = p.platformData as any;
+        return data && data.twitter && (data.twitter.tweetId || data.twitter.id);
+      });
+
+      const twitterIds = postsToUpdate.map(p => {
+        const data = (p.platformData as any).twitter;
+        return data.tweetId || data.id;
+      });
 
       // 2. Fetch all Twitter metrics in ONE batch request
       let twitterMetricsMap: Record<string, any> = {};
@@ -217,8 +226,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const updatedMetrics: any = {};
 
           // Sync Twitter metrics (from map)
-          if (platformData.twitter?.id) {
-            const metrics = twitterMetricsMap[platformData.twitter.id];
+          const twitterId = platformData.twitter?.tweetId || platformData.twitter?.id;
+          if (twitterId) {
+            const metrics = twitterMetricsMap[twitterId];
             if (metrics) {
               updatedMetrics.twitter = { ...platformData.twitter, ...metrics };
             }
