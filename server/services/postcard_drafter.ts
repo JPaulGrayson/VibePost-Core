@@ -13,7 +13,7 @@ const genAI = new GoogleGenAI({ apiKey: apiKey || "dummy" });
 
 // ... imports
 
-export async function generateDraft(tweet: { id: string; text: string; author_id?: string }, authorHandle: string) {
+export async function generateDraft(tweet: { id: string; text: string; author_id?: string }, authorHandle: string): Promise<boolean> {
     console.log(`Drafting reply for tweet ${tweet.id} from ${authorHandle}`);
 
     // Check if draft already exists
@@ -23,7 +23,7 @@ export async function generateDraft(tweet: { id: string; text: string; author_id
 
     if (existing) {
         console.log(`Draft already exists for tweet ${tweet.id}. Skipping.`);
-        return;
+        return false;
     }
 
     const drafter = new PostcardDrafter();
@@ -32,7 +32,7 @@ export async function generateDraft(tweet: { id: string; text: string; author_id
     const location = await drafter.extractLocation(tweet.text);
     if (!location) {
         console.log("No location detected in tweet. Skipping.");
-        return;
+        return false;
     }
 
     // 2. Generate Image (Call Turai API)
@@ -67,8 +67,10 @@ export async function generateDraft(tweet: { id: string; text: string; author_id
             score: score, // Save the score
         });
         console.log(`✅ Draft saved for ${location} (Score: ${score})`);
+        return true;
     } catch (error) {
         console.error("Error saving draft to DB:", error);
+        return false;
     }
 }
 

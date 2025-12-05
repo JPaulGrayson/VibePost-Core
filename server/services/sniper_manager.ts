@@ -118,9 +118,13 @@ export class SniperManager {
                             author_id: "unknown"
                         };
 
-                        await generateDraft(postObj, result.author);
-                        this.draftsGeneratedToday++;
-                        stats.draftsCreated++;
+                        const created = await generateDraft(postObj, result.author);
+                        if (created) {
+                            this.draftsGeneratedToday++;
+                            stats.draftsCreated++;
+                        } else {
+                            // Optional: Track skipped reasons if needed
+                        }
 
                         if (!this.checkDailyLimit()) break;
                     }
