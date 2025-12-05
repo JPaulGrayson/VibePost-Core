@@ -23,38 +23,36 @@ export async function publishDraft(draft: PostcardDraft) {
         let mediaId;
         console.log(`Fetching image from ${draft.turaiImageUrl}`);
 
+        let buffer: Buffer;
+        let mimeType = 'image/jpeg'; // Default
+
         if (draft.turaiImageUrl.startsWith('http')) {
             const response = await fetch(draft.turaiImageUrl);
             if (!response.ok) throw new Error(`Failed to download image: ${response.statusText}`);
 
             const arrayBuffer = await response.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
+            buffer = Buffer.from(arrayBuffer);
 
-            console.log(`Image downloaded, size: ${buffer.length} bytes. Uploading to Twitter...`);
+            // Try to detect mime type from headers
+            const contentType = response.headers.get('content-type');
+            if (contentType) mimeType = contentType;
 
-            // Upload media using v1 API
-            mediaId = await client.v1.uploadMedia(buffer, { mimeType: 'image/jpeg' });
-            console.log(`Media uploaded successfully, ID: ${mediaId}`);
         } else if (draft.turaiImageUrl.startsWith('data:')) {
-            console.log("Detected data URI image. Converting to buffer...");
             // Extract base64 data
             const matches = draft.turaiImageUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+            if (!matches || matches.length !== 3) throw new Error('Invalid data URI format');
 
-            if (!matches || matches.length !== 3) {
-                throw new Error('Invalid data URI format');
-            }
-
-            const mimeType = matches[1];
-            const base64Data = matches[2];
-            const buffer = Buffer.from(base64Data, 'base64');
-
-            console.log(`Image converted, size: ${buffer.length} bytes. Uploading to Twitter...`);
-            mediaId = await client.v1.uploadMedia(buffer, { mimeType });
-            console.log(`Media uploaded successfully, ID: ${mediaId}`);
+            mimeType = matches[1];
+            buffer = Buffer.from(matches[2], 'base64');
         } else {
-            // Local file path (unlikely in this context but good to keep)
-            mediaId = await client.v1.uploadMedia(draft.turaiImageUrl);
+            throw new Error("Unsupported image format (must be HTTP URL or Data URI)");
         }
+
+        console.log(`Image prepared, size: ${buffer.length} bytes, type: ${mimeType}. Uploading to Twitter...`);
+
+        // Upload media using v1 API (Buffer method is safest for Replit)
+        mediaId = await client.v1.uploadMedia(buffer, { mimeType });
+        console.log(`Media uploaded successfully, ID: ${mediaId}`);
 
         // 2. Prepare the Payload
         let tweetText = draft.draftReplyText;
