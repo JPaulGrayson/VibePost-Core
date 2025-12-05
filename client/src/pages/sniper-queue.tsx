@@ -38,6 +38,8 @@ Found: ${stats.tweetsFound} tweets
 Created: ${stats.draftsCreated} new drafts
 Skipped: ${stats.duplicatesSkipped} duplicates
 Errors: ${stats.errors}
+
+Last Error: ${stats.lastError || "None"}
                 `);
             } else {
                 alert(`Hunt Complete! Generated ${data.result?.draftsGenerated || 0} new drafts.`);

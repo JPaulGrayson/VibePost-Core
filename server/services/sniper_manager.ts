@@ -67,7 +67,8 @@ export class SniperManager {
             tweetsFound: 0,
             draftsCreated: 0,
             duplicatesSkipped: 0,
-            errors: 0
+            errors: 0,
+            lastError: "" as string | undefined
         };
 
         if (this.isRunning) return stats;
@@ -126,6 +127,7 @@ export class SniperManager {
                 } catch (error) {
                     console.error(`❌ Error hunting for "${keyword}":`, error);
                     stats.errors++;
+                    stats.lastError = error instanceof Error ? error.message : String(error);
                 }
 
                 // Wait 5 seconds between keywords to be nice to the API
@@ -134,6 +136,7 @@ export class SniperManager {
         } catch (error) {
             console.error("Sniper hunt failed:", error);
             stats.errors++;
+            stats.lastError = error instanceof Error ? error.message : String(error);
         } finally {
             this.isRunning = false;
             console.log("🦅 Sniper Hunting Cycle Complete.", stats);
