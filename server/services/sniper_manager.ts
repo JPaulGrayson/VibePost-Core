@@ -40,8 +40,11 @@ export class SniperManager {
             return { draftsGenerated: 0, message: "Sniper is already running" };
         }
         console.log("🎯 Manual Sniper Hunt Triggered");
-        await this.hunt();
-        return { draftsGenerated: this.draftsGeneratedToday };
+        const stats = await this.hunt();
+        return {
+            draftsGenerated: this.draftsGeneratedToday,
+            stats
+        };
     }
 
     private checkDailyLimit(): boolean {
@@ -59,7 +62,15 @@ export class SniperManager {
     }
 
     private async hunt() {
-        if (this.isRunning) return;
+        const stats = {
+            keywordsSearched: 0,
+            tweetsFound: 0,
+            draftsCreated: 0,
+            duplicatesSkipped: 0,
+            errors: 0
+        };
+
+        if (this.isRunning) return stats;
         this.isRunning = true;
 
         console.log("🦅 Sniper Hunting Cycle Started...");
@@ -74,14 +85,16 @@ export class SniperManager {
 
             if (!this.checkDailyLimit()) {
                 this.isRunning = false;
-                return;
+                return stats;
             }
 
             for (const keyword of this.keywords) {
+                stats.keywordsSearched++;
                 try {
                     // Search for keyword
                     // Limit to 100 results (Max per request for efficiency)
                     const results = await keywordSearchEngine.searchTwitter(keyword, 100);
+                    stats.tweetsFound += results.length;
 
                     if (results.length === 0) continue;
 
@@ -90,7 +103,10 @@ export class SniperManager {
                     for (const result of results) {
                         // Check if processed
                         const existing = await storage.getDraftByOriginalTweetId(result.id);
-                        if (existing) continue;
+                        if (existing) {
+                            stats.duplicatesSkipped++;
+                            continue;
+                        }
 
                         console.log(`   ✨ Generating draft for @${result.author}: "${result.content.substring(0, 30)}..."`);
 
@@ -103,11 +119,13 @@ export class SniperManager {
 
                         await generateDraft(tweetObj, result.author);
                         this.draftsGeneratedToday++;
+                        stats.draftsCreated++;
 
                         if (!this.checkDailyLimit()) break;
                     }
                 } catch (error) {
                     console.error(`❌ Error hunting for "${keyword}":`, error);
+                    stats.errors++;
                 }
 
                 // Wait 5 seconds between keywords to be nice to the API
@@ -115,10 +133,13 @@ export class SniperManager {
             }
         } catch (error) {
             console.error("Sniper hunt failed:", error);
+            stats.errors++;
         } finally {
             this.isRunning = false;
-            console.log("🦅 Sniper Hunting Cycle Complete.");
+            console.log("🦅 Sniper Hunting Cycle Complete.", stats);
         }
+
+        return stats;
     }
 }
 

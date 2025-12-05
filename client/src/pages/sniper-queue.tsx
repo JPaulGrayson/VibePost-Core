@@ -30,7 +30,18 @@ export default function SniperQueue() {
         },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] });
-            alert(`Hunt Complete! Generated ${data.result?.draftsGenerated || 0} new drafts.`);
+            const stats = data.result?.stats;
+            if (stats) {
+                alert(`Hunt Complete!
+                
+Found: ${stats.tweetsFound} tweets
+Created: ${stats.draftsCreated} new drafts
+Skipped: ${stats.duplicatesSkipped} duplicates
+Errors: ${stats.errors}
+                `);
+            } else {
+                alert(`Hunt Complete! Generated ${data.result?.draftsGenerated || 0} new drafts.`);
+            }
         },
         onError: (error) => {
             console.error("Hunt failed:", error);
