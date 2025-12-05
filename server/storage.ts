@@ -674,7 +674,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async cleanupAllDrafts(): Promise<void> {
-    await db.delete(postcardDrafts);
+    // Only delete drafts that are NOT published or approved
+    // We want to keep the history of what we sent
+    await db.delete(postcardDrafts)
+      .where(
+        and(
+          eq(postcardDrafts.status, "pending_review"),
+          // You could also include 'rejected' or 'failed' if you want to wipe those
+          // or just wipe everything EXCEPT 'published' and 'approved'
+        )
+      );
+
+    // Actually, user asked to "clear db of other ones" after approving best leads.
+    // So let's clear everything that is NOT published/approved.
+    const { ne } = await import("drizzle-orm");
+    await db.delete(postcardDrafts).where(
+      and(
+        ne(postcardDrafts.status, "published"),
+        ne(postcardDrafts.status, "approved")
+      )
+    );
   }
 }
 
