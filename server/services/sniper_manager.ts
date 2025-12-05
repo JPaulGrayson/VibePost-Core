@@ -74,7 +74,7 @@ export class SniperManager {
         if (this.isRunning) return stats;
         this.isRunning = true;
 
-        console.log("🦅 Sniper Hunting Cycle Started...");
+        console.log("🦅 Sniper Hunting Cycle Started (Twitter + Reddit)...");
 
         try {
             // 0. Run Janitor
@@ -92,14 +92,14 @@ export class SniperManager {
             for (const keyword of this.keywords) {
                 stats.keywordsSearched++;
                 try {
-                    // Search for keyword
-                    // Limit to 100 results (Max per request for efficiency)
-                    const results = await keywordSearchEngine.searchTwitter(keyword, 100);
+                    // Search for keyword across ALL platforms (Twitter fallback to Reddit)
+                    // This ensures we get results even if Twitter API is limited (Free Tier)
+                    const results = await keywordSearchEngine.searchAllPlatforms(keyword, ['twitter', 'reddit']);
                     stats.tweetsFound += results.length;
 
                     if (results.length === 0) continue;
 
-                    console.log(`   Found ${results.length} tweets for "${keyword}"`);
+                    console.log(`   Found ${results.length} posts for "${keyword}"`);
 
                     for (const result of results) {
                         // Check if processed
@@ -109,23 +109,23 @@ export class SniperManager {
                             continue;
                         }
 
-                        console.log(`   ✨ Generating draft for @${result.author}: "${result.content.substring(0, 30)}..."`);
+                        console.log(`   ✨ Generating draft for ${result.platform} user @${result.author}: "${result.content.substring(0, 30)}..."`);
 
-                        // Adapt result to tweet format expected by generateDraft
-                        const tweetObj = {
+                        // Adapt result to generic format expected by generateDraft
+                        const postObj = {
                             id: result.id,
                             text: result.content,
                             author_id: "unknown"
                         };
 
-                        await generateDraft(tweetObj, result.author);
+                        await generateDraft(postObj, result.author);
                         this.draftsGeneratedToday++;
                         stats.draftsCreated++;
 
                         if (!this.checkDailyLimit()) break;
                     }
                 } catch (error) {
-                    console.error(`❌ Error hunting for "${keyword}":`, error);
+                    console.error(`❌ Error hunting for "${keyword}" on any platform:`, error);
                     stats.errors++;
                     stats.lastError = error instanceof Error ? error.message : String(error);
                 }
