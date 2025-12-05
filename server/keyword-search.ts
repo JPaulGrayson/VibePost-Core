@@ -322,25 +322,9 @@ export class KeywordSearchEngine {
       }
     }
 
-    // If we have no results but have errors, provide helpful guidance
+    // If we have no results but have errors, throw the actual errors
     if (allResults.length === 0 && errors.length > 0) {
-      let helpfulMessage = "Search unavailable: ";
-
-      if (platforms.includes('twitter')) {
-        helpfulMessage += "Twitter requires Academic Research or Enterprise API access for search. ";
-      }
-
-      if (platforms.includes('reddit')) {
-        helpfulMessage += "Reddit blocks automated searches from script apps. ";
-      }
-
-      if (platforms.includes('discord')) {
-        helpfulMessage += "Discord search requires bot permissions. ";
-      }
-
-      helpfulMessage += "These APIs work for posting but have restrictions for searching.";
-
-      throw new Error(helpfulMessage);
+      throw new Error(`Search failed on all platforms:\n${errors.join('\n')}`);
     }
 
     // If we have some results but also errors, log the errors but return results
