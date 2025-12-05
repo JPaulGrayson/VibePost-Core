@@ -152,8 +152,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Sync Twitter metrics
       if (platformData.twitter?.id) {
         try {
-          const twitterMetrics = await fetchTwitterMetrics(platformData.twitter.id);
-          updatedMetrics.twitter = { ...platformData.twitter, ...twitterMetrics };
+          const metricsMap = await fetchTwitterMetricsBatch([platformData.twitter.id]);
+          const twitterMetrics = metricsMap[platformData.twitter.id];
+          if (twitterMetrics) {
+            updatedMetrics.twitter = { ...platformData.twitter, ...twitterMetrics };
+          }
         } catch (error) {
           console.error("Failed to fetch Twitter metrics:", error);
         }
@@ -191,6 +194,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const posts = await storage.getPostsByStatus("published");
       const results = [];
 
+      // 1. Collect all Twitter IDs needing sync
+      const postsToUpdate = posts.filter(p => p.platformData && (p.platformData as any).twitter?.id);
+      const twitterIds = postsToUpdate.map(p => (p.platformData as any).twitter.id);
+
+      // 2. Fetch all Twitter metrics in ONE batch request
+      let twitterMetricsMap: Record<string, any> = {};
+      if (twitterIds.length > 0) {
+        try {
+          twitterMetricsMap = await fetchTwitterMetricsBatch(twitterIds);
+        } catch (error) {
+          console.error("Failed to fetch batch Twitter metrics:", error);
+        }
+      }
+
+      // 3. Loop through posts and update data
       for (const post of posts) {
         if (!post.platformData) continue;
 
@@ -198,17 +216,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const platformData = post.platformData as any;
           const updatedMetrics: any = {};
 
-          // Sync Twitter metrics
+          // Sync Twitter metrics (from map)
           if (platformData.twitter?.id) {
-            try {
-              const twitterMetrics = await fetchTwitterMetrics(platformData.twitter.id);
-              updatedMetrics.twitter = { ...platformData.twitter, ...twitterMetrics };
-            } catch (error) {
-              console.error(`Failed to fetch Twitter metrics for post ${post.id}:`, error);
+            const metrics = twitterMetricsMap[platformData.twitter.id];
+            if (metrics) {
+              updatedMetrics.twitter = { ...platformData.twitter, ...metrics };
             }
           }
 
-          // Sync Reddit metrics
+          // Sync Reddit metrics (Still sequential for now, Reddit API is different)
           if (platformData.reddit?.id) {
             try {
               const redditMetrics = await fetchRedditMetrics(platformData.reddit.id);
@@ -218,16 +234,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
 
-          // Update post with new metrics
-          await storage.updatePost(post.id, {
-            platformData: {
-              ...platformData,
-              ...updatedMetrics,
-              lastSyncedAt: new Date().toISOString(),
-            },
-          });
-
-          results.push({ postId: post.id, success: true, metrics: updatedMetrics });
+          // Only update if we have new data
+          if (Object.keys(updatedMetrics).length > 0) {
+            await storage.updatePost(post.id, {
+              platformData: {
+                ...platformData,
+                ...updatedMetrics,
+                lastSyncedAt: new Date().toISOString(),
+              },
+            });
+            results.push({ postId: post.id, success: true, metrics: updatedMetrics });
+          }
         } catch (error) {
           results.push({ postId: post.id, success: false, error: error instanceof Error ? error.message : "Unknown error" });
         }
@@ -973,8 +990,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Helper functions for fetching real-time metrics
-  async function fetchTwitterMetrics(tweetId: string) {
+  // Batch fetch function for metrics
+  async function fetchTwitterMetricsBatch(tweetIds: string[]) {
     try {
+      if (tweetIds.length === 0) return {};
+
       // Get stored Twitter credentials from database to match other services
       const twitterConnection = await storage.getPlatformConnection("twitter");
       const credentials = twitterConnection?.credentials;
@@ -987,7 +1007,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!appKey || !appSecret || !accessToken || !accessSecret) {
         console.warn("Skipping metrics sync: No Twitter credentials found.");
-        return {}; // Return empty object to gracefully skip
+        return {};
       }
 
       const twitterClient = new TwitterApi({
@@ -997,24 +1017,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accessSecret,
       });
 
-      // Fetch tweet details with public metrics
-      const tweet = await twitterClient.v2.singleTweet(tweetId, {
+      console.log(`[Metrics] Batch fetching for ${tweetIds.length} tweets...`);
+      // Use v2.tweets to fetch up to 100 tweets at once
+      const tweets = await twitterClient.v2.tweets(tweetIds, {
         'tweet.fields': ['public_metrics', 'created_at'],
       });
 
-      const metrics = tweet.data.public_metrics;
+      const metricsMap: Record<string, any> = {};
 
-      return {
-        likes: metrics?.like_count || 0,
-        retweets: metrics?.retweet_count || 0,
-        replies: metrics?.reply_count || 0,
-        quotes: metrics?.quote_count || 0,
-        impressions: metrics?.impression_count || 0,
-        bookmarks: metrics?.bookmark_count || 0,
-        lastUpdatedAt: new Date().toISOString(),
-      };
+      if (tweets.data) {
+        for (const tweet of tweets.data) {
+          const metrics = tweet.public_metrics;
+          metricsMap[tweet.id] = {
+            likes: metrics?.like_count || 0,
+            retweets: metrics?.retweet_count || 0,
+            replies: metrics?.reply_count || 0,
+            quotes: metrics?.quote_count || 0,
+            impressions: metrics?.impression_count || 0,
+            bookmarks: metrics?.bookmark_count || 0,
+            lastUpdatedAt: new Date().toISOString(),
+          };
+        }
+      }
+
+      console.log(`[Metrics] Successfully fetched metrics for ${Object.keys(metricsMap).length} tweets.`);
+      return metricsMap;
+
     } catch (error) {
-      console.error("Error fetching Twitter metrics:", error);
+      console.error(`[Metrics] Error fetching batch Twitter metrics:`, error);
       throw error;
     }
   }
