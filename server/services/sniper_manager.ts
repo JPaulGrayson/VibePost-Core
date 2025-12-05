@@ -24,14 +24,11 @@ export class SniperManager {
 
     async startHunting() {
         if (this.isRunning) return;
-        this.isRunning = true;
-        console.log("🎯 Sniper Manager Started (Hunting every 5 mins)");
+        // this.isRunning = true; // DO NOT AUTO Start
+        console.log("🎯 Sniper Manager Init (Manual Mode Only)");
 
-        // Initial Run
-        await this.hunt();
-
-        // Loop
-        setInterval(() => this.hunt(), this.checkIntervalMs);
+        // Disable auto-loop to prevent rate limit issues
+        // setInterval(() => this.hunt(), this.checkIntervalMs);
     }
 
     async forceHunt() {
