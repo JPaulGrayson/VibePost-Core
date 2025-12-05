@@ -806,6 +806,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/debug/wipe", async (req, res) => {
+    try {
+      console.log("🗑️ Wiping all postcard drafts via API...");
+      await storage.cleanupAllDrafts(); // We need to implement this in storage
+      res.json({ success: true, message: "All drafts wiped successfully" });
+    } catch (error) {
+      console.error("Wipe failed:", error);
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
   // Keyword search endpoints
   app.post("/api/keywords/search", isAuthenticated, async (req, res) => {
     try {

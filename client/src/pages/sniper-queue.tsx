@@ -38,6 +38,21 @@ export default function SniperQueue() {
         }
     });
 
+    const wipeDb = useMutation({
+        mutationFn: async () => {
+            const res = await apiRequest("POST", "/api/debug/wipe");
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] });
+            alert("Database wiped successfully!");
+        },
+        onError: (error) => {
+            console.error("Wipe failed:", error);
+            alert("Failed to wipe database.");
+        }
+    });
+
     if (isLoading) return <div>Loading Queue...</div>;
 
     return (
@@ -67,6 +82,17 @@ export default function SniperQueue() {
                             Manual Hunt
                         </>
                     )}
+                </Button>
+                <Button
+                    variant="destructive"
+                    onClick={() => {
+                        if (confirm("Are you sure you want to wipe ALL drafts? This cannot be undone.")) {
+                            wipeDb.mutate();
+                        }
+                    }}
+                    disabled={wipeDb.isPending}
+                >
+                    {wipeDb.isPending ? "Wiping..." : "Wipe DB"}
                 </Button>
             </div>
 

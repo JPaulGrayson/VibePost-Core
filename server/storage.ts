@@ -77,7 +77,10 @@ export interface IStorage {
   getDraftByOriginalTweetId(tweetId: string): Promise<PostcardDraft | undefined>;
   updatePostcardDraft(id: number, updates: Partial<InsertPostcardDraft>): Promise<PostcardDraft | undefined>;
   cleanupOldDrafts(): Promise<void>;
+  cleanupAllDrafts(): Promise<void>;
 }
+
+
 
 export class MemStorage implements IStorage {
   private posts: Map<number, Post>;
@@ -408,6 +411,10 @@ export class MemStorage implements IStorage {
   async cleanupOldDrafts(): Promise<void> {
     // No-op for MemStorage
   }
+
+  async cleanupAllDrafts(): Promise<void> {
+    this.postcardDrafts.clear();
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -664,6 +671,10 @@ export class DatabaseStorage implements IStorage {
           lt(postcardDrafts.createdAt, oneDayAgo)
         )
       );
+  }
+
+  async cleanupAllDrafts(): Promise<void> {
+    await db.delete(postcardDrafts);
   }
 }
 
