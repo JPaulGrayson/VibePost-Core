@@ -14,8 +14,7 @@ export class SniperManager {
         "vacation in",
         "holiday in",
         "headed to",
-        "going to",
-        "Waco"
+        "going to"
     ];
 
     private dailyLimit = 500; // Increased for Ranking Mode

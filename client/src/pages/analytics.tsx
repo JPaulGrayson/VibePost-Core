@@ -298,7 +298,7 @@ export default function Analytics() {
                 </div>
                 <div className="flex items-center mt-4 text-sm">
                   <span className="text-muted-foreground">
-                    {totalMetrics.views > 0 ? "Live impression data" : "Twitter API quota exceeded"}
+                    {totalMetrics.views > 0 ? "Live impression data" : "No view data available"}
                   </span>
                 </div>
               </CardContent>
