@@ -84,7 +84,7 @@ import { twitterListener } from "./services/twitter_listener";
   // ALWAYS serve the app on port 5002
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = process.env.PORT || 5002;
+  const port = process.env.PORT || 5000;
   server.listen({
     port,
     host: "0.0.0.0",
