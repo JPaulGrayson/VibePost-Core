@@ -64,6 +64,14 @@ import { twitterListener } from "./services/twitter_listener";
     console.error("Failed to start Sniper Manager:", error);
   }
 
+  // Start Daily Postcard Scheduler (Auto-posts at 9 AM daily)
+  try {
+    const { startDailyPostcardScheduler } = await import("./services/daily_postcard_scheduler");
+    startDailyPostcardScheduler();
+  } catch (error) {
+    console.error("Failed to start Daily Postcard Scheduler:", error);
+  }
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

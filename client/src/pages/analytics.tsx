@@ -462,39 +462,56 @@ export default function Analytics() {
                         <p className="text-sm text-muted-foreground">Publish some posts to see analytics here</p>
                       </div>
                     ) : (
-                      topPosts.map((post, index) => (
-                        <div key={post.id} className="flex items-center space-x-4 p-4 border rounded-lg">
-                          <div className="flex-shrink-0">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-sm font-bold text-blue-600">#{index + 1}</span>
-                            </div>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-foreground truncate">
-                              {post.content.length > 100
-                                ? `${post.content.substring(0, 100)}...`
-                                : post.content}
-                            </p>
-                            <div className="flex items-center space-x-4 mt-2">
-                              <span className="text-xs text-muted-foreground">
-                                {post.publishedAt && format(new Date(post.publishedAt), "MMM d, yyyy")}
-                              </span>
-                              <div className="flex items-center space-x-2">
-                                {post.platforms.map((platform) => {
-                                  const IconComponent = platformIcons[platform as keyof typeof platformIcons];
-                                  return IconComponent ? (
-                                    <IconComponent key={platform} className="w-3 h-3" style={{ color: platformColors[platform as keyof typeof platformColors] }} />
-                                  ) : null;
-                                })}
+                      topPosts.map((post, index) => {
+                        const platformData = post.platformData as any;
+                        // Check for both tweetId (new) and id (old) for backwards compatibility
+                        const tweetId = platformData?.twitter?.tweetId || platformData?.twitter?.id;
+                        const twitterUrl = tweetId ? `https://twitter.com/MaxTruth_Seeker/status/${tweetId}` : null;
+
+                        return (
+                          <div key={post.id} className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                            <div className="flex-shrink-0">
+                              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                <span className="text-sm font-bold text-blue-600">#{index + 1}</span>
                               </div>
                             </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-foreground truncate">
+                                {post.content.length > 100
+                                  ? `${post.content.substring(0, 100)}...`
+                                  : post.content}
+                              </p>
+                              <div className="flex items-center space-x-4 mt-2">
+                                <span className="text-xs text-muted-foreground">
+                                  {post.publishedAt && format(new Date(post.publishedAt), "MMM d, yyyy")}
+                                </span>
+                                <div className="flex items-center space-x-2">
+                                  {post.platforms.map((platform) => {
+                                    const IconComponent = platformIcons[platform as keyof typeof platformIcons];
+                                    return IconComponent ? (
+                                      <IconComponent key={platform} className="w-3 h-3" style={{ color: platformColors[platform as keyof typeof platformColors] }} />
+                                    ) : null;
+                                  })}
+                                </div>
+                                {twitterUrl && (
+                                  <a
+                                    href={twitterUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-500 hover:underline"
+                                  >
+                                    View on Twitter ↗
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex-shrink-0 text-right">
+                              <p className="text-lg font-bold text-foreground">{post.totalEngagement}</p>
+                              <p className="text-xs text-muted-foreground">total engagement</p>
+                            </div>
                           </div>
-                          <div className="flex-shrink-0 text-right">
-                            <p className="text-lg font-bold text-foreground">{post.totalEngagement}</p>
-                            <p className="text-xs text-muted-foreground">total engagement</p>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </CardContent>

@@ -133,7 +133,8 @@ export const draftStatusEnum = pgEnum("draft_status", [
   "approved",
   "rejected",
   "published",
-  "failed"
+  "failed",
+  "pending_retry"
 ]);
 
 export const postcardDrafts = pgTable("postcard_drafts", {
@@ -159,7 +160,11 @@ export const postcardDrafts = pgTable("postcard_drafts", {
   status: draftStatusEnum("status").default("pending_review").notNull(),
   score: integer("score").default(0), // AI Relevance Score (0-100)
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  publishedAt: timestamp("published_at")
+  publishedAt: timestamp("published_at"),
+
+  // Retry mechanism for failed posts
+  publishAttempts: integer("publish_attempts").default(0),
+  lastError: text("last_error"),
 });
 
 export const insertPostSchema = createInsertSchema(posts).omit({
@@ -259,5 +264,5 @@ export type PostStatus = z.infer<typeof PostStatus>;
 export type InsertPostcardDraft = z.infer<typeof insertPostcardDraftSchema>;
 export type PostcardDraft = typeof postcardDrafts.$inferSelect;
 
-export const PostcardDraftStatus = z.enum(["pending_review", "approved", "rejected", "published", "failed"]);
+export const PostcardDraftStatus = z.enum(["pending_review", "approved", "rejected", "published", "failed", "pending_retry"]);
 export type PostcardDraftStatus = z.infer<typeof PostcardDraftStatus>;

@@ -16,6 +16,8 @@ import Settings from "@/pages/settings";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 import SniperQueue from "@/pages/sniper-queue";
+import DailyPostcard from "@/pages/daily-postcard";
+import VideoSlideshows from "@/pages/video-slideshows";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -50,6 +52,8 @@ function Router() {
         <Route path="/settings" component={Settings} />
         <Route path="/sniper-queue" component={SniperQueue} />
         <Route path="/sniper" component={SniperQueue} />
+        <Route path="/daily-postcard" component={DailyPostcard} />
+        <Route path="/video-slideshows" component={VideoSlideshows} />
         <Route component={NotFound} />
       </Switch>
     </MainLayout>

@@ -28,17 +28,22 @@ export class KeywordSearchEngine {
     // Lose 2 points per hour, max 50 points lost
     score -= Math.min(50, hoursOld * 2);
 
-    // 2. Intent Bonuses
+    // 2. Intent Bonuses (high-intent signals)
     if (content.includes("?")) score += 20; // Questions are high intent
     if (lowerContent.includes("recommend") || lowerContent.includes("suggestion")) score += 15;
     if (lowerContent.includes("help") || lowerContent.includes("advice")) score += 15;
     if (lowerContent.includes("plan") || lowerContent.includes("trip")) score += 10;
+    if (lowerContent.includes("itinerary")) score += 15; // Very high intent
+    if (lowerContent.includes("budget") || lowerContent.includes("cost")) score += 10;
+    if (lowerContent.includes("first time")) score += 15; // First-timers need guidance
 
     // 3. Opportunity Score (Low replies = better opportunity to be seen)
-    // If it has > 10 replies, it's crowded.
-    if (replies === 0) score += 10; // First mover advantage
-    else if (replies > 10) score -= 10; // Crowded
-    else if (replies > 50) score -= 30; // Very crowded
+    // Enhanced: Give bigger bonus to truly unanswered questions
+    if (replies === 0) score += 25; // Huge bonus for unanswered - first mover advantage!
+    else if (replies <= 2) score += 15; // Low competition
+    else if (replies <= 5) score += 5;  // Moderate
+    else if (replies > 10) score -= 20; // Too crowded - harder to be seen
+    else if (replies > 50) score -= 40; // Very crowded - probably viral, skip
 
     return Math.round(score);
   }
@@ -169,9 +174,43 @@ export class KeywordSearchEngine {
           continue;
         }
 
+        // 4. Filter out brand/promotional accounts
+        const authorUsername = (author?.username || '').toLowerCase();
+        const authorName = (author?.name || '').toLowerCase();
+        const authorDescription = (author?.description || '').toLowerCase();
+
+        // Brand indicators in username or name
+        const BRAND_KEYWORDS = [
+          'travel', 'tours', 'agency', 'booking', 'hotel', 'resort',
+          'official', 'promo', 'deals', 'discount', 'airline',
+          'cruises', 'vacations', 'holidays', 'getaway'
+        ];
+
+        const isBrandAccount = BRAND_KEYWORDS.some(keyword =>
+          authorUsername.includes(keyword) ||
+          authorName.includes(keyword) ||
+          authorDescription.includes(keyword)
+        );
+
+        if (isBrandAccount) {
+          console.log(`Skipping brand account: @${author?.username}`);
+          filteredCount++;
+          continue;
+        }
+
         const createdAt = new Date(tweet.created_at || new Date());
         const metrics = tweet.public_metrics || {};
         const replyCount = metrics.reply_count || 0;
+
+        // Calculate base score
+        let score = this.calculateRelevanceScore(tweet.text, createdAt, replyCount);
+
+        // 5. Adjust score based on account size (prioritize real people)
+        const followerCount = author?.public_metrics?.followers_count || 0;
+        if (followerCount < 500) score += 15;       // Small account = likely real person
+        else if (followerCount < 1000) score += 10; // Still small
+        else if (followerCount > 50000) score -= 15; // Influencer - less likely to engage
+        else if (followerCount > 100000) score -= 25; // Big influencer - skip
 
         results.push({
           platform: 'twitter',
@@ -180,7 +219,7 @@ export class KeywordSearchEngine {
           content: tweet.text,
           url: `https://twitter.com/${author?.username || 'unknown'}/status/${tweet.id}`,
           createdAt: createdAt,
-          score: this.calculateRelevanceScore(tweet.text, createdAt, replyCount),
+          score: Math.round(score),
           metadata: {
             likes: metrics.like_count,
             replies: metrics.reply_count,

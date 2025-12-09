@@ -11,12 +11,55 @@ if (!apiKey) {
 }
 const genAI = new GoogleGenAI({ apiKey: apiKey || "dummy" });
 
-// ... imports
+// Helper function to calculate text similarity (Jaccard-like similarity based on word overlap)
+function calculateSimilarity(text1: string, text2: string): number {
+    if (!text1 || !text2) return 0;
+    if (text1 === text2) return 1;
+
+    const words1 = text1.split(' ').filter(w => w.length > 2);
+    const words2 = text2.split(' ').filter(w => w.length > 2);
+
+    if (words1.length === 0 || words2.length === 0) return 0;
+
+    const set2 = new Set(words2);
+    const intersection = words1.filter(w => set2.has(w));
+    const unionSize = new Set([...words1, ...words2]).size;
+
+    return intersection.length / unionSize;
+}
+
+// Verify travel intent using Gemini AI
+// Returns true if the tweet is genuinely about travel planning
+async function verifyTravelIntent(tweetText: string): Promise<boolean> {
+    try {
+        const prompt = `Analyze this social media post and determine if it's a GENUINE travel planning inquiry where someone is asking for help, recommendations, or advice about visiting a destination.
+
+Post: "${tweetText}"
+
+Answer with ONLY "YES" or "NO":
+- YES = They are genuinely planning a trip or asking for travel help/recommendations
+- NO = Casual mention of a place, astrology/horoscope, promotional content, news, jokes, or not actually seeking travel advice
+
+Answer:`;
+
+        const result = await genAI.models.generateContent({
+            model: "gemini-2.0-flash",
+            contents: prompt,
+        });
+
+        const answer = result.text?.trim().toUpperCase() || "NO";
+        return answer.startsWith("YES");
+    } catch (error) {
+        console.error("Error verifying travel intent:", error);
+        // On error, default to allowing (don't block due to API issues)
+        return true;
+    }
+}
 
 export async function generateDraft(tweet: { id: string; text: string; author_id?: string }, authorHandle: string): Promise<boolean> {
     console.log(`Drafting reply for tweet ${tweet.id} from ${authorHandle}`);
 
-    // Check if draft already exists
+    // Check if draft already exists for this exact tweet
     const existing = await db.query.postcardDrafts.findFirst({
         where: eq(postcardDrafts.originalTweetId, tweet.id),
     });
@@ -26,7 +69,47 @@ export async function generateDraft(tweet: { id: string; text: string; author_id
         return false;
     }
 
+    // SPAM DETECTION: Check for duplicate/similar tweet text from different users
+    // This catches spam campaigns where bots post identical content from multiple accounts
+    const normalizedText = tweet.text
+        .toLowerCase()
+        .replace(/https?:\/\/\S+/g, '') // Remove URLs
+        .replace(/\s+/g, ' ')           // Normalize whitespace
+        .trim();
+
+    // Get recent drafts to check for similarity (last 100)
+    const recentDrafts = await db.query.postcardDrafts.findMany({
+        limit: 100,
+        orderBy: (drafts, { desc }) => [desc(drafts.createdAt)],
+    });
+
+    for (const draft of recentDrafts) {
+        if (!draft.originalTweetText) continue;
+
+        const existingNormalized = draft.originalTweetText
+            .toLowerCase()
+            .replace(/https?:\/\/\S+/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        // Check for very similar text (90% similarity or exact match)
+        const similarity = calculateSimilarity(normalizedText, existingNormalized);
+        if (similarity > 0.9) {
+            console.log(`⚠️ Spam detected: Tweet "${tweet.text.substring(0, 50)}..." is ${Math.round(similarity * 100)}% similar to existing draft. Skipping.`);
+            return false;
+        }
+    }
+
     const drafter = new PostcardDrafter();
+
+    // 0. Verify Travel Intent (AI check to filter out astrology, casual mentions, etc.)
+    console.log("Verifying travel intent...");
+    const hasTravelIntent = await verifyTravelIntent(tweet.text);
+    if (!hasTravelIntent) {
+        console.log("❌ No travel intent detected (astrology, promotional, or casual mention). Skipping.");
+        return false;
+    }
+    console.log("✅ Travel intent verified.");
 
     // 1. Analyze Tweet for Location
     const location = await drafter.extractLocation(tweet.text);
@@ -85,7 +168,7 @@ export class PostcardDrafter {
         let attribution = null;
 
         // Use localhost:5003 as default for dev environment
-        const turaiApiUrl = process.env.TURAI_API_URL || "http://localhost:5001";
+        const turaiApiUrl = process.env.TURAI_API_URL || "http://localhost:5002";
         const turaiApiKey = process.env.TURAI_API_KEY || "any-key-for-dev";
 
         try {

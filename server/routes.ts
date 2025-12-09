@@ -8,6 +8,9 @@ import { keywordSearchEngine } from "./keyword-search";
 import { postcardDrafter, generateDraft } from "./services/postcard_drafter";
 import { publishDraft } from "./services/twitter_publisher";
 import { sniperManager } from "./services/sniper_manager";
+import { generateDailyPostcard, previewDailyPostcard, generatePostcardForDestination, getAvailableDestinations } from "./services/daily_postcard";
+import { startDailyPostcardScheduler, getSchedulerStatus } from "./services/daily_postcard_scheduler";
+import { generateVideoSlideshow, getVideoDestinations, previewVideoSlideshow, listGeneratedVideos } from "./services/video_slideshow";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Simple authentication middleware
   const isAuthenticated = (req: any, res: any, next: any) => {
@@ -844,6 +847,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // Daily Postcard Feature
+  // ============================================
+
+  // Preview today's postcard (doesn't post)
+  app.get("/api/daily-postcard/preview", async (req, res) => {
+    try {
+      const result = await previewDailyPostcard();
+      res.json(result);
+    } catch (error) {
+      console.error("Daily postcard preview failed:", error);
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // Generate and POST today's postcard to Twitter
+  app.post("/api/daily-postcard/post", async (req, res) => {
+    try {
+      const result = await generateDailyPostcard(true); // autoPost = true
+      res.json(result);
+    } catch (error) {
+      console.error("Daily postcard post failed:", error);
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // Generate postcard for a specific destination
+  app.post("/api/daily-postcard/custom", async (req, res) => {
+    try {
+      const { destination, autoPost = false } = req.body;
+      if (!destination) {
+        return res.status(400).json({ success: false, error: "destination is required" });
+      }
+      const result = await generatePostcardForDestination(destination, autoPost);
+      res.json(result);
+    } catch (error) {
+      console.error("Custom postcard failed:", error);
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // Get list of available destinations
+  app.get("/api/daily-postcard/destinations", (req, res) => {
+    res.json({ destinations: getAvailableDestinations() });
+  });
+
+  // Get scheduler status
+  app.get("/api/daily-postcard/scheduler-status", (req, res) => {
+    res.json(getSchedulerStatus());
+  });
+
+  // ============================================
+  // VIDEO SLIDESHOW ENDPOINTS
+  // ============================================
+
+  // Get list of available destinations for video generation
+  app.get("/api/video-slideshow/destinations", (req, res) => {
+    res.json({ destinations: getVideoDestinations() });
+  });
+
+  // Preview video generation info (without actually generating)
+  app.get("/api/video-slideshow/preview/:destination", async (req, res) => {
+    try {
+      const { destination } = req.params;
+      const preview = await previewVideoSlideshow(decodeURIComponent(destination));
+      res.json(preview);
+    } catch (error) {
+      console.error("Video preview failed:", error);
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
+  // Generate a video slideshow (long-running operation)
+  app.post("/api/video-slideshow/generate", async (req, res) => {
+    try {
+      const { destination, duration = 60, theme = 'general' } = req.body;
+
+      if (!destination) {
+        return res.status(400).json({ error: "destination is required" });
+      }
+
+      console.log(`🎬 Video generation requested for: ${destination}`);
+
+      // Start generation (this will take a while)
+      const result = await generateVideoSlideshow(destination, { duration, theme });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Video generation failed:", error);
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // List all generated videos
+  app.get("/api/video-slideshow/videos", (req, res) => {
+    try {
+      const videos = listGeneratedVideos();
+      res.json({ videos });
+    } catch (error) {
+      console.error("Failed to list videos:", error);
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
   // Keyword search endpoints
   app.post("/api/keywords/search", isAuthenticated, async (req, res) => {
     try {
@@ -1204,6 +1311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ...(post.platformData as Record<string, any>),
             twitter: {
               id: tweet.data.id,
+              tweetId: tweet.data.id, // Added for consistency with sniper flow
               url: tweetUrl,
               text: tweet.data.text,
               publishedAt: new Date().toISOString(),
@@ -1404,8 +1512,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/postcard-drafts", async (req, res) => {
     try {
       const drafts = await storage.getPostcardDrafts();
-      // Filter for pending drafts
-      const pendingDrafts = drafts.filter(d => d.status === "pending_review");
+      // Filter for pending drafts with score > 40 (eliminate low-quality leads)
+      // Also include pending_retry drafts so users can see and retry them
+      const pendingDrafts = drafts.filter(d =>
+        (d.status === "pending_review" || d.status === "pending_retry") &&
+        (d.score || 0) > 40
+      );
       res.json(pendingDrafts);
     } catch (error) {
       console.error("Error fetching postcard drafts:", error);
@@ -1460,8 +1572,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.json({ message: "Draft published successfully", tweetId: result.tweetId });
       } else {
-        await storage.updatePostcardDraft(id, { status: "failed" });
-        res.status(500).json({ message: "Failed to publish draft", error: result.error });
+        // Track publish attempts for retry mechanism
+        const attempts = (draft.publishAttempts || 0) + 1;
+        const isRateLimitError = result.error?.includes('429') || result.error?.includes('rate limit');
+
+        if (attempts < 3 && isRateLimitError) {
+          // Rate limit error - allow retry
+          await storage.updatePostcardDraft(id, {
+            status: "pending_retry",
+            publishAttempts: attempts,
+            lastError: result.error
+          });
+          res.status(429).json({
+            message: "Rate limited by Twitter. Draft queued for retry.",
+            error: result.error,
+            attempts: attempts,
+            canRetry: true
+          });
+        } else if (attempts >= 3) {
+          // Max retries exceeded - permanent failure
+          await storage.updatePostcardDraft(id, {
+            status: "failed",
+            publishAttempts: attempts,
+            lastError: result.error
+          });
+          res.status(500).json({
+            message: "Failed to publish after 3 attempts",
+            error: result.error,
+            attempts: attempts,
+            canRetry: false
+          });
+        } else {
+          // Other error - immediate failure
+          await storage.updatePostcardDraft(id, {
+            status: "failed",
+            publishAttempts: attempts,
+            lastError: result.error
+          });
+          res.status(500).json({ message: "Failed to publish draft", error: result.error });
+        }
       }
     } catch (error) {
       console.error("Error approving draft:", error);

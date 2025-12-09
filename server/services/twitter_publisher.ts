@@ -4,9 +4,24 @@ const require = createRequire(import.meta.url);
 import { PostcardDraft } from "@shared/schema";
 import { storage } from "../storage";
 
+// Rate limiting to prevent Twitter 429 errors
+const MIN_DELAY_BETWEEN_TWEETS_MS = 30000; // 30 seconds
+let lastTweetTimestamp = 0;
+
+async function waitForRateLimit(): Promise<void> {
+    const now = Date.now();
+    const elapsed = now - lastTweetTimestamp;
+    if (elapsed < MIN_DELAY_BETWEEN_TWEETS_MS && lastTweetTimestamp > 0) {
+        const waitTime = MIN_DELAY_BETWEEN_TWEETS_MS - elapsed;
+        console.log(`⏳ Rate limiting: waiting ${Math.round(waitTime / 1000)}s before next tweet...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+}
 export async function publishDraft(draft: PostcardDraft) {
     console.log(`Starting publish for draft ${draft.id}`);
     try {
+        // Wait for rate limit cooldown before attempting to publish
+        await waitForRateLimit();
         // Try to get credentials from DB first, fall back to env vars
         const twitterConnection = await storage.getPlatformConnection("twitter");
         const dbCreds = twitterConnection?.credentials || {};
@@ -66,12 +81,53 @@ export async function publishDraft(draft: PostcardDraft) {
 
         console.log(`Image prepared, size: ${buffer.length} bytes, type: ${mimeType}. Uploading to Twitter...`);
 
-        // Upload media using v1 API (Buffer method is safest for Replit)
-        mediaId = await client.v1.uploadMedia(buffer, { mimeType });
-        console.log(`Media uploaded successfully, ID: ${mediaId}`);
+        // Validate buffer before upload
+        if (buffer.length < 1000) {
+            throw new Error(`Image too small (${buffer.length} bytes) - likely a failed download`);
+        }
+
+        // Upload media using v1 API (Buffer method is safest)
+        try {
+            mediaId = await client.v1.uploadMedia(buffer, { mimeType });
+            console.log(`Media uploaded successfully, ID: ${mediaId}`);
+        } catch (uploadError: any) {
+            // If upload fails with segment error, retry with fresh download
+            if (uploadError.code === 131 || uploadError.message?.includes('Segments')) {
+                console.log('⚠️ Segment error, retrying with fresh image download...');
+
+                // Wait a bit and re-download the image
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                const retryResponse = await fetch(draft.turaiImageUrl!);
+                if (!retryResponse.ok) throw new Error(`Retry download failed: ${retryResponse.statusText}`);
+
+                const retryBuffer = Buffer.from(await retryResponse.arrayBuffer());
+                console.log(`Retry image size: ${retryBuffer.length} bytes`);
+
+                mediaId = await client.v1.uploadMedia(retryBuffer, { mimeType });
+                console.log(`Retry upload successful, ID: ${mediaId}`);
+            } else {
+                throw uploadError;
+            }
+        }
 
         // 2. Prepare the Payload
-        let tweetText = draft.draftReplyText;
+        let tweetText = draft.draftReplyText || "";
+
+        // IMPORTANT: Prepend @mention for proper reply threading
+        // Twitter API v2 should handle this with in_reply_to_tweet_id, but explicit mentions
+        // help with visibility and reduce spam filter issues
+        if (draft.originalTweetId && draft.originalAuthorHandle) {
+            const authorHandle = draft.originalAuthorHandle.startsWith('@')
+                ? draft.originalAuthorHandle
+                : `@${draft.originalAuthorHandle}`;
+
+            // Only prepend if not already mentioned at the start
+            if (!tweetText.toLowerCase().startsWith(authorHandle.toLowerCase())) {
+                tweetText = `${authorHandle} ${tweetText}`;
+            }
+        }
+
         if (draft.imageAttribution) {
             tweetText += `\n\n📸 ${draft.imageAttribution}`;
         }
@@ -81,7 +137,9 @@ export async function publishDraft(draft: PostcardDraft) {
             media: { media_ids: [mediaId] }
         };
 
-        if (draft.originalTweetId) {
+        // Only add reply field if originalTweetId is a valid numeric tweet ID
+        // (Daily postcards use non-numeric IDs like "daily-..." for standalone posts)
+        if (draft.originalTweetId && /^\d+$/.test(draft.originalTweetId)) {
             payload.reply = { in_reply_to_tweet_id: draft.originalTweetId };
         }
 
@@ -121,6 +179,9 @@ export async function publishDraft(draft: PostcardDraft) {
         }
 
         console.log(`Tweet published! ID: ${result.data.id}`);
+
+        // Update rate limit timestamp after successful tweet
+        lastTweetTimestamp = Date.now();
 
         return { success: true, tweetId: result.data.id };
     } catch (error: any) {

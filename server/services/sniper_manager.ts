@@ -6,15 +6,39 @@ export class SniperManager {
     private isRunning = false;
     private checkIntervalMs = 5 * 60 * 1000; // 5 Minutes (Safe Rate Limit for Search)
 
-    // Default keywords to hunt for
+    // Intent-focused keywords to find genuine travel planning questions
+    // More specific phrases = higher quality leads
     private keywords = [
+        // High-intent questions (people actively seeking help)
+        "where should I stay in",
+        "recommendations for visiting",
+        "first time visiting",
+        "itinerary help",
+        "travel advice for",
+
+        // Planning with context (indicates genuine research)
         "planning a trip to",
-        "visiting",
-        "travel recommendations",
-        "vacation in",
-        "holiday in",
-        "headed to",
-        "going to"
+        "how many days in",
+        "worth visiting",
+        "must see in",
+
+        // Budget/logistics (serious travelers)
+        "best time to visit",
+        "anyone been to",
+
+        // VIRAL MOMENT KEYWORDS (high engagement opportunities)
+        // These catch trending travel content like the Mexico/Mariachi post
+        "vacation in Mexico",
+        "vacation in Italy",
+        "vacation in Japan",
+        "vacation in Paris",
+        "vacation in Thailand",
+        "traveling to Spain",
+        "trip to Bali",
+        "visiting Greece",
+        "just got back from",
+        "travel fail",
+        "vacation was amazing",
     ];
 
     private dailyLimit = 500; // Increased for Ranking Mode
