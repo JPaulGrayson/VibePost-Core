@@ -206,3 +206,86 @@ export async function publishDraft(draft: PostcardDraft) {
         return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
 }
+
+/**
+ * Publish a tweet with a video file
+ * Uses chunked upload for video (required by Twitter)
+ */
+export async function publishDraftWithVideo(
+    videoPath: string,
+    text: string,
+    replyToTweetId?: string
+): Promise<{ success: boolean; tweetId?: string; error?: string }> {
+    console.log(`Starting video publish: ${videoPath}`);
+
+    try {
+        // Wait for rate limit cooldown
+        await waitForRateLimit();
+
+        // Get credentials
+        const twitterConnection = await storage.getPlatformConnection("twitter");
+        const dbCreds = twitterConnection?.credentials || {};
+
+        const appKey = dbCreds.apiKey || process.env.TWITTER_API_KEY;
+        const appSecret = dbCreds.apiSecret || process.env.TWITTER_API_SECRET;
+        const accessToken = dbCreds.accessToken || process.env.TWITTER_ACCESS_TOKEN;
+        const accessSecret = dbCreds.accessTokenSecret || process.env.TWITTER_ACCESS_TOKEN_SECRET;
+
+        if (!appKey || !appSecret || !accessToken || !accessSecret) {
+            throw new Error("Missing Twitter API credentials");
+        }
+
+        const client = new TwitterApi({
+            appKey,
+            appSecret,
+            accessToken,
+            accessSecret,
+        });
+
+        // Read video file
+        const fs = await import('fs');
+        const videoBuffer = fs.readFileSync(videoPath);
+        const videoSize = videoBuffer.length;
+
+        console.log(`Uploading video: ${(videoSize / 1024 / 1024).toFixed(2)} MB`);
+
+        // Upload video using chunked upload (required for videos)
+        const mediaId = await client.v1.uploadMedia(videoBuffer, {
+            mimeType: 'video/mp4',
+            target: 'tweet',
+            longVideo: videoSize > 15 * 1024 * 1024 // For videos > 15MB
+        });
+
+        console.log(`Video uploaded, media ID: ${mediaId}`);
+
+        // Build tweet payload
+        const tweetPayload: any = {
+            text,
+            media: { media_ids: [mediaId] }
+        };
+
+        if (replyToTweetId) {
+            tweetPayload.reply = { in_reply_to_tweet_id: replyToTweetId };
+        }
+
+        console.log(`Sending tweet with video...`);
+        const result = await client.v2.tweet(tweetPayload);
+
+        console.log(`Video tweet published! ID: ${result.data.id}`);
+        lastTweetTimestamp = Date.now();
+
+        return { success: true, tweetId: result.data.id };
+
+    } catch (error: any) {
+        console.error("Error publishing video:", error);
+
+        if (error.data) {
+            console.error("Twitter API Error:", JSON.stringify(error.data, null, 2));
+        }
+
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error"
+        };
+    }
+}

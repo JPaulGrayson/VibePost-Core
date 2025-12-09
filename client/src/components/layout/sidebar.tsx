@@ -15,7 +15,8 @@ import {
   Inbox,
   Sparkles,
   Sunrise,
-  Film
+  Film,
+  Link2
 } from "lucide-react";
 
 import { SiDiscord, SiReddit } from "react-icons/si";
@@ -35,6 +36,7 @@ export default function Sidebar() {
     { href: "/campaigns", icon: Target, label: "Campaigns", active: location === "/campaigns" },
     { href: "/sniper-queue", icon: Sparkles, label: "Wizard's Tower", active: location === "/sniper-queue" },
     { href: "/daily-postcard", icon: Sunrise, label: "Daily Postcard", active: location === "/daily-postcard" },
+    { href: "/thread-tours", icon: Link2, label: "Thread Tours", active: location === "/thread-tours" },
     { href: "/video-slideshows", icon: Film, label: "Video Slideshows", active: location === "/video-slideshows" },
     { href: "/topic-search", icon: Search, label: "Topic Search", active: location === "/topic-search" || location === "/search" },
     { href: "/analytics", icon: BarChart3, label: "Analytics", active: location === "/analytics" },

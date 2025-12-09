@@ -11,6 +11,8 @@ import { sniperManager } from "./services/sniper_manager";
 import { generateDailyPostcard, previewDailyPostcard, generatePostcardForDestination, getAvailableDestinations } from "./services/daily_postcard";
 import { startDailyPostcardScheduler, getSchedulerStatus } from "./services/daily_postcard_scheduler";
 import { generateVideoSlideshow, getVideoDestinations, previewVideoSlideshow, listGeneratedVideos } from "./services/video_slideshow";
+import { postThreadTour, getThreadTourDestinations, getTodaysThreadDestination, fetchFamousTours } from "./services/thread_tour";
+import { getThreadTourSchedulerStatus, setNextThreadDestination, clearNextThreadDestination } from "./services/thread_tour_scheduler";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Simple authentication middleware
   const isAuthenticated = (req: any, res: any, next: any) => {
@@ -949,6 +951,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Failed to list videos:", error);
       res.status(500).json({ error: String(error) });
     }
+  });
+
+  // ===== THREAD TOUR ENDPOINTS =====
+
+  // Get thread tour scheduler status
+  app.get("/api/thread-tour/scheduler-status", (req, res) => {
+    const status = getThreadTourSchedulerStatus();
+    res.json(status);
+  });
+
+  // Get available destinations for thread tours
+  app.get("/api/thread-tour/destinations", (req, res) => {
+    res.json({
+      destinations: getThreadTourDestinations(),
+      todaysDestination: getTodaysThreadDestination()
+    });
+  });
+
+  // Get famous tours from Turai
+  app.get("/api/thread-tour/famous-tours", async (req, res) => {
+    try {
+      const tours = await fetchFamousTours();
+      res.json({ tours });
+    } catch (error) {
+      console.error("Failed to fetch famous tours:", error);
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
+  // Post a thread tour manually
+  app.post("/api/thread-tour/post", async (req, res) => {
+    try {
+      const { destination, maxStops = 5, theme = 'hidden_gems', shareCode } = req.body;
+
+      if (!destination && !shareCode) {
+        return res.status(400).json({ error: "Destination or shareCode required" });
+      }
+
+      const result = await postThreadTour(destination || 'Auto', {
+        maxStops,
+        theme,
+        existingShareCode: shareCode
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Thread tour post failed:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Set next scheduled destination
+  app.post("/api/thread-tour/set-next", (req, res) => {
+    const { destination } = req.body;
+
+    if (!destination) {
+      return res.status(400).json({ error: "Destination required" });
+    }
+
+    setNextThreadDestination(destination);
+    res.json({
+      success: true,
+      message: `Next thread tour set to: ${destination}`,
+      status: getThreadTourSchedulerStatus()
+    });
+  });
+
+  // Clear custom next destination (revert to auto)
+  app.post("/api/thread-tour/clear-next", (req, res) => {
+    clearNextThreadDestination();
+    res.json({
+      success: true,
+      message: "Reverted to automatic destination selection",
+      status: getThreadTourSchedulerStatus()
+    });
   });
 
   // Keyword search endpoints

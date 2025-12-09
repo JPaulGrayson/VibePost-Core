@@ -72,6 +72,14 @@ import { twitterListener } from "./services/twitter_listener";
     console.error("Failed to start Daily Postcard Scheduler:", error);
   }
 
+  // Start Thread Tour Scheduler (Auto-posts thread tours at 6 PM daily)
+  try {
+    const { startThreadTourScheduler } = await import("./services/thread_tour_scheduler");
+    startThreadTourScheduler();
+  } catch (error) {
+    console.error("Failed to start Thread Tour Scheduler:", error);
+  }
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
