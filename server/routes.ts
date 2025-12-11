@@ -212,11 +212,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return data.tweetId || data.id;
       }).filter(id => id && id !== 'unknown' && /^\d+$/.test(id)); // Validate IDs are numeric
 
-      // 2. Fetch all Twitter metrics in ONE batch request
+      // 2. Fetch Twitter metrics in batches of 100 (API limit)
       let twitterMetricsMap: Record<string, any> = {};
       if (twitterIds.length > 0) {
         try {
-          twitterMetricsMap = await fetchTwitterMetricsBatch(twitterIds);
+          // Split into chunks of 100 (Twitter API limit)
+          const chunkSize = 100;
+          for (let i = 0; i < twitterIds.length; i += chunkSize) {
+            const chunk = twitterIds.slice(i, i + chunkSize);
+            console.log(`[Metrics] Fetching batch ${Math.floor(i / chunkSize) + 1}/${Math.ceil(twitterIds.length / chunkSize)} (${chunk.length} IDs)...`);
+            const chunkMetrics = await fetchTwitterMetricsBatch(chunk);
+            twitterMetricsMap = { ...twitterMetricsMap, ...chunkMetrics };
+          }
         } catch (error) {
           console.error("Failed to fetch batch Twitter metrics:", error);
         }
