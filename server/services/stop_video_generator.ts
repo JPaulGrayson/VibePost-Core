@@ -116,22 +116,38 @@ export async function createStopVideo(
         console.log(`   📥 Downloading audio...`);
         await downloadFile(audioUrl, audioPath);
 
-        // Get audio duration to calculate image timing
+        // Get audio duration
         const audioDuration = await getAudioDuration(audioPath);
         console.log(`   ⏱️ Audio duration: ${audioDuration.toFixed(1)}s`);
 
-        // Step 2: Download photos (use first 3-4)
-        const maxPhotos = Math.min(photos.length, 4);
+        // Step 2: Download photos (max 6 for ~60 second video at 10s each)
+        const maxPhotos = Math.min(photos.length, 6);
         const photoPaths: string[] = [];
+
+        // Debug: Show first 6 photo URLs
+        console.log(`   📷 Photo URLs (first ${maxPhotos}):`);
+        for (let i = 0; i < maxPhotos; i++) {
+            const urlPreview = photos[i].substring(0, 80);
+            console.log(`      ${i + 1}: ${urlPreview}...`);
+        }
 
         for (let i = 0; i < maxPhotos; i++) {
             const photoPath = `${tempPrefix}photo${i}.jpg`;
             console.log(`   📥 Downloading photo ${i + 1}/${maxPhotos}...`);
             try {
                 await downloadFile(photos[i], photoPath);
-                photoPaths.push(photoPath);
+                // Verify the file exists and has content
+                if (fs.existsSync(photoPath)) {
+                    const size = fs.statSync(photoPath).size;
+                    if (size > 0) {
+                        console.log(`      ✓ Size: ${(size / 1024).toFixed(1)}KB`);
+                        photoPaths.push(photoPath);
+                    } else {
+                        console.warn(`      ⚠️ Empty file`);
+                    }
+                }
             } catch (error) {
-                console.warn(`   ⚠️ Failed to download photo ${i + 1}`);
+                console.warn(`   ⚠️ Failed to download photo ${i + 1}: ${error}`);
             }
         }
 
@@ -139,67 +155,48 @@ export async function createStopVideo(
             return { success: false, error: 'No photos available' };
         }
 
-        // Step 3: Create video with smooth zoom on first image
-        // Using single image approach for reliability - smoother playback
-        console.log(`   🎥 Generating video (using primary image with smooth zoom)...`);
-        const primaryImage = photoPaths[0];
+        // Step 3: Create video with multiple images (Ken Burns on each)
+        console.log(`   🎥 Creating multi-image video with ${photoPaths.length} photos...`);
 
-        await new Promise<void>((resolve, reject) => {
-            ffmpeg()
-                .input(primaryImage)
-                .inputOptions(['-loop', '1'])
-                .input(audioPath)
-                .complexFilter([
-                    // Scale and add gentle zoom effect
-                    `[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,` +
-                    `pad=1920:1080:(ow-iw)/2:(oh-ih)/2,` +
-                    `zoompan=z='min(zoom+0.0003,1.15)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${Math.ceil(audioDuration * 25)}:s=1920x1080:fps=25[vout]`
-                ])
-                .outputOptions([
-                    '-map', '[vout]',
-                    '-map', '1:a',
-                    '-c:v', 'libx264',
-                    '-preset', 'medium',
-                    '-crf', '23',
-                    '-c:a', 'aac',
-                    '-b:a', '128k',
-                    '-shortest',
-                    '-pix_fmt', 'yuv420p',
-                    '-movflags', '+faststart' // Better for streaming
-                ])
-                .output(outputPath)
-                .on('start', () => {
-                    console.log(`   🔧 FFmpeg started...`);
-                })
-                .on('progress', (progress: any) => {
-                    if (progress.percent && progress.percent > 0) {
-                        const pct = Math.min(100, progress.percent);
-                        process.stdout.write(`\r   ⏳ Encoding: ${pct.toFixed(0)}%`);
-                    }
-                })
-                .on('end', () => {
-                    console.log(`\n   ✅ Video created successfully`);
-                    resolve();
-                })
-                .on('error', (err: Error) => {
-                    console.error(`\n   ❌ FFmpeg error:`, err.message);
-                    reject(err);
-                })
-                .run();
-        });
+        // Calculate timing - target 10 seconds per photo, but adjust to match audio
+        const targetSecondsPerPhoto = 10;
+        const totalPhotoTime = photoPaths.length * targetSecondsPerPhoto;
+
+        // If audio is shorter than our photo time, adjust
+        const actualSecondsPerPhoto = Math.min(
+            targetSecondsPerPhoto,
+            audioDuration / photoPaths.length
+        );
+
+        // Cap video at 60 seconds
+        const videoDuration = Math.min(60, audioDuration);
+        const framesPerPhoto = Math.ceil(actualSecondsPerPhoto * 25);
+
+        try {
+            // Multi-image approach: Create complex filter for each image
+            await createMultiImageVideo(
+                photoPaths,
+                audioPath,
+                outputPath,
+                actualSecondsPerPhoto,
+                videoDuration
+            );
+        } catch (multiError) {
+            console.log(`   ⚠️ Multi-image failed, falling back to primary image...`);
+            // Fallback to single image
+            await createSingleImageVideo(
+                photoPaths[0],
+                audioPath,
+                outputPath,
+                videoDuration
+            );
+        }
 
         // Step 4: Cleanup temp files
         console.log(`   🧹 Cleaning up...`);
-        try {
-            fs.unlinkSync(audioPath);
-            photoPaths.forEach(p => {
-                try { fs.unlinkSync(p); } catch (e) { }
-            });
-        } catch (e) {
-            // Ignore cleanup errors
-        }
+        cleanupTempFiles([audioPath, ...photoPaths]);
 
-        // Verify output exists
+        // Verify output
         if (!fs.existsSync(outputPath)) {
             return { success: false, error: 'Video file not created' };
         }
@@ -216,6 +213,168 @@ export async function createStopVideo(
             error: error instanceof Error ? error.message : 'Unknown error'
         };
     }
+}
+
+/**
+ * Create video with multiple images, each with Ken Burns effect
+ */
+async function createMultiImageVideo(
+    photoPaths: string[],
+    audioPath: string,
+    outputPath: string,
+    secondsPerPhoto: number,
+    maxDuration: number
+): Promise<void> {
+    return new Promise((resolve, reject) => {
+        // Build filter for each image - using xfade for crossfade transitions
+        const filters: string[] = [];
+
+        // First, scale each image to FILL frame (no black borders), add Ken Burns, then trim
+        photoPaths.forEach((_, i) => {
+            // Alternate zoom direction for visual variety
+            const zoomDir = i % 2 === 0 ? 'in' : 'out';
+            const zoomExpr = zoomDir === 'in'
+                ? `'min(zoom+0.0003,1.1)'`
+                : `'if(eq(on,1),1.1,max(zoom-0.0003,1.0))'`;
+
+            filters.push(
+                // Scale to FILL 1920x1080 (crops excess, no black bars)
+                `[${i}:v]scale=1920:1080:force_original_aspect_ratio=increase,` +
+                `crop=1920:1080,setsar=1,fps=25,` +
+                // Add Ken Burns slow zoom effect
+                `zoompan=z=${zoomExpr}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':` +
+                `d=${Math.ceil(secondsPerPhoto * 25)}:s=1920x1080:fps=25,` +
+                `trim=duration=${secondsPerPhoto},setpts=PTS-STARTPTS[v${i}]`
+            );
+        });
+
+        // Chain xfade transitions between images
+        if (photoPaths.length === 1) {
+            // Single image - just use it directly
+            filters.push(`[v0]null[vout]`);
+        } else if (photoPaths.length === 2) {
+            // Two images - one xfade
+            filters.push(`[v0][v1]xfade=transition=fade:duration=0.5:offset=${secondsPerPhoto - 0.5}[vout]`);
+        } else {
+            // Multiple images - chain xfades with ACCUMULATING offset
+            let lastOut = 'v0';
+            let accumulatedDuration = secondsPerPhoto; // Start with first image duration
+
+            for (let i = 1; i < photoPaths.length; i++) {
+                const outLabel = i === photoPaths.length - 1 ? 'vout' : `xf${i}`;
+                // Offset is when the xfade starts (current accumulated time minus fade duration)
+                const offset = accumulatedDuration - 0.5;
+                filters.push(`[${lastOut}][v${i}]xfade=transition=fade:duration=0.5:offset=${offset}[${outLabel}]`);
+                lastOut = outLabel;
+                // Add next image duration (minus overlap from fade)
+                accumulatedDuration += secondsPerPhoto - 0.5;
+            }
+            console.log(`   ⏱️ Expected video duration: ~${accumulatedDuration.toFixed(1)}s for ${photoPaths.length} photos`);
+        }
+
+        let command = ffmpeg();
+
+        // Add each image as input
+        photoPaths.forEach(photoPath => {
+            command = command.input(photoPath).inputOptions(['-loop', '1']);
+        });
+
+        // Add audio
+        command = command.input(audioPath);
+
+        command
+            .complexFilter(filters.join(';'))
+            .outputOptions([
+                '-map', '[vout]',
+                '-map', `${photoPaths.length}:a`,
+                '-c:v', 'libx264',
+                '-preset', 'fast',
+                '-crf', '23',
+                '-c:a', 'aac',
+                '-b:a', '128k',
+                '-t', String(maxDuration),
+                '-shortest',
+                '-pix_fmt', 'yuv420p',
+                '-movflags', '+faststart'
+            ])
+            .output(outputPath)
+            .on('start', () => {
+                console.log(`   🔧 FFmpeg multi-image started...`);
+            })
+            .on('progress', (progress: any) => {
+                if (progress.percent && progress.percent > 0) {
+                    const pct = Math.min(100, progress.percent);
+                    process.stdout.write(`\r   ⏳ Encoding: ${pct.toFixed(0)}%`);
+                }
+            })
+            .on('end', () => {
+                console.log(`\n   ✅ Multi-image video created`);
+                resolve();
+            })
+            .on('error', (err: Error) => {
+                console.error(`\n   ❌ Multi-image FFmpeg error:`, err.message);
+                reject(err);
+            })
+            .run();
+    });
+}
+
+/**
+ * Fallback: Create video with single image and Ken Burns
+ */
+async function createSingleImageVideo(
+    imagePath: string,
+    audioPath: string,
+    outputPath: string,
+    maxDuration: number
+): Promise<void> {
+    return new Promise((resolve, reject) => {
+        ffmpeg()
+            .input(imagePath)
+            .inputOptions(['-loop', '1'])
+            .input(audioPath)
+            .complexFilter([
+                `[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,` +
+                `pad=1920:1080:(ow-iw)/2:(oh-ih)/2,` +
+                `zoompan=z='min(zoom+0.0003,1.15)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':` +
+                `d=${Math.ceil(maxDuration * 25)}:s=1920x1080:fps=25[vout]`
+            ])
+            .outputOptions([
+                '-map', '[vout]',
+                '-map', '1:a',
+                '-c:v', 'libx264',
+                '-preset', 'medium',
+                '-crf', '23',
+                '-c:a', 'aac',
+                '-b:a', '128k',
+                '-t', String(maxDuration),
+                '-shortest',
+                '-pix_fmt', 'yuv420p',
+                '-movflags', '+faststart'
+            ])
+            .output(outputPath)
+            .on('start', () => console.log(`   🔧 FFmpeg single-image started...`))
+            .on('end', () => {
+                console.log(`\n   ✅ Single-image video created`);
+                resolve();
+            })
+            .on('error', (err: Error) => {
+                console.error(`\n   ❌ Single-image FFmpeg error:`, err.message);
+                reject(err);
+            })
+            .run();
+    });
+}
+
+/**
+ * Clean up temporary files
+ */
+function cleanupTempFiles(files: string[]): void {
+    files.forEach(f => {
+        try {
+            if (fs.existsSync(f)) fs.unlinkSync(f);
+        } catch (e) { }
+    });
 }
 
 /**

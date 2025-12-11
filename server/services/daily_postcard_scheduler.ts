@@ -1,4 +1,6 @@
 import cron from 'node-cron';
+import fs from 'fs';
+import path from 'path';
 import { generateDailyPostcard } from './daily_postcard';
 import { storage } from '../storage';
 
@@ -6,8 +8,23 @@ import { storage } from '../storage';
 const DAILY_POST_HOUR = 9; // 9 AM
 const DAILY_POST_MINUTE = 0;
 const TIMEZONE = 'America/Chicago'; // Central Time
+const LOG_FILE = path.join(process.cwd(), 'scheduler.log');
 
 let isSchedulerRunning = false;
+
+/**
+ * Log to both console and file for persistent tracking
+ */
+function logScheduler(message: string) {
+    const timestamp = new Date().toISOString();
+    const logLine = `[${timestamp}] ${message}`;
+    console.log(logLine);
+    try {
+        fs.appendFileSync(LOG_FILE, logLine + '\n');
+    } catch (e) {
+        // Ignore file write errors
+    }
+}
 
 /**
  * Start the daily postcard scheduler
@@ -27,15 +44,13 @@ export function startDailyPostcardScheduler() {
     console.log(`   📍 Destinations: Cycles through 25 photogenic locations`);
 
     cron.schedule(cronExpression, async () => {
-        console.log('🌅 Daily Postcard: Scheduled post triggered');
+        logScheduler('🌅 Daily Postcard: Scheduled post TRIGGERED');
 
         try {
             const result = await generateDailyPostcard(true); // autoPost = true
 
             if (result.success && result.tweetId) {
-                console.log(`✅ Daily Postcard posted successfully!`);
-                console.log(`   📍 Destination: ${result.destination}`);
-                console.log(`   🐦 Tweet ID: ${result.tweetId}`);
+                logScheduler(`✅ Daily Postcard SUCCESS - ${result.destination} - Tweet: ${result.tweetId}`);
 
                 // Create Post History entry
                 await storage.createPost({
@@ -54,12 +69,12 @@ export function startDailyPostcardScheduler() {
                     }
                 } as any);
 
-                console.log(`   📊 Added to Post History`);
+                logScheduler(`   📊 Added to Post History`);
             } else {
-                console.error(`❌ Daily Postcard failed: ${result.error}`);
+                logScheduler(`❌ Daily Postcard FAILED: ${result.error}`);
             }
         } catch (error) {
-            console.error('❌ Daily Postcard scheduler error:', error);
+            logScheduler(`❌ Daily Postcard ERROR: ${error instanceof Error ? error.message : String(error)}`);
         }
     }, {
         timezone: TIMEZONE
@@ -69,11 +84,53 @@ export function startDailyPostcardScheduler() {
 }
 
 /**
+ * Manually trigger a daily postcard (for testing)
+ */
+export async function triggerDailyPostcardNow(): Promise<{ success: boolean; message: string; tweetId?: string }> {
+    logScheduler('🔧 Manual Daily Postcard trigger initiated');
+
+    try {
+        const result = await generateDailyPostcard(true);
+
+        if (result.success && result.tweetId) {
+            logScheduler(`✅ Manual trigger SUCCESS - ${result.destination} - Tweet: ${result.tweetId}`);
+
+            await storage.createPost({
+                userId: 'system',
+                content: result.caption,
+                platforms: ['twitter'],
+                status: 'published',
+                publishedAt: new Date(),
+                platformData: {
+                    twitter: {
+                        tweetId: result.tweetId,
+                        url: `https://twitter.com/MaxTruth_Seeker/status/${result.tweetId}`,
+                        destination: result.destination,
+                        type: 'daily_postcard'
+                    }
+                }
+            } as any);
+
+            return {
+                success: true,
+                message: `Posted daily postcard for ${result.destination}`,
+                tweetId: result.tweetId
+            };
+        } else {
+            logScheduler(`❌ Manual trigger FAILED: ${result.error}`);
+            return { success: false, message: result.error || 'Unknown error' };
+        }
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        logScheduler(`❌ Manual trigger ERROR: ${msg}`);
+        return { success: false, message: msg };
+    }
+}
+
+/**
  * Stop the scheduler (for cleanup)
  */
 export function stopDailyPostcardScheduler() {
-    // node-cron doesn't have a direct stop method for individual tasks
-    // This is mainly for documentation purposes
     isSchedulerRunning = false;
     console.log('📅 Daily Postcard Scheduler stopped');
 }
@@ -105,3 +162,4 @@ function getNextDestination(): string {
     const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
     return FEATURED_DESTINATIONS[dayOfYear % FEATURED_DESTINATIONS.length];
 }
+

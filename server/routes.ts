@@ -9,7 +9,7 @@ import { postcardDrafter, generateDraft } from "./services/postcard_drafter";
 import { publishDraft } from "./services/twitter_publisher";
 import { sniperManager } from "./services/sniper_manager";
 import { generateDailyPostcard, previewDailyPostcard, generatePostcardForDestination, getAvailableDestinations } from "./services/daily_postcard";
-import { startDailyPostcardScheduler, getSchedulerStatus } from "./services/daily_postcard_scheduler";
+import { startDailyPostcardScheduler, getSchedulerStatus, triggerDailyPostcardNow } from "./services/daily_postcard_scheduler";
 import { generateVideoSlideshow, getVideoDestinations, previewVideoSlideshow, listGeneratedVideos } from "./services/video_slideshow";
 import { postThreadTour, getThreadTourDestinations, getTodaysThreadDestination, fetchFamousTours } from "./services/thread_tour";
 import { getThreadTourSchedulerStatus, setNextThreadDestination, clearNextThreadDestination } from "./services/thread_tour_scheduler";
@@ -898,6 +898,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get scheduler status
   app.get("/api/daily-postcard/scheduler-status", (req, res) => {
     res.json(getSchedulerStatus());
+  });
+
+  // Manually trigger daily postcard (for testing)
+  app.post("/api/daily-postcard/trigger", async (req, res) => {
+    try {
+      console.log("📅 Manual daily postcard trigger requested");
+      const result = await triggerDailyPostcardNow();
+      res.json(result);
+    } catch (error) {
+      console.error("Manual trigger error:", error);
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // Get scheduler logs
+  app.get("/api/daily-postcard/logs", (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    const logFile = path.join(process.cwd(), 'scheduler.log');
+
+    try {
+      if (fs.existsSync(logFile)) {
+        const logs = fs.readFileSync(logFile, 'utf8');
+        const lines = logs.split('\n').filter(Boolean).slice(-50); // Last 50 lines
+        res.json({ logs: lines });
+      } else {
+        res.json({ logs: [], message: 'No scheduler logs yet' });
+      }
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
+    }
   });
 
   // ============================================

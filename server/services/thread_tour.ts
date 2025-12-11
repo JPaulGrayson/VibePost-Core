@@ -268,17 +268,23 @@ function getAllPOIPhotos(poi: POI, narration?: Narration): string[] {
 
     // Remove duplicates and limit to 6 photos
     const uniquePhotos = Array.from(new Set(photos));
+
+    console.log(`   📷 Photos for ${poi.name}: ${uniquePhotos.length} unique (from ${photos.length} total)`);
+    if (uniquePhotos.length < 3) {
+        console.log(`   ⚠️ Low photo count - hero: ${poi.heroImageUrl ? 1 : 0}, narration: ${narration?.photoUrls?.length || 0}, poi: ${poi.photoUrls?.length || 0}`);
+    }
+
     return uniquePhotos.slice(0, 6);
 }
 
 /**
- * Get a destination-specific fallback image URL using Unsplash source
+ * Get a destination-specific fallback image URL using LoremFlickr
  */
 function getDestinationFallbackImage(destination: string): string {
     // URL-encode the destination for search
-    const query = encodeURIComponent(destination.split(',')[0].trim() + ' travel landscape');
-    // Use Unsplash Source (redirects to a relevant image)
-    return `https://source.unsplash.com/1200x800/?${query}`;
+    const query = encodeURIComponent(destination.split(',')[0].trim() + ',travel');
+    // Use LoremFlickr which is more reliable than Unsplash source
+    return `https://loremflickr.com/1200/800/${query}`;
 }
 
 /**
@@ -402,8 +408,17 @@ export async function postThreadTour(
         console.log(`📍 Found ${pois.length} stops, ${narrations.length} narrations ready`);
 
         // Step 3: Post Intro Tweet
-        // Use tour cover image, or generate a destination-specific fallback
-        const introImageUrl = toAbsoluteUrl(tour.aiImageUrl) || getDestinationFallbackImage(destination);
+        // Use tour cover image, or first POI's image as fallback (avoid LoremFlickr placeholders)
+        let introImageUrl = toAbsoluteUrl(tour.aiImageUrl);
+        if (!introImageUrl && pois.length > 0) {
+            // Try first POI's hero image or first photo
+            introImageUrl = toAbsoluteUrl(pois[0].heroImageUrl)
+                || toAbsoluteUrl(pois[0].photoUrls?.[0])
+                || getDestinationFallbackImage(destination);
+        }
+        if (!introImageUrl) {
+            introImageUrl = getDestinationFallbackImage(destination);
+        }
         const introText = `🗺️ Explore ${destination}! 🧵\n\nA ${pois.length}-stop AI-guided tour... 👇`;
 
         console.log('📤 Posting intro tweet...');
