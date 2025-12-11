@@ -97,9 +97,9 @@ function getTodaysDestination(): string {
 /**
  * Generate a tour via Turai API
  */
-async function generateTour(destination: string, theme: string = 'hidden_gems'): Promise<{ success: boolean; tour?: TourData; shareCode?: string; error?: string }> {
+async function generateTour(destination: string, theme: string = 'hidden_gems', focus?: string): Promise<{ success: boolean; tour?: TourData; shareCode?: string; error?: string }> {
     try {
-        console.log(`🗺️ Generating tour for: ${destination}`);
+        console.log(`🗺️ Generating tour for: ${destination}${focus ? ` (focus: ${focus.substring(0, 50)}...)` : ''}`);
 
         const response = await fetch(`${TURAI_API_URL}/api/tour-maker/wizard/generate`, {
             method: "POST",
@@ -109,6 +109,7 @@ async function generateTour(destination: string, theme: string = 'hidden_gems'):
             body: JSON.stringify({
                 location: destination,
                 theme: theme,
+                focus: focus, // Qualifying words/phrases for topic-based tours
                 email: "vibepost@turai.org" // System email for tracking
             }),
             signal: AbortSignal.timeout(60000) // 60 second timeout
@@ -390,12 +391,13 @@ export async function postThreadTour(
     options: {
         maxStops?: number;
         theme?: string;
+        focus?: string; // Qualifying keywords for topic-based tours
         existingShareCode?: string; // Use existing tour instead of generating
     } = {}
 ): Promise<ThreadTourResult> {
-    const { maxStops = MAX_STOPS, theme = 'hidden_gems', existingShareCode } = options;
+    const { maxStops = MAX_STOPS, theme = 'hidden_gems', focus, existingShareCode } = options;
 
-    console.log(`🧵 Starting Thread Tour for: ${destination}`);
+    console.log(`🧵 Starting Thread Tour for: ${destination}${focus ? ` (topic: ${focus.substring(0, 40)}...)` : ''}`);
 
     const result: ThreadTourResult = {
         success: false,
@@ -408,7 +410,7 @@ export async function postThreadTour(
         let shareCode = existingShareCode;
 
         if (!shareCode) {
-            const tourResult = await generateTour(destination, theme);
+            const tourResult = await generateTour(destination, theme, focus);
             if (!tourResult.success) {
                 result.error = tourResult.error;
                 return result;

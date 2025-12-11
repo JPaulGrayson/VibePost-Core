@@ -1034,6 +1034,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Post a topic-based thread tour (with focus/keywords)
+  app.post("/api/thread-tour/post-topic", async (req, res) => {
+    try {
+      const { location, focus, maxStops = 5, theme = 'hidden_gems' } = req.body;
+
+      if (!location) {
+        return res.status(400).json({ error: "Location required" });
+      }
+
+      if (!focus) {
+        return res.status(400).json({ error: "Focus/keywords required" });
+      }
+
+      console.log(`🔥 Topic Tour Request: ${location} - "${focus.substring(0, 50)}..."`);
+
+      const result = await postThreadTour(location, {
+        maxStops,
+        theme,
+        focus
+      });
+
+      // Add topic info to response
+      res.json({
+        ...result,
+        topic: focus,
+        location
+      });
+    } catch (error) {
+      console.error("Topic tour post failed:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   // Set next scheduled destination
   app.post("/api/thread-tour/set-next", (req, res) => {
     const { destination } = req.body;
