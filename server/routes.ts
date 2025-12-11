@@ -913,9 +913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get scheduler logs
-  app.get("/api/daily-postcard/logs", (req, res) => {
-    const fs = require('fs');
-    const path = require('path');
+  app.get("/api/daily-postcard/logs", async (req, res) => {
     const logFile = path.join(process.cwd(), 'scheduler.log');
 
     try {

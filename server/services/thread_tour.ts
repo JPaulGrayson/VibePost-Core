@@ -48,6 +48,7 @@ interface POI {
     photoUrls?: string[];
     narrationText?: string;
     heroImageUrl?: string;
+    placeId?: string;  // Google Places ID for photo fallback
 }
 
 interface TourData {
@@ -197,18 +198,20 @@ async function fetchTourData(shareCode: string): Promise<{ success: boolean; tou
 
 /**
  * Wait for tour to be ready (narrations + cover image)
- * @param minNarrations - minimum number of narrations required (default: at least half of POIs or 3)
+ * @param expectedPOIs - number of POIs we're expecting narrations for
+ * @param maxWaitMs - max wait time, default 5 minutes for turai.org
  */
 async function waitForTourReady(
     shareCode: string,
     expectedPOIs: number = 5,
-    maxWaitMs: number = 180000 // 3 minutes
+    maxWaitMs: number = 300000 // 5 minutes (turai.org can be slow)
 ): Promise<{ ready: boolean; tour?: any; narrations?: any[] }> {
     const startTime = Date.now();
     const pollInterval = 8000; // 8 seconds
-    const minNarrations = Math.min(expectedPOIs, Math.max(3, Math.ceil(expectedPOIs / 2)));
+    // Wait for ALL expected narrations - each has photos we need!
+    const requiredNarrations = expectedPOIs;
 
-    console.log(`⏳ Waiting for tour to be ready (need ${minNarrations}+ narrations, cover image)...`);
+    console.log(`⏳ Waiting for tour to be ready (need ALL ${requiredNarrations} narrations for photos)...`);
 
     while (Date.now() - startTime < maxWaitMs) {
         const result = await fetchTourData(shareCode);
@@ -217,17 +220,11 @@ async function waitForTourReady(
             const narrationCount = result.narrations?.length || 0;
             const hasCoverImage = !!result.tour.aiImageUrl;
 
-            console.log(`   📊 ${narrationCount}/${minNarrations} narrations, cover: ${hasCoverImage ? '✓' : '✗'} (${Math.round((Date.now() - startTime) / 1000)}s)`);
+            console.log(`   📊 ${narrationCount}/${requiredNarrations} narrations, cover: ${hasCoverImage ? '✓' : '✗'} (${Math.round((Date.now() - startTime) / 1000)}s)`);
 
-            // Ready if we have enough narrations AND cover image
-            if (narrationCount >= minNarrations && hasCoverImage) {
-                console.log(`✅ Tour ready! ${narrationCount} narrations, cover image available`);
-                return { ready: true, tour: result.tour, narrations: result.narrations };
-            }
-
-            // Also ready if we have all narrations even without cover (fallback to generated postcard)
-            if (narrationCount >= expectedPOIs) {
-                console.log(`✅ All ${narrationCount} narrations ready (cover image may still be generating)`);
+            // Ready when we have ALL narrations (each has photos)
+            if (narrationCount >= requiredNarrations) {
+                console.log(`✅ All ${narrationCount} narrations ready! (cover: ${hasCoverImage ? 'yes' : 'no'})`);
                 return { ready: true, tour: result.tour, narrations: result.narrations };
             }
         }
@@ -275,6 +272,32 @@ function getAllPOIPhotos(poi: POI, narration?: Narration): string[] {
     }
 
     return uniquePhotos.slice(0, 6);
+}
+
+/**
+ * Async version of getAllPOIPhotos with fallback to image search
+ */
+async function getAllPOIPhotosWithFallback(poi: POI, narration?: Narration): Promise<string[]> {
+    // First try synchronous method
+    let photos = getAllPOIPhotos(poi, narration);
+
+    // If we have enough photos, return them
+    if (photos.length >= 1) {
+        return photos;
+    }
+
+    // Fallback: Use LoremFlickr search based on POI name
+    console.log(`   🔍 No photos available, using search fallback for ${poi.name}...`);
+    const query = encodeURIComponent(poi.name.replace(/[^a-zA-Z0-9\s]/g, ' ').trim());
+
+    // Generate multiple URLs with different random seeds
+    const fallbackPhotos = [];
+    for (let i = 0; i < 4; i++) {
+        fallbackPhotos.push(`https://loremflickr.com/1920/1080/${query}?lock=${Date.now() + i}`);
+    }
+
+    console.log(`   ✓ Generated ${fallbackPhotos.length} fallback photos`);
+    return fallbackPhotos;
 }
 
 /**
@@ -477,7 +500,8 @@ export async function postThreadTour(
             const imageUrl = getPOIImageUrl(poi, narration) || poiFallback;
 
             // Get photos for potential video (multiple photos with Ken Burns effect)
-            const photos = getAllPOIPhotos(poi, narration);
+            // Use async version with Places API fallback
+            const photos = await getAllPOIPhotosWithFallback(poi, narration);
 
             // Build tweet text (video has full audio, so no need for external link)
             const stopNum = i + 1;
