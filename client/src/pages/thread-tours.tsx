@@ -15,28 +15,29 @@ import { Loader2, Send, Clock, MapPin, ListOrdered, ChevronRight, RefreshCw, Fla
 
 // Preset topic categories for quick selection
 const TOPIC_PRESETS = {
+    // High engagement / Sensational
+    famousResidents: {
+        label: "⭐ Famous Residents",
+        topics: [
+            { name: "Celebrity Homes", keywords: "celebrity home, famous residence, star mansion, celebrity birthplace" },
+            { name: "Historical Figures", keywords: "famous person birthplace, historical figure home, notable resident" },
+            { name: "Royal Residences", keywords: "royal palace, king residence, queen castle, royal family home" },
+        ]
+    },
+    haunted: {
+        label: "👻 Haunted & Mysterious",
+        topics: [
+            { name: "Haunted Locations", keywords: "haunted house, ghost sighting, paranormal activity, spooky location" },
+            { name: "Mysterious Sites", keywords: "unexplained mystery, strange phenomenon, mysterious monument" },
+            { name: "Urban Legends", keywords: "urban legend location, folklore site, mythical place" },
+        ]
+    },
     disasters: {
         label: "🌪️ Disasters & Tragedies",
         topics: [
             { name: "Plane Crashes", keywords: "plane crash site, aviation disaster memorial, crash investigation" },
             { name: "Weather Disasters", keywords: "hurricane damage, tornado aftermath, flood zone, natural disaster site" },
             { name: "Historic Tragedies", keywords: "tragedy memorial, disaster site, historical disaster" },
-        ]
-    },
-    historical: {
-        label: "📜 Historical Events",
-        topics: [
-            { name: "Assassination Sites", keywords: "assassination location, historic murder, political violence" },
-            { name: "Cold War Landmarks", keywords: "Berlin Wall, spy site, Cold War bunker, Iron Curtain" },
-            { name: "Holocaust Memorials", keywords: "Holocaust memorial, concentration camp, WWII memorial" },
-        ]
-    },
-    seasonal: {
-        label: "🎄 Seasonal & Holiday",
-        topics: [
-            { name: "Christmas Markets", keywords: "Christmas market, holiday lights, winter wonderland" },
-            { name: "New Year's Eve", keywords: "New Year celebration, fireworks, countdown location, ball drop, midnight celebration" },
-            { name: "Cherry Blossom", keywords: "cherry blossom, sakura, spring flowers" },
         ]
     },
     trueCrime: {
@@ -47,11 +48,98 @@ const TOPIC_PRESETS = {
             { name: "Crime Scene Tours", keywords: "crime scene, murder location, criminal history" },
         ]
     },
+    // Cultural & Historical
+    historical: {
+        label: "📜 Historical Landmarks",
+        topics: [
+            { name: "Ancient Ruins", keywords: "ancient ruins, archaeological site, historic monument" },
+            { name: "Assassination Sites", keywords: "assassination location, historic murder, political violence" },
+            { name: "Cold War Landmarks", keywords: "Berlin Wall, spy site, Cold War bunker, Iron Curtain" },
+            { name: "Holocaust Memorials", keywords: "Holocaust memorial, concentration camp, WWII memorial" },
+        ]
+    },
+    artCulture: {
+        label: "🎨 Art & Culture",
+        topics: [
+            { name: "World Famous Museums", keywords: "famous museum, art gallery, cultural institution" },
+            { name: "Art Districts", keywords: "art district, gallery district, cultural quarter" },
+            { name: "Street Art & Murals", keywords: "street art, murals, urban art, graffiti art" },
+        ]
+    },
+    architecture: {
+        label: "🏛️ Architecture & Design",
+        topics: [
+            { name: "Iconic Buildings", keywords: "famous building, architectural landmark, iconic structure" },
+            { name: "Modern Architecture", keywords: "modern architecture, contemporary building, futuristic design" },
+            { name: "Historic Architecture", keywords: "historic building, classical architecture, heritage site" },
+        ]
+    },
+    religious: {
+        label: "⛪ Religious & Spiritual",
+        topics: [
+            { name: "Famous Churches", keywords: "famous church, cathedral, basilica, historic chapel" },
+            { name: "Temples & Shrines", keywords: "Buddhist temple, Hindu temple, Shinto shrine, sacred site" },
+            { name: "Pilgrimage Sites", keywords: "pilgrimage destination, holy site, spiritual journey" },
+        ]
+    },
+    // Nature & Outdoors
+    nature: {
+        label: "🌿 Nature & Parks",
+        topics: [
+            { name: "National Parks", keywords: "national park, nature reserve, wilderness area" },
+            { name: "Natural Wonders", keywords: "natural wonder, scenic landscape, geological formation" },
+            { name: "Waterfalls", keywords: "famous waterfall, cascade, natural water feature" },
+        ]
+    },
+    waterfront: {
+        label: "🏖️ Waterfront & Beaches",
+        topics: [
+            { name: "Famous Beaches", keywords: "famous beach, beautiful coastline, tropical beach" },
+            { name: "Harbor & Ports", keywords: "historic harbor, famous port, waterfront district" },
+            { name: "Island Getaways", keywords: "beautiful island, island destination, tropical paradise" },
+        ]
+    },
+    photography: {
+        label: "📸 Photography Spots",
+        topics: [
+            { name: "Scenic Viewpoints", keywords: "scenic viewpoint, panoramic view, observation deck" },
+            { name: "Instagram Famous", keywords: "Instagram famous spot, photo opportunity, photogenic location" },
+            { name: "Sunrise & Sunset", keywords: "best sunrise, sunset viewpoint, golden hour location" },
+        ]
+    },
+    // Sports & Entertainment
+    sports: {
+        label: "🏟️ Sports & Recreation",
+        topics: [
+            { name: "Famous Stadiums", keywords: "famous stadium, sports arena, athletic venue" },
+            { name: "Olympic Sites", keywords: "Olympic venue, Olympic stadium, Olympic park" },
+            { name: "Sports Halls of Fame", keywords: "sports museum, hall of fame, athletic history" },
+        ]
+    },
+    science: {
+        label: "🧬 Science & Technology",
+        topics: [
+            { name: "Space Centers", keywords: "space center, rocket launch site, NASA facility, observatory" },
+            { name: "Science Museums", keywords: "science museum, technology museum, innovation center" },
+            { name: "Tech Landmarks", keywords: "tech company headquarters, Silicon Valley, innovation hub" },
+        ]
+    },
+    // Seasonal
+    seasonal: {
+        label: "🎄 Seasonal & Holiday",
+        topics: [
+            { name: "Christmas Markets", keywords: "Christmas market, holiday lights, winter wonderland" },
+            { name: "New Year's Eve", keywords: "New Year celebration, fireworks, countdown location, ball drop, midnight celebration" },
+            { name: "Cherry Blossom", keywords: "cherry blossom, sakura, spring flowers" },
+            { name: "Fall Foliage", keywords: "fall colors, autumn leaves, foliage viewing" },
+        ]
+    },
     custom: {
         label: "✏️ Custom Topic",
         topics: []
     }
 };
+
 
 // Geographic scope presets
 const GEOGRAPHIC_SCOPES = {
