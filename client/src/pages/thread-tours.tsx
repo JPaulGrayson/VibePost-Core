@@ -35,7 +35,7 @@ const TOPIC_PRESETS = {
         label: "🎄 Seasonal & Holiday",
         topics: [
             { name: "Christmas Markets", keywords: "Christmas market, holiday lights, winter wonderland" },
-            { name: "New Year's Eve", keywords: "New Year celebration, fireworks, countdown location" },
+            { name: "New Year's Eve", keywords: "New Year celebration, fireworks, countdown location, ball drop, midnight celebration" },
             { name: "Cherry Blossom", keywords: "cherry blossom, sakura, spring flowers" },
         ]
     },
@@ -53,6 +53,57 @@ const TOPIC_PRESETS = {
     }
 };
 
+// Geographic scope presets
+const GEOGRAPHIC_SCOPES = {
+    world: { label: "🌍 World / Global", value: "World" },
+    regions: {
+        label: "🌎 Regions",
+        options: [
+            { label: "North America", value: "North America" },
+            { label: "Europe", value: "Europe" },
+            { label: "Asia", value: "Asia" },
+            { label: "Australia & Oceania", value: "Australia and Oceania" },
+            { label: "South America", value: "South America" },
+            { label: "Africa", value: "Africa" },
+            { label: "Middle East", value: "Middle East" },
+        ]
+    },
+    countries: {
+        label: "🏳️ Countries",
+        options: [
+            { label: "🇺🇸 United States", value: "United States" },
+            { label: "🇬🇧 United Kingdom", value: "United Kingdom" },
+            { label: "🇩🇪 Germany", value: "Germany" },
+            { label: "🇫🇷 France", value: "France" },
+            { label: "🇮🇹 Italy", value: "Italy" },
+            { label: "🇪🇸 Spain", value: "Spain" },
+            { label: "🇯🇵 Japan", value: "Japan" },
+            { label: "🇨🇳 China", value: "China" },
+            { label: "🇦🇺 Australia", value: "Australia" },
+            { label: "🇧🇷 Brazil", value: "Brazil" },
+            { label: "🇲🇽 Mexico", value: "Mexico" },
+            { label: "🇨🇦 Canada", value: "Canada" },
+        ]
+    },
+    usStates: {
+        label: "🇺🇸 US States",
+        options: [
+            { label: "California", value: "California, USA" },
+            { label: "New York", value: "New York, USA" },
+            { label: "Texas", value: "Texas, USA" },
+            { label: "Florida", value: "Florida, USA" },
+            { label: "Nevada", value: "Nevada, USA" },
+            { label: "Hawaii", value: "Hawaii, USA" },
+            { label: "Colorado", value: "Colorado, USA" },
+            { label: "Arizona", value: "Arizona, USA" },
+            { label: "Washington", value: "Washington, USA" },
+            { label: "Illinois", value: "Illinois, USA" },
+            { label: "Massachusetts", value: "Massachusetts, USA" },
+            { label: "Pennsylvania", value: "Pennsylvania, USA" },
+        ]
+    }
+};
+
 export default function ThreadTours() {
     const { toast } = useToast();
     const queryClient = useQueryClient();
@@ -67,8 +118,10 @@ export default function ThreadTours() {
     // Topics tab state
     const [topicCategory, setTopicCategory] = useState('');
     const [selectedTopic, setSelectedTopic] = useState('');
-    const [topicLocation, setTopicLocation] = useState('');
+    const [geographicScope, setGeographicScope] = useState<'world' | 'region' | 'country' | 'state' | 'custom'>('world');
+    const [topicLocation, setTopicLocation] = useState('World');
     const [customKeywords, setCustomKeywords] = useState('');
+
 
     // Fetch scheduler status
     const { data: schedulerStatus, refetch: refetchStatus } = useQuery({
@@ -438,16 +491,109 @@ export default function ThreadTours() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                            {/* Location */}
-                            <div className="space-y-2">
-                                <Label>Location *</Label>
-                                <Input
-                                    placeholder="e.g., New York, USA or Germany"
-                                    value={topicLocation}
-                                    onChange={(e) => setTopicLocation(e.target.value)}
-                                />
+                            {/* Geographic Scope */}
+                            <div className="space-y-3">
+                                <Label>Geographic Scope *</Label>
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                                    <Button
+                                        variant={geographicScope === 'world' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => {
+                                            setGeographicScope('world');
+                                            setTopicLocation('World');
+                                        }}
+                                    >
+                                        🌍 World
+                                    </Button>
+                                    <Button
+                                        variant={geographicScope === 'region' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setGeographicScope('region')}
+                                    >
+                                        🌎 Region
+                                    </Button>
+                                    <Button
+                                        variant={geographicScope === 'country' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setGeographicScope('country')}
+                                    >
+                                        🏳️ Country
+                                    </Button>
+                                    <Button
+                                        variant={geographicScope === 'state' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setGeographicScope('state')}
+                                    >
+                                        🇺🇸 US State
+                                    </Button>
+                                    <Button
+                                        variant={geographicScope === 'custom' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => {
+                                            setGeographicScope('custom');
+                                            setTopicLocation('');
+                                        }}
+                                    >
+                                        ✏️ Custom
+                                    </Button>
+                                </div>
+
+                                {/* Secondary selector based on scope */}
+                                {geographicScope === 'region' && (
+                                    <Select value={topicLocation} onValueChange={setTopicLocation}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a region" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {GEOGRAPHIC_SCOPES.regions.options.map((opt) => (
+                                                <SelectItem key={opt.value} value={opt.value}>
+                                                    {opt.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+
+                                {geographicScope === 'country' && (
+                                    <Select value={topicLocation} onValueChange={setTopicLocation}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a country" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {GEOGRAPHIC_SCOPES.countries.options.map((opt) => (
+                                                <SelectItem key={opt.value} value={opt.value}>
+                                                    {opt.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+
+                                {geographicScope === 'state' && (
+                                    <Select value={topicLocation} onValueChange={setTopicLocation}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a US state" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {GEOGRAPHIC_SCOPES.usStates.options.map((opt) => (
+                                                <SelectItem key={opt.value} value={opt.value}>
+                                                    {opt.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+
+                                {geographicScope === 'custom' && (
+                                    <Input
+                                        placeholder="e.g., New York City, Tokyo, or Bavaria"
+                                        value={topicLocation}
+                                        onChange={(e) => setTopicLocation(e.target.value)}
+                                    />
+                                )}
+
                                 <p className="text-xs text-muted-foreground">
-                                    The city, country, or region to search for topic-related locations
+                                    Current: <span className="font-medium">{topicLocation || 'None selected'}</span>
                                 </p>
                             </div>
 
