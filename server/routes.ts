@@ -11,7 +11,7 @@ import { sniperManager } from "./services/sniper_manager";
 import { generateDailyPostcard, previewDailyPostcard, generatePostcardForDestination, getAvailableDestinations } from "./services/daily_postcard";
 import { startDailyPostcardScheduler, getSchedulerStatus, triggerDailyPostcardNow } from "./services/daily_postcard_scheduler";
 import { generateVideoSlideshow, getVideoDestinations, previewVideoSlideshow, listGeneratedVideos } from "./services/video_slideshow";
-import { postThreadTour, getThreadTourDestinations, getTodaysThreadDestination, fetchFamousTours } from "./services/thread_tour";
+import { postThreadTour, previewThreadTour, getThreadTourDestinations, getTodaysThreadDestination, fetchFamousTours } from "./services/thread_tour";
 import { getThreadTourSchedulerStatus, setNextThreadDestination, clearNextThreadDestination } from "./services/thread_tour_scheduler";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Simple authentication middleware
@@ -1070,6 +1070,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Topic tour post failed:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Preview thread tour (generate without posting)
+  app.post("/api/thread-tour/preview", async (req, res) => {
+    try {
+      const { location, focus, maxStops = 3, theme = 'hidden_gems' } = req.body;
+
+      if (!location) {
+        return res.status(400).json({ error: "Location required" });
+      }
+
+      console.log(`👁️ Preview Tour Request: ${location}${focus ? ` - "${focus.substring(0, 50)}..."` : ''}`);
+
+      const result = await previewThreadTour(location, {
+        maxStops,
+        theme,
+        focus
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error("Tour preview failed:", error);
       res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : String(error)

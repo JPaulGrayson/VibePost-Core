@@ -202,6 +202,8 @@ export default function ThreadTours() {
     const [selectedFamousTour, setSelectedFamousTour] = useState('');
     const [maxStops, setMaxStops] = useState('5');
     const [isPosting, setIsPosting] = useState(false);
+    const [isPreviewing, setIsPreviewing] = useState(false);
+    const [previewData, setPreviewData] = useState<any>(null);
 
     // Topics tab state
     const [topicCategory, setTopicCategory] = useState('');
@@ -209,6 +211,7 @@ export default function ThreadTours() {
     const [geographicScope, setGeographicScope] = useState<'world' | 'region' | 'country' | 'state' | 'custom'>('world');
     const [topicLocation, setTopicLocation] = useState('World');
     const [customKeywords, setCustomKeywords] = useState('');
+
 
 
     // Fetch scheduler status
@@ -290,6 +293,38 @@ export default function ThreadTours() {
             setIsPosting(false);
         }
     });
+
+    // Preview tour (without posting)
+    const previewMutation = useMutation({
+        mutationFn: async (params: { location: string; focus?: string; maxStops: number }) => {
+            return apiRequest("POST", "/api/thread-tour/preview", params);
+        },
+        onSuccess: (data: any) => {
+            if (data.success) {
+                setPreviewData(data);
+                toast({
+                    title: "Preview Ready! 👁️",
+                    description: `${data.stops?.length || 0} stops generated for review`
+                });
+            } else {
+                toast({
+                    title: "Preview Failed",
+                    description: data.error || "Unknown error",
+                    variant: "destructive"
+                });
+            }
+            setIsPreviewing(false);
+        },
+        onError: (error: any) => {
+            toast({
+                title: "Error",
+                description: error.message || "Failed to generate preview",
+                variant: "destructive"
+            });
+            setIsPreviewing(false);
+        }
+    });
+
 
     // Set next destination
     const setNextMutation = useMutation({
@@ -753,27 +788,143 @@ export default function ThreadTours() {
                                 </Select>
                             </div>
                         </CardContent>
-                        <CardFooter>
+                        <CardFooter className="flex gap-2">
+                            <Button
+                                onClick={() => {
+                                    setIsPreviewing(true);
+                                    setPreviewData(null);
+                                    previewMutation.mutate({
+                                        location: topicLocation,
+                                        focus: customKeywords,
+                                        maxStops: parseInt(maxStops)
+                                    });
+                                }}
+                                variant="outline"
+                                disabled={isPreviewing || isPosting || !topicLocation || !customKeywords}
+                                className="flex-1"
+                            >
+                                {isPreviewing ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Generating Preview...
+                                    </>
+                                ) : (
+                                    <>
+                                        <RefreshCw className="w-4 h-4 mr-2" />
+                                        Preview First
+                                    </>
+                                )}
+                            </Button>
                             <Button
                                 onClick={handlePostTopicNow}
-                                disabled={isPosting || !topicLocation || !customKeywords}
+                                disabled={isPosting || isPreviewing || !topicLocation || !customKeywords}
                                 className="flex-1"
                             >
                                 {isPosting ? (
                                     <>
                                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                        Generating Topic Tour...
+                                        Posting...
                                     </>
                                 ) : (
                                     <>
                                         <Flame className="w-4 h-4 mr-2" />
-                                        Post Topic Tour
+                                        Post Now
                                     </>
                                 )}
                             </Button>
                         </CardFooter>
                     </Card>
+
+                    {/* Preview Results */}
+                    {previewData && previewData.stops && (
+                        <Card className="mt-4">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    👁️ Preview: {previewData.destination}
+                                    {previewData.shareCode && (
+                                        <span className="text-xs text-muted-foreground">
+                                            ({previewData.shareCode})
+                                        </span>
+                                    )}
+                                </CardTitle>
+                                <CardDescription>
+                                    Review the tour before posting. {previewData.stops.length} stops generated.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {previewData.introImageUrl && (
+                                    <div className="space-y-2">
+                                        <p className="text-sm font-medium">Intro Image:</p>
+                                        <img
+                                            src={previewData.introImageUrl}
+                                            alt="Tour intro"
+                                            className="w-full max-w-xs rounded-lg shadow"
+                                        />
+                                    </div>
+                                )}
+                                <div className="space-y-3">
+                                    {previewData.stops.map((stop: any, idx: number) => (
+                                        <div key={idx} className="p-3 bg-muted rounded-lg">
+                                            <p className="font-medium">Stop {idx + 1}: {stop.name}</p>
+                                            {stop.description && (
+                                                <p className="text-sm text-muted-foreground mt-1">
+                                                    {stop.description.substring(0, 100)}...
+                                                </p>
+                                            )}
+                                            {stop.narrationText && (
+                                                <p className="text-xs text-muted-foreground mt-1 italic">
+                                                    "{stop.narrationText.substring(0, 150)}..."
+                                                </p>
+                                            )}
+                                            {stop.videoPath && (
+                                                <p className="text-xs text-green-600 mt-1">
+                                                    ✅ Video generated
+                                                </p>
+                                            )}
+                                            {stop.photoUrls?.length > 0 && (
+                                                <div className="flex gap-1 mt-2">
+                                                    {stop.photoUrls.slice(0, 3).map((url: string, pIdx: number) => (
+                                                        <img
+                                                            key={pIdx}
+                                                            src={url}
+                                                            alt={`${stop.name} photo ${pIdx + 1}`}
+                                                            className="w-16 h-16 object-cover rounded"
+                                                        />
+                                                    ))}
+                                                    {stop.photoUrls.length > 3 && (
+                                                        <span className="text-xs text-muted-foreground self-end">
+                                                            +{stop.photoUrls.length - 3} more
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                            <CardFooter>
+                                <Button
+                                    onClick={handlePostTopicNow}
+                                    disabled={isPosting}
+                                    className="w-full"
+                                >
+                                    {isPosting ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                            Posting Tour...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Send className="w-4 h-4 mr-2" />
+                                            Approve & Post This Tour
+                                        </>
+                                    )}
+                                </Button>
+                            </CardFooter>
+                        </Card>
+                    )}
                 </TabsContent>
+
             </Tabs>
 
             {/* Thread Format Preview */}

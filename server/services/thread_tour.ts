@@ -714,3 +714,123 @@ export async function fetchFamousTours(): Promise<{ id: string; name: string; de
         return [];
     }
 }
+
+/**
+ * Preview a thread tour without posting
+ * Generates videos and returns all content for review
+ */
+export interface ThreadTourPreview {
+    success: boolean;
+    destination: string;
+    shareCode?: string;
+    error?: string;
+    stops: {
+        name: string;
+        description: string;
+        videoPath?: string;
+        photoUrls: string[];
+        narrationText: string;
+    }[];
+    introImageUrl?: string;
+}
+
+export async function previewThreadTour(
+    destination: string,
+    options: {
+        maxStops?: number;
+        theme?: string;
+        focus?: string;
+    } = {}
+): Promise<ThreadTourPreview> {
+    const { maxStops = MAX_STOPS, theme = 'hidden_gems', focus } = options;
+
+    console.log(`👁️ Previewing Thread Tour for: ${destination}${focus ? ` (topic: ${focus.substring(0, 40)}...)` : ''}`);
+
+    const result: ThreadTourPreview = {
+        success: false,
+        destination,
+        stops: []
+    };
+
+    try {
+        // Step 1: Generate tour
+        const tourResult = await generateTour(destination, theme, focus);
+        if (!tourResult.success) {
+            result.error = tourResult.error;
+            return result;
+        }
+        result.shareCode = tourResult.shareCode;
+
+        // Step 2: Wait for tour to be ready
+        const tourReadyResult = await waitForTourReady(tourResult.shareCode!, maxStops, 180000);
+
+        if (!tourReadyResult.tour) {
+            result.error = 'Failed to get tour data after waiting';
+            return result;
+        }
+
+        const tour = tourReadyResult.tour;
+        const narrations = tourReadyResult.narrations || [];
+        const pois = tour.pointsOfInterest.slice(0, maxStops);
+
+        // Set intro image
+        const introImg = toAbsoluteUrl(tour.aiImageUrl)
+            ?? toAbsoluteUrl(pois[0]?.heroImageUrl)
+            ?? toAbsoluteUrl(pois[0]?.photoUrls?.[0]);
+        result.introImageUrl = introImg ?? undefined;
+
+
+
+        // Step 3: Generate videos for each stop (but don't post)
+        console.log(`📍 Processing ${pois.length} stops...`);
+
+        for (let i = 0; i < pois.length; i++) {
+            const poi = pois[i];
+            const narration = narrations.find(n => n.poiIndex === i);
+
+            // Get photos
+            const photos = await getAllPOIPhotosWithFallback(poi, narration);
+            const absolutePhotos = photos.map(p => toAbsoluteUrl(p) || p).filter(Boolean) as string[];
+            const fullNarration = getNarrationText(poi, narration);
+
+            // Generate video
+            let videoPath: string | undefined;
+            try {
+                console.log(`   🎥 Generating preview video for stop ${i + 1}: ${poi.name}`);
+                const absoluteAudioUrl = narration?.audioUrl ? (toAbsoluteUrl(narration.audioUrl) || narration.audioUrl) : undefined;
+
+                const videoResult = await createStopVideo(
+                    absolutePhotos,
+                    absoluteAudioUrl || '',
+                    `preview_stop_${i + 1}_${poi.name.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20)}_${Date.now()}`,
+                    poi.name
+                );
+                if (videoResult.success && videoResult.videoPath) {
+                    videoPath = videoResult.videoPath;
+                    console.log(`   ✅ Video: ${videoPath}`);
+                }
+            } catch (e) {
+                console.error(`   ⚠️ Failed to generate video for ${poi.name}:`, e);
+            }
+
+
+            result.stops.push({
+                name: poi.name,
+                description: poi.description || '',
+                videoPath,
+                photoUrls: photos,
+                narrationText: fullNarration
+            });
+        }
+
+        result.success = true;
+        console.log(`✅ Preview complete! ${result.stops.length} stops generated.`);
+
+        return result;
+
+    } catch (error) {
+        console.error('Preview failed:', error);
+        result.error = error instanceof Error ? error.message : String(error);
+        return result;
+    }
+}
