@@ -58,8 +58,10 @@ import { twitterListener } from "./services/twitter_listener";
   // Start Sniper Manager (Keyword Hunter)
   try {
     // Start the Sniper Manager (Background Tweet Hunter)
-    // console.log("🔫 Initializing Sniper Manager...");
-    // sniperManager.startHunting();.catch(err => console.error("Sniper Manager error:", err));
+    // Start the Sniper Manager (Background Tweet Hunter)
+    console.log("🔫 Initializing Sniper Manager...");
+    const { sniperManager } = await import("./services/sniper_manager");
+    sniperManager.startHunting().catch(err => console.error("Sniper Manager error:", err));
   } catch (error) {
     console.error("Failed to start Sniper Manager:", error);
   }
