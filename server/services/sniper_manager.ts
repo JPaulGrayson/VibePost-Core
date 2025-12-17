@@ -24,11 +24,13 @@ export class SniperManager {
 
     async startHunting() {
         if (this.isRunning) return;
-        // this.isRunning = true; // DO NOT AUTO Start
-        console.log("🎯 Sniper Manager Init (Manual Mode Only)");
+        console.log("🎯 Sniper Manager Started (Auto-Pilot Active)");
 
-        // Disable auto-loop to prevent rate limit issues
-        // setInterval(() => this.hunt(), this.checkIntervalMs);
+        // Initial hunt after 10 seconds (give server time to breathe)
+        setTimeout(() => this.hunt(), 10000);
+
+        // Start the continuous loop
+        setInterval(() => this.hunt(), this.checkIntervalMs);
     }
 
     // Set the active campaign type
