@@ -1,5 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import * as path from "path";
+import * as fs from "fs";
 import { z } from "zod";
 import { TwitterApi } from "twitter-api-v2";
 import { storage } from "./storage";
@@ -13,6 +15,7 @@ import { startDailyPostcardScheduler, getSchedulerStatus, triggerDailyPostcardNo
 import { generateVideoSlideshow, getVideoDestinations, previewVideoSlideshow, listGeneratedVideos } from "./services/video_slideshow";
 import { postThreadTour, previewThreadTour, getThreadTourDestinations, getTodaysThreadDestination, fetchFamousTours } from "./services/thread_tour";
 import { getThreadTourSchedulerStatus, setNextThreadDestination, clearNextThreadDestination } from "./services/thread_tour_scheduler";
+import { autoPublisher } from "./services/auto_publisher";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Simple authentication middleware
   const isAuthenticated = (req: any, res: any, next: any) => {
@@ -833,16 +836,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(results);
   });
 
-  // Manual Hunt Trigger (Debug)
+  // Manual Hunt Trigger (Debug) - now supports campaign type
   app.post("/api/debug/hunt", async (req, res) => {
     try {
-      console.log("🎯 Manual hunt triggered via API");
-      const result = await sniperManager.forceHunt();
+      const { campaignType } = req.body; // Optional: 'turai' or 'logigo'
+      console.log(`🎯 Manual hunt triggered via API${campaignType ? ` for campaign: ${campaignType}` : ''}`);
+      const result = await sniperManager.forceHunt(campaignType);
       res.json({ success: true, message: "Hunt completed", result });
     } catch (error) {
       console.error("Manual hunt failed:", error);
       res.status(500).json({ success: false, error: String(error) });
     }
+  });
+
+  // Get current campaign configuration
+  app.get("/api/sniper/campaign", (req, res) => {
+    res.json({
+      currentCampaign: sniperManager.getCampaign(),
+      config: sniperManager.getCampaignConfig()
+    });
+  });
+
+  // Set sniper campaign type
+  app.post("/api/sniper/campaign", (req, res) => {
+    try {
+      const { campaignType } = req.body;
+      if (!campaignType || !['turai', 'logigo'].includes(campaignType)) {
+        return res.status(400).json({ error: "Invalid campaignType. Must be 'turai' or 'logigo'" });
+      }
+      sniperManager.setCampaign(campaignType);
+      res.json({
+        success: true,
+        message: `Campaign switched to ${campaignType}`,
+        config: sniperManager.getCampaignConfig()
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // Get all available campaign configs
+  app.get("/api/sniper/campaigns", (req, res) => {
+    const { CAMPAIGN_CONFIGS } = require("./campaign-config");
+    res.json({
+      campaigns: Object.values(CAMPAIGN_CONFIGS),
+      currentCampaign: sniperManager.getCampaign()
+    });
   });
 
   app.post("/api/debug/wipe", async (req, res) => {
@@ -854,6 +893,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Wipe failed:", error);
       res.status(500).json({ success: false, error: String(error) });
     }
+  });
+
+  // Auto-Publisher Control Endpoints
+  app.get("/api/auto-publisher/status", async (req, res) => {
+    res.json(autoPublisher.getStatus());
+  });
+
+  app.post("/api/auto-publisher/enable", async (req, res) => {
+    autoPublisher.enable();
+    res.json({ success: true, message: "Auto-publisher enabled", status: autoPublisher.getStatus() });
+  });
+
+  app.post("/api/auto-publisher/disable", async (req, res) => {
+    autoPublisher.disable();
+    res.json({ success: true, message: "Auto-publisher disabled", status: autoPublisher.getStatus() });
   });
 
   // ============================================
@@ -1691,11 +1745,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/postcard-drafts", async (req, res) => {
     try {
       const drafts = await storage.getPostcardDrafts();
-      // Filter for pending drafts with score > 40 (eliminate low-quality leads)
-      // Also include pending_retry drafts so users can see and retry them
+      // Filter for high-quality pending drafts (score >= 80)
+      // Lower quality leads are auto-discarded, premium leads are shown or auto-published
       const pendingDrafts = drafts.filter(d =>
         (d.status === "pending_review" || d.status === "pending_retry") &&
-        (d.score || 0) > 40
+        (d.score || 0) >= 80
       );
       res.json(pendingDrafts);
     } catch (error) {
@@ -1840,3 +1894,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   return httpServer;
 }
+

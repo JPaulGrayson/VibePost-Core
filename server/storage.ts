@@ -663,11 +663,13 @@ export class DatabaseStorage implements IStorage {
   async cleanupOldDrafts(): Promise<void> {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
+    // Only clean up LOW-QUALITY drafts (score < 80) that are old
+    // High-quality drafts (80+) are protected and never auto-deleted
     await db.delete(postcardDrafts)
       .where(
         and(
           eq(postcardDrafts.status, "pending_review"),
-          lt(postcardDrafts.score, 70),
+          lt(postcardDrafts.score, 80), // Only delete low-quality leads
           lt(postcardDrafts.createdAt, oneDayAgo)
         )
       );

@@ -80,6 +80,14 @@ import { twitterListener } from "./services/twitter_listener";
     console.error("Failed to start Thread Tour Scheduler:", error);
   }
 
+  // Start Auto-Publisher (Auto-posts 80+ score leads with rate limiting)
+  try {
+    const { autoPublisher } = await import("./services/auto_publisher");
+    autoPublisher.start();
+  } catch (error) {
+    console.error("Failed to start Auto-Publisher:", error);
+  }
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

@@ -4,11 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { PostcardDraft } from "@shared/schema";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Plane, Code2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+interface CampaignConfig {
+    id: string;
+    name: string;
+    emoji: string;
+    description: string;
+}
 
 export default function SniperQueue() {
     const { data: drafts, isLoading } = useQuery<PostcardDraft[]>({
@@ -16,10 +24,19 @@ export default function SniperQueue() {
         refetchInterval: 30000 // Poll for new drafts every 30s
     });
 
+    // Fetch current campaign state
+    const { data: campaignData } = useQuery<{ currentCampaign: string; config: CampaignConfig }>({
+        queryKey: ["/api/sniper/campaign"],
+    });
+
     const { toast } = useToast();
-
-
     const [searchQuery, setSearchQuery] = useState("");
+    const [activeCampaign, setActiveCampaign] = useState<string>(campaignData?.currentCampaign || "turai");
+
+    // Update local state when campaign data loads
+    if (campaignData?.currentCampaign && campaignData.currentCampaign !== activeCampaign) {
+        setActiveCampaign(campaignData.currentCampaign);
+    }
 
     const filteredDrafts = drafts?.filter(draft =>
         draft.originalAuthorHandle.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -27,9 +44,32 @@ export default function SniperQueue() {
         (draft.detectedLocation && draft.detectedLocation.toLowerCase().includes(searchQuery.toLowerCase()))
     ).sort((a, b) => (b.score || 0) - (a.score || 0)); // Sort by Score DESC
 
+    // Switch campaign mutation
+    const switchCampaign = useMutation({
+        mutationFn: async (campaignType: string) => {
+            const res = await apiRequest("POST", "/api/sniper/campaign", { campaignType });
+            return res.json();
+        },
+        onSuccess: (data) => {
+            setActiveCampaign(data.config.id);
+            queryClient.invalidateQueries({ queryKey: ["/api/sniper/campaign"] });
+            toast({
+                title: `Campaign Switched! ${data.config.emoji}`,
+                description: `Now hunting for ${data.config.name} leads.`,
+            });
+        },
+        onError: (error) => {
+            toast({
+                variant: "destructive",
+                title: "Failed to switch campaign",
+                description: String(error),
+            });
+        }
+    });
+
     const manualHunt = useMutation({
         mutationFn: async () => {
-            const res = await apiRequest("POST", "/api/debug/hunt");
+            const res = await apiRequest("POST", "/api/debug/hunt", { campaignType: activeCampaign });
             return res.json();
         },
         onSuccess: (data) => {
@@ -37,7 +77,7 @@ export default function SniperQueue() {
             const stats = data.result?.stats;
             if (stats) {
                 toast({
-                    title: "Hunt Complete! 🧙‍♂️",
+                    title: `Hunt Complete! ${activeCampaign === 'logigo' ? '🧠' : '🧙‍♂️'}`,
                     description: `Found ${stats.tweetsFound} tweets, created ${stats.draftsCreated} new drafts.`,
                 });
             } else {
@@ -83,7 +123,34 @@ export default function SniperQueue() {
 
     return (
         <div className="p-6 max-w-4xl mx-auto">
-            <h1 className="text-2xl font-bold mb-6">🧙‍♂️ Wizard's Tower (Review Queue)</h1>
+            <h1 className="text-2xl font-bold mb-4">🧙‍♂️ Wizard's Tower (Lead Review Queue)</h1>
+
+            {/* Campaign Selector Tabs */}
+            <div className="mb-6 p-4 bg-card rounded-lg border">
+                <label className="text-sm font-medium text-muted-foreground mb-2 block">Active Campaign</label>
+                <Tabs
+                    value={activeCampaign}
+                    onValueChange={(value) => switchCampaign.mutate(value)}
+                    className="w-full"
+                >
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="turai" className="flex items-center gap-2" disabled={switchCampaign.isPending}>
+                            <Plane className="h-4 w-4" />
+                            <span>✈️ Turai Travel</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="logigo" className="flex items-center gap-2" disabled={switchCampaign.isPending}>
+                            <Code2 className="h-4 w-4" />
+                            <span>🧠 LogiGo Vibe Coding</span>
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
+                <p className="text-xs text-muted-foreground mt-2">
+                    {activeCampaign === 'turai'
+                        ? "Hunting for travelers planning trips - promoting AI Tour Guide"
+                        : "Hunting for developers struggling with code - promoting code visualization"
+                    }
+                </p>
+            </div>
 
             <div className="mb-6 flex gap-4">
                 <Input
@@ -105,7 +172,7 @@ export default function SniperQueue() {
                     ) : (
                         <>
                             <RefreshCw className="mr-2 h-4 w-4" />
-                            Manual Hunt
+                            Manual Hunt ({activeCampaign === 'logigo' ? '🧠' : '✈️'})
                         </>
                     )}
                 </Button>
@@ -124,7 +191,7 @@ export default function SniperQueue() {
 
             <div className="grid gap-6">
                 {filteredDrafts?.map((draft) => (
-                    <DraftCard key={draft.id} draft={draft} />
+                    <DraftCard key={draft.id} draft={draft} campaignType={activeCampaign} />
                 ))}
                 {filteredDrafts?.length === 0 && <p>No drafts found matching your search.</p>}
             </div>
@@ -132,7 +199,7 @@ export default function SniperQueue() {
     );
 }
 
-function DraftCard({ draft }: { draft: PostcardDraft }) {
+function DraftCard({ draft, campaignType = 'turai' }: { draft: PostcardDraft; campaignType?: string }) {
     const [text, setText] = useState(draft.draftReplyText || "");
     const score = draft.score || 0;
     const { toast } = useToast();

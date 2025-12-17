@@ -2,6 +2,7 @@ import { db } from "../db";
 import { postcardDrafts } from "@shared/schema";
 import { GoogleGenAI } from "@google/genai";
 import { eq } from "drizzle-orm";
+import { CampaignType, CAMPAIGN_CONFIGS } from "../campaign-config";
 
 // Initialize Gemini
 // Ensure API key is present
@@ -28,11 +29,30 @@ function calculateSimilarity(text1: string, text2: string): number {
     return intersection.length / unionSize;
 }
 
-// Verify travel intent using Gemini AI
-// Returns true if the tweet is genuinely about travel planning
-async function verifyTravelIntent(tweetText: string): Promise<boolean> {
+// Verify intent based on campaign type using Gemini AI
+async function verifyIntent(tweetText: string, campaignType: CampaignType = 'turai'): Promise<boolean> {
     try {
-        const prompt = `Analyze this social media post and determine if it's a GENUINE travel planning inquiry where someone is asking for help, recommendations, or advice about visiting a destination.
+        const config = CAMPAIGN_CONFIGS[campaignType];
+
+        let prompt: string;
+
+        if (campaignType === 'logigo') {
+            prompt = `Analyze this social media post and determine if it's a GENUINE coding/development inquiry where someone is:
+- Struggling with code or debugging
+- Asking for help understanding code
+- Frustrated with a programming problem
+- Looking for coding tools or visualization help
+- Learning to code and stuck
+
+Post: "${tweetText}"
+
+Answer with ONLY "YES" or "NO":
+- YES = They genuinely need coding help, are struggling with code, or looking for developer tools
+- NO = Job posting, promotional content, hiring announcement, course advertisement, or not actually seeking help
+
+Answer:`;
+        } else {
+            prompt = `Analyze this social media post and determine if it's a GENUINE travel planning inquiry where someone is asking for help, recommendations, or advice about visiting a destination.
 
 Post: "${tweetText}"
 
@@ -41,6 +61,7 @@ Answer with ONLY "YES" or "NO":
 - NO = Casual mention of a place, astrology/horoscope, promotional content, news, jokes, or not actually seeking travel advice
 
 Answer:`;
+        }
 
         const result = await genAI.models.generateContent({
             model: "gemini-2.0-flash",
@@ -50,14 +71,24 @@ Answer:`;
         const answer = result.text?.trim().toUpperCase() || "NO";
         return answer.startsWith("YES");
     } catch (error) {
-        console.error("Error verifying travel intent:", error);
+        console.error(`Error verifying ${campaignType} intent:`, error);
         // On error, default to allowing (don't block due to API issues)
         return true;
     }
 }
 
-export async function generateDraft(tweet: { id: string; text: string; author_id?: string }, authorHandle: string): Promise<boolean> {
-    console.log(`Drafting reply for tweet ${tweet.id} from ${authorHandle}`);
+// Legacy function for backward compatibility
+async function verifyTravelIntent(tweetText: string): Promise<boolean> {
+    return verifyIntent(tweetText, 'turai');
+}
+
+export async function generateDraft(
+    tweet: { id: string; text: string; author_id?: string },
+    authorHandle: string,
+    campaignType: CampaignType = 'turai'
+): Promise<boolean> {
+    const config = CAMPAIGN_CONFIGS[campaignType];
+    console.log(`${config.emoji} Drafting ${config.name} reply for tweet ${tweet.id} from ${authorHandle}`);
 
     // Check if draft already exists for this exact tweet
     const existing = await db.query.postcardDrafts.findFirst({
@@ -102,54 +133,84 @@ export async function generateDraft(tweet: { id: string; text: string; author_id
 
     const drafter = new PostcardDrafter();
 
-    // 0. Verify Travel Intent (AI check to filter out astrology, casual mentions, etc.)
-    console.log("Verifying travel intent...");
-    const hasTravelIntent = await verifyTravelIntent(tweet.text);
-    if (!hasTravelIntent) {
-        console.log("❌ No travel intent detected (astrology, promotional, or casual mention). Skipping.");
+    // 0. Verify Intent based on campaign type
+    console.log(`Verifying ${config.name} intent...`);
+    const hasIntent = await verifyIntent(tweet.text, campaignType);
+    if (!hasIntent) {
+        console.log(`❌ No ${config.name} intent detected. Skipping.`);
         return false;
     }
-    console.log("✅ Travel intent verified.");
+    console.log(`✅ ${config.name} intent verified.`);
 
-    // 1. Analyze Tweet for Location
-    const location = await drafter.extractLocation(tweet.text);
-    if (!location) {
-        console.log("No location detected in tweet. Skipping.");
-        return false;
+    // 1. Extract context based on campaign type
+    let contextInfo: string | null = null;
+
+    if (campaignType === 'turai') {
+        // For travel: extract location
+        contextInfo = await drafter.extractLocation(tweet.text);
+        if (!contextInfo) {
+            console.log("No location detected in tweet. Skipping.");
+            return false;
+        }
+    } else if (campaignType === 'logigo') {
+        // For LogiGo: extract the coding topic/language
+        contextInfo = await drafter.extractCodingContext(tweet.text);
+        if (!contextInfo) {
+            contextInfo = "code debugging"; // Default context
+        }
     }
 
-    // 2. Generate Image (Call Turai API)
-    let turaiImageUrl = `https://turai.com/mock-image/${encodeURIComponent(location)}`;
-    let imageAttribution = null;
+    // 2. Generate Image based on campaign
+    let imageUrl = "";
+    let imageAttribution: string | null = null;
 
-    const imageResult = await drafter.generateTuraiImage(location);
-    turaiImageUrl = imageResult.imageUrl;
-    imageAttribution = imageResult.attribution;
+    if (campaignType === 'turai') {
+        const imageResult = await drafter.generateTuraiImage(contextInfo!);
+        imageUrl = imageResult.imageUrl;
+        imageAttribution = imageResult.attribution;
+    } else if (campaignType === 'logigo') {
+        // For LogiGo: use a code visualization themed image
+        imageUrl = await drafter.generateLogiGoImage(contextInfo!);
+    }
 
     // 2b. Extract Theme
-    const theme = await drafter.extractTheme(tweet.text);
+    const theme = campaignType === 'turai'
+        ? await drafter.extractTheme(tweet.text)
+        : await drafter.extractCodingTheme(tweet.text);
     console.log(`Detected theme: ${theme}`);
 
-    // 3. Generate Reply Text
+    // 3. Generate Reply Text based on campaign
     console.log("Generating reply text...");
-    const { text: draftReplyText, score } = await drafter.generateReplyText(authorHandle, location, tweet.text);
+    const { text: draftReplyText, score } = await drafter.generateCampaignReply(
+        authorHandle,
+        contextInfo!,
+        tweet.text,
+        campaignType
+    );
     console.log(`Generated reply text: ${draftReplyText.substring(0, 20)}... (Score: ${score})`);
 
-    // 5. Save to DB
+    // Skip low-quality leads (won't be auto-published anyway)
+    if (score < 80) {
+        console.log(`⏭️ Skipping low-quality lead (Score: ${score} < 80)`);
+        return false;
+    }
+
+    // 5. Save to DB with campaign type
     console.log("Saving draft to DB...");
     try {
         await db.insert(postcardDrafts).values({
             originalTweetId: tweet.id,
             originalAuthorHandle: authorHandle,
             originalTweetText: tweet.text,
-            detectedLocation: location,
+            detectedLocation: contextInfo, // Reusing location field for context
             status: "pending_review",
             draftReplyText: draftReplyText,
-            turaiImageUrl: turaiImageUrl,
-            imageAttribution: imageAttribution, // New field
-            score: score, // Save the score
+            turaiImageUrl: imageUrl,
+            imageAttribution: imageAttribution,
+            score: score,
+            // Campaign type stored in a metadata field or we'll add a column later
         });
-        console.log(`✅ Draft saved for ${location} (Score: ${score})`);
+        console.log(`✅ ${config.emoji} Draft saved for ${contextInfo} (Score: ${score})`);
         return true;
     } catch (error) {
         console.error("Error saving draft to DB:", error);
@@ -162,15 +223,13 @@ export class PostcardDrafter {
 
     // Helper to expose image generation logic if needed by generateDraft
     async generateTuraiImage(location: string): Promise<{ imageUrl: string; attribution: string | null }> {
-        // Default to the mock URL initially
-        // Use Pollinations AI as a reliable fallback for real images
-        let turaiImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(location + " travel postcard scenic")}`;
-        let attribution = null;
+        let attribution: string | null = null;
 
         // Use localhost:5003 as default for dev environment
         const turaiApiUrl = process.env.TURAI_API_URL || "http://localhost:5002";
         const turaiApiKey = process.env.TURAI_API_KEY || "any-key-for-dev";
 
+        // Try Turai API first (best quality)
         try {
             console.log(`Calling Turai API at ${turaiApiUrl} for location: ${location}`);
             const response = await fetch(`${turaiApiUrl}/api/postcards/generate-by-topic`, {
@@ -190,13 +249,13 @@ export class PostcardDrafter {
             if (response.ok) {
                 const data = await response.json();
                 if (data.success && data.data.imageUrl) {
-                    turaiImageUrl = data.data.imageUrl;
                     // Format attribution string if data is present
                     if (data.data.attribution) {
-                        const { name, link } = data.data.attribution;
+                        const { name } = data.data.attribution;
                         attribution = `Photo by ${name} on Unsplash`;
                     }
-                    console.log("Turai image generated successfully:", turaiImageUrl);
+                    console.log("Turai image generated successfully:", data.data.imageUrl);
+                    return { imageUrl: data.data.imageUrl, attribution };
                 }
             } else {
                 console.error(`Turai API returned ${response.status}: ${await response.text()}`);
@@ -205,7 +264,34 @@ export class PostcardDrafter {
             console.error("Error calling Turai API:", error);
         }
 
-        return { imageUrl: turaiImageUrl, attribution };
+        // Fallback: Try Pollinations AI with verification
+        try {
+            const imagePrompt = `${location} beautiful travel destination scenic landscape photography, no text, no words, no letters, no writing, no signs`;
+            const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true`;
+
+            console.log("Trying Pollinations AI...");
+            const pollinationsResponse = await fetch(pollinationsUrl, {
+                method: 'GET',
+                signal: AbortSignal.timeout(45000) // 45 second timeout
+            });
+
+            if (pollinationsResponse.ok) {
+                const contentType = pollinationsResponse.headers.get('content-type');
+                if (contentType && contentType.startsWith('image/')) {
+                    console.log("Pollinations image verified successfully");
+                    return { imageUrl: pollinationsUrl, attribution: null };
+                }
+            }
+            console.log("Pollinations failed or returned non-image, trying LoremFlickr...");
+        } catch (error) {
+            console.error("Pollinations timeout/error:", error);
+        }
+
+        // Final fallback: LoremFlickr (real photos, fast and reliable)
+        const query = encodeURIComponent(location.replace(/[^a-zA-Z0-9\s]/g, ' ').trim().replace(/\s+/g, ','));
+        const flickrUrl = `https://loremflickr.com/800/800/${query}?random=${Date.now()}`;
+        console.log("Using LoremFlickr fallback:", flickrUrl);
+        return { imageUrl: flickrUrl, attribution: null };
     }
 
     // ... extractLocation and generateReplyText methods (make them public or internal if needed) ...
@@ -259,6 +345,190 @@ export class PostcardDrafter {
         } catch (error) {
             console.error("Error extracting theme:", error);
             return "General";
+        }
+    }
+
+    // ===== LOGIGO-SPECIFIC METHODS =====
+
+    // Extract coding context from a tweet (language, problem type, etc.)
+    async extractCodingContext(text: string): Promise<string | null> {
+        try {
+            const response = await genAI.models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: [{
+                    role: 'user',
+                    parts: [{
+                        text: `Analyze this tweet about coding/programming. Extract the main technology or problem type.
+                    
+Return a short 1-4 word description like:
+- "Python debugging"
+- "React TypeScript"
+- "Algorithm confusion"
+- "JavaScript async"
+- "Legacy code refactoring"
+
+If no specific tech context is found, return "code debugging".
+
+Tweet: "${text}"
+
+Answer (1-4 words only):` }]
+                }]
+            });
+            const result = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            return result || "code debugging";
+        } catch (error) {
+            console.error("Error extracting coding context:", error);
+            return "code debugging";
+        }
+    }
+
+    // Generate a LogiGo-themed image (flowchart visualization style)
+    async generateLogiGoImage(context: string): Promise<string> {
+        try {
+            // Use Pollinations AI to generate a code visualization themed image
+            const imagePrompt = `clean modern code flowchart diagram visualization, ${context}, dark theme IDE aesthetic, abstract geometric shapes and lines, glowing nodes, technology concept art, no text, no letters, no words, minimalist design`;
+            const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true`;
+
+            console.log("Generating LogiGo image via Pollinations...");
+            const response = await fetch(pollinationsUrl, {
+                method: 'GET',
+                signal: AbortSignal.timeout(45000)
+            });
+
+            if (response.ok) {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.startsWith('image/')) {
+                    console.log("LogiGo image generated successfully");
+                    return pollinationsUrl;
+                }
+            }
+        } catch (error) {
+            console.error("Error generating LogiGo image:", error);
+        }
+
+        // Fallback: Generic code visualization placeholder
+        return `https://placehold.co/800x800/1a1a2e/00ff88?text=LogiGo+Visualization`;
+    }
+
+    // Extract coding theme (for categorization)
+    async extractCodingTheme(text: string): Promise<string> {
+        try {
+            const response = await genAI.models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: [{
+                    role: 'user',
+                    parts: [{
+                        text: `Categorize this coding-related tweet into one of these themes:
+- "Debugging" (fixing bugs, errors)
+- "Learning" (learning to code, tutorials)
+- "Architecture" (system design, patterns)
+- "Frustration" (angry at code, venting)
+- "Help Seeking" (asking questions)
+- "General" (none of the above)
+
+Tweet: "${text}"
+
+Answer (one word only):` }]
+                }]
+            });
+            const result = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            return result || "General";
+        } catch (error) {
+            console.error("Error extracting coding theme:", error);
+            return "General";
+        }
+    }
+
+    // Generate campaign-specific reply
+    async generateCampaignReply(
+        author: string,
+        context: string,
+        originalText: string,
+        campaignType: CampaignType
+    ): Promise<{ text: string; score: number }> {
+        if (campaignType === 'logigo') {
+            return this.generateLogiGoReply(author, context, originalText);
+        }
+        // Default to Turai travel reply
+        return this.generateReplyText(author, context, originalText);
+    }
+
+    // LogiGo-specific reply generation
+    async generateLogiGoReply(author: string, context: string, originalText: string): Promise<{ text: string; score: number }> {
+        try {
+            const systemPrompt = `
+            You are "The Code Sage", a wise and friendly senior developer who helps fellow coders.
+            
+            Your Goal: 
+            1. Analyze the tweet for "Coding Lead Quality" and assign a Score (0-99).
+               - 80-99: Strong Lead. Genuine frustration, asking for help, struggling with specific code problem.
+               - 60-79: Moderate Lead. General coding discussion, might need tools.
+               - 0-59: Weak Lead. Promotional, hiring, or not actually seeking help.
+            
+            2. Write a short, helpful reply that subtly hints at visualization helping.
+            
+            Rules:
+            1. Tone: Friendly senior developer, empathetic, NOT salesy. Use emojis sparingly: 🧠, 💡, ⚡, 🔍, 📊
+            2. Vocabulary:
+               - "I feel you, debugging [X] can be tricky..."
+               - "Have you tried visualizing the flow?"
+               - "Sometimes a flowchart really helps see what's happening"
+               - "That's a tough one! Breaking it down step by step helps"
+               - NEVER sound like a bot or advertisement
+            3. **CRITICAL**: Do NOT include any URLs or links in the text.
+            4. **CRITICAL**: Be genuinely helpful first, product mention secondary.
+            5. Length: Keep it under 200 characters.
+            
+            Structure:
+            - Acknowledge their struggle (empathy first)
+            - Offer a helpful tip related to visualization/understanding code flow
+            - Optional: Very subtle mention that you use a tool for this
+
+            Output Format: JSON
+            {
+                "score": 85,
+                "reply": "Debugging async can be wild! 🧠 Try mapping out the flow visually..."
+            }
+            `;
+
+            const userPrompt = originalText === "REGENERATE"
+                ? `Write a fresh Code Sage reply to @${author} about ${context}. Return JSON.`
+                : `Reply to @${author} who tweeted: "${originalText}". Context: ${context}. Return JSON.`;
+
+            const response = await genAI.models.generateContent({
+                model: 'gemini-pro-latest',
+                contents: [{
+                    role: 'user',
+                    parts: [
+                        { text: systemPrompt },
+                        { text: userPrompt }
+                    ]
+                }]
+            });
+
+            const resultText = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+            try {
+                const jsonStr = resultText?.replace(/```json/g, '').replace(/```/g, '').trim();
+                const parsed = JSON.parse(jsonStr || '{}');
+                return {
+                    text: (parsed.reply || `That's a tricky one, @${author}! Sometimes visualizing the code flow helps a ton. 🧠`) + " (Check my pinned post for the tool I use! 📊)",
+                    score: parsed.score || 50
+                };
+            } catch (e) {
+                console.error("Failed to parse LogiGo AI JSON response:", resultText);
+                return {
+                    text: (resultText || `That's a tricky one, @${author}! Sometimes visualizing the code flow helps. 🧠`) + " (Check my pinned post for the tool I use! 📊)",
+                    score: 50
+                };
+            }
+
+        } catch (error) {
+            console.error("Error generating LogiGo reply:", error);
+            return {
+                text: `That's a tricky one, @${author}! Sometimes visualizing your code flow helps see where things go wrong. 🧠 (Check my pinned post! 📊)`,
+                score: 50
+            };
         }
     }
 

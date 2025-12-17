@@ -1,7 +1,40 @@
-node_modules
-dist
+# Dependencies
+node_modules/
+dist/
+
+# OS Files
 .DS_Store
+
+# Build artifacts
 server/public
 vite.config.ts.*
-*.tar.gznode_modules/
+*.tar.gz
+
+# Environment
 .env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+scheduler.log
+publish_error.log
+server.log
+
+# Generated media (too large for git)
+reply_videos/
+thread_videos/
+videos/
+temp_assets/
+
+# Local databases
+*.db
+data.db
+vibe-post.db
+*.sqlite
+
+# Agent/IDE workspace
+.agent/
+
+# Output files
+drafts_output.txt

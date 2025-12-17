@@ -104,32 +104,82 @@ Return ONLY the JSON array, no markdown:`;
 }
 
 /**
- * Fetch image for a specific interest using Pollinations AI
+ * Fetch image for a specific interest - uses same sources as postcard_drafter.ts
+ * Fallback chain: Turai API → Pollinations → LoremFlickr
  */
 async function fetchInterestImage(interest: TravelInterest, location: string): Promise<string | null> {
+    const localPath = path.join(TEMP_DIR, `interest_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`);
+
+    console.log(`      Fetching ${interest.emoji} ${interest.theme}...`);
+
+    // Use localhost:5002 as default for dev environment (same as postcard_drafter.ts)
+    const turaiApiUrl = process.env.TURAI_API_URL || "http://localhost:5002";
+
+    // 1. Try Turai API first (Gemini-powered, best quality)
     try {
-        // Use Pollinations AI for reliable AI-generated travel images
-        const prompt = encodeURIComponent(`${location} ${interest.theme}, travel photography, scenic destination, high quality`);
+        const response = await fetch(`${turaiApiUrl}/api/postcards/generate-by-topic`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                location: { name: location },
+                topic: interest.theme,
+                aspectRatio: "1:1",
+                stylePreset: "vibrant"
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json() as { success: boolean; data?: { imageUrl?: string } };
+            if (data.success && data.data?.imageUrl) {
+                // Image is base64, write to file
+                const base64Data = data.data.imageUrl.replace(/^data:image\/\w+;base64,/, '');
+                fs.writeFileSync(localPath, Buffer.from(base64Data, 'base64'));
+
+                if (fs.existsSync(localPath) && fs.statSync(localPath).size > 10000) {
+                    console.log(`      ✓ Got ${interest.theme} image (Turai API)`);
+                    return localPath;
+                }
+            }
+        }
+    } catch (error) {
+        console.log(`      ⚠️ Turai API failed for ${interest.theme}, trying Pollinations...`);
+    }
+
+    // 2. Fallback to Pollinations AI
+    try {
+        const prompt = encodeURIComponent(
+            `${location} ${interest.theme.toLowerCase()} travel photography, scenic, high quality, no text, no words, no letters`
+        );
         const imageUrl = `https://image.pollinations.ai/prompt/${prompt}?width=1080&height=1080&nologo=true`;
 
-        const localPath = path.join(TEMP_DIR, `interest_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`);
-
-        console.log(`      Fetching ${interest.emoji} ${interest.theme}...`);
-
-        // Download the image
         await downloadFile(imageUrl, localPath);
 
-        // Verify file was downloaded
         if (fs.existsSync(localPath) && fs.statSync(localPath).size > 10000) {
-            console.log(`      ✓ Got ${interest.theme} image`);
+            console.log(`      ✓ Got ${interest.theme} image (Pollinations)`);
             return localPath;
         }
-        return null;
     } catch (error) {
-        console.error(`Error fetching image for ${interest.theme}:`, error);
-        return null;
+        console.log(`      ⚠️ Pollinations failed for ${interest.theme}, trying LoremFlickr...`);
     }
+
+    // 3. Last resort: LoremFlickr (real photos)
+    try {
+        const query = encodeURIComponent(`${location} ${interest.theme}`.replace(/[^a-zA-Z0-9\s]/g, ' ').trim().replace(/\s+/g, ','));
+        const flickrUrl = `https://loremflickr.com/1080/1080/${query}?random=${Date.now()}`;
+
+        await downloadFile(flickrUrl, localPath);
+
+        if (fs.existsSync(localPath) && fs.statSync(localPath).size > 10000) {
+            console.log(`      ✓ Got ${interest.theme} image (LoremFlickr)`);
+            return localPath;
+        }
+    } catch (error) {
+        console.error(`      ✗ All sources failed for ${interest.theme}:`, error);
+    }
+
+    return null;
 }
+
 
 
 /**
@@ -144,8 +194,13 @@ async function downloadFile(url: string, localPath: string): Promise<void> {
         const request = protocol.get(url, { timeout: 60000 }, (response) => {
             // Handle redirects (301, 302, 303)
             if (response.statusCode === 301 || response.statusCode === 302 || response.statusCode === 303) {
-                const redirectUrl = response.headers.location;
+                let redirectUrl = response.headers.location;
                 if (redirectUrl) {
+                    // Handle relative redirects (LoremFlickr returns paths like /cache/...)
+                    if (redirectUrl.startsWith('/')) {
+                        const baseUrl = new URL(url);
+                        redirectUrl = `${baseUrl.protocol}//${baseUrl.host}${redirectUrl}`;
+                    }
                     file.close();
                     downloadFile(redirectUrl, localPath).then(resolve).catch(reject);
                     return;
@@ -178,11 +233,122 @@ async function downloadFile(url: string, localPath: string): Promise<void> {
 }
 
 /**
- * Generate narration text for the reply video
+ * Generate personalized narration text using AI
+ * Addresses the user's specific question and interests
+ * Target: ~30 seconds of speech (roughly 75-90 words)
  */
-function generateNarrationText(location: string, interests: TravelInterest[]): string {
-    const interestList = interests.map(i => i.theme.toLowerCase()).join(', ');
-    return `Discover ${location}! From ${interestList} and so much more. Get your personalized travel guide at turai.org!`;
+async function generatePersonalizedNarration(
+    tweetText: string,
+    location: string,
+    interests: TravelInterest[]
+): Promise<string> {
+    try {
+        const interestList = interests.map(i => i.theme).join(', ');
+
+        const prompt = `You are a friendly travel expert creating a 30-second video narration.
+
+User's tweet: "${tweetText}"
+Destination: ${location}
+Topics to cover: ${interestList}
+
+Write a warm, personalized narration that:
+1. Directly acknowledges what they're looking for (based on their tweet)
+2. Gives ONE quick, specific tip or answer to their question
+3. Briefly mentions each topic (${interestList}) as we show images
+4. Ends with a friendly call to action for turai.org
+
+Rules:
+- Keep it 75-90 words (30 seconds when spoken)
+- Sound like a helpful friend, not a commercial
+- Reference something specific from their tweet
+- No hashtags or emojis in the narration
+
+Example tone: "So you're looking for coworking spots with good vibes? You've picked the perfect destination! Bali's got you covered..."
+
+Write ONLY the narration text, no quotes or labels:`;
+
+        const result = await genAI.models.generateContent({
+            model: "gemini-2.0-flash",
+            contents: prompt,
+        });
+
+        const narration = result.text?.trim();
+        if (narration && narration.length > 50) {
+            return narration;
+        }
+    } catch (error) {
+        console.error("AI narration failed, using fallback:", error);
+    }
+
+    // Fallback to simple template
+    const interestNames = interests.map(i => i.theme.toLowerCase()).join(', ');
+    return `Planning a trip to ${location}? Great choice! Here's a quick peek at what makes it special. You'll love exploring the ${interestNames}. Each one offers something unique that makes ${location} unforgettable. Ready, to plan your perfect trip? Head over to turai.org for your personalized AI travel guide!`;
+}
+
+/**
+ * Generate personalized reply text using AI
+ * Creates a tweet-length response that directly addresses the user's question
+ */
+export async function generatePersonalizedReplyText(
+    tweetText: string,
+    authorHandle: string,
+    location: string,
+    interests: TravelInterest[]
+): Promise<string> {
+    try {
+        const handle = authorHandle.startsWith('@') ? authorHandle : `@${authorHandle}`;
+        const interestEmojis = interests.map(i => `${i.emoji} ${i.theme}`).join(' • ');
+
+        const prompt = `Write a Twitter reply to someone asking about travel to ${location}.
+
+Their tweet: "${tweetText}"
+Topics in video: ${interestEmojis}
+
+Write a reply that:
+1. Starts with ${handle}
+2. Directly addresses their specific question/interest (not generic)
+3. Gives a quick helpful tip or insight
+4. Mentions the video shows more
+5. Ends with "Full guide in bio 🗺️"
+
+Rules:
+- Under 240 characters total (Twitter limit)
+- Warm and helpful, not salesy
+- Include 1-2 relevant emojis
+- Reference something specific from their tweet
+
+Example: "${handle} For those cozy cafe vibes, head to Ubud! This preview shows the best spots 🎬 Full guide in bio 🗺️"
+
+Write ONLY the tweet text:`;
+
+        const result = await genAI.models.generateContent({
+            model: "gemini-2.0-flash",
+            contents: prompt,
+        });
+
+        let reply = result.text?.trim() || "";
+
+        // Ensure it starts with the handle
+        if (!reply.toLowerCase().startsWith(handle.toLowerCase())) {
+            reply = `${handle} ${reply}`;
+        }
+
+        // Truncate if too long
+        if (reply.length > 270) {
+            reply = reply.substring(0, 267) + "...";
+        }
+
+        if (reply.length > 50) {
+            return reply;
+        }
+    } catch (error) {
+        console.error("AI reply text failed, using fallback:", error);
+    }
+
+    // Fallback
+    const handle = authorHandle.startsWith('@') ? authorHandle : `@${authorHandle}`;
+    const interestEmojis = interests.map(i => `${i.emoji} ${i.theme}`).join(' • ');
+    return `${handle} Here's a quick preview of ${location}! 🎬\n\n${interestEmojis}\n\nFull guide in bio 🗺️`;
 }
 
 /**
@@ -193,22 +359,42 @@ async function fetchNarration(text: string, outputPath: string): Promise<void> {
 
     try {
         console.log(`      Generating narration...`);
-        const response = await fetch(`${TURAI_API}/api/tts/generate`, {
+        // Use /api/tts/test endpoint which exists in Turai
+        const response = await fetch(`${TURAI_API}/api/tts/test`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text, voice: 'alloy' })
+            body: JSON.stringify({
+                text,
+                provider: 'google',
+                voice: 'en-US-Studio-O',
+                speed: 1.0,
+                volume: 0.8
+            })
         });
 
         if (!response.ok) {
             throw new Error(`TTS API returned ${response.status}`);
         }
 
-        const data = await response.json() as { audioUrl?: string };
-        if (!data.audioUrl) throw new Error('No audio URL in response');
+        const data = await response.json() as { success?: boolean; data?: { audioUrl?: string }; audioUrl?: string };
+        const audioUrl = data.data?.audioUrl || data.audioUrl;
+        if (!audioUrl) throw new Error('No audio URL in response');
 
-        // Download the audio file
-        const audioUrl = data.audioUrl.startsWith('http') ? data.audioUrl : `${TURAI_API}${data.audioUrl}`;
-        await downloadFile(audioUrl, outputPath);
+        // Handle base64 data URL (format: data:audio/mp3;base64,...)
+        if (audioUrl.startsWith('data:')) {
+            const matches = audioUrl.match(/^data:audio\/\w+;base64,(.+)$/);
+            if (matches && matches[1]) {
+                const audioBuffer = Buffer.from(matches[1], 'base64');
+                fs.writeFileSync(outputPath, audioBuffer);
+                console.log(`      ✓ Narration generated (${(audioBuffer.length / 1024).toFixed(1)} KB)`);
+                return;
+            }
+            throw new Error('Invalid base64 audio data URL format');
+        }
+
+        // Handle HTTP URL
+        const fullAudioUrl = audioUrl.startsWith('http') ? audioUrl : `${TURAI_API}${audioUrl}`;
+        await downloadFile(fullAudioUrl, outputPath);
         console.log(`      ✓ Narration generated`);
     } catch (error) {
         console.error(`      ⚠️ Narration failed:`, error);
@@ -226,8 +412,8 @@ async function createTeaserVideo(
     audioPath?: string
 ): Promise<void> {
     return new Promise((resolve, reject) => {
-        // Each image shows for 5 seconds
-        const durationPerImage = 5;
+        // Each image shows for 10 seconds (30 sec total for 3 images)
+        const durationPerImage = 10;
         const totalDuration = images.length * durationPerImage;
 
         console.log(`      Building ${totalDuration}s video from ${images.length} images...`);
@@ -241,19 +427,25 @@ async function createTeaserVideo(
             tempVideos.push(tempPath);
 
             tasks.push(new Promise<void>((res, rej) => {
+                // Simple approach: scale image to fit, no zoom animation
+                // This avoids the jitter from zoompan filter
                 ffmpeg(img.path)
-                    .loop(durationPerImage)
-                    .inputOptions(['-framerate', '30'])
+                    .inputOptions(['-loop', '1'])
                     .videoFilters([
-                        'scale=1200:1200:force_original_aspect_ratio=increase',
+                        // Scale and crop to 1080x1080
+                        'scale=1080:1080:force_original_aspect_ratio=increase',
                         'crop=1080:1080',
-                        `zoompan=z='min(zoom+0.001,1.2)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${durationPerImage * 30}:s=1080x1080:fps=30`
+                        // Add smooth fade in/out for transitions
+                        `fade=t=in:st=0:d=0.5,fade=t=out:st=${durationPerImage - 0.5}:d=0.5`
                     ])
                     .outputOptions([
                         '-c:v', 'libx264',
+                        '-preset', 'slow',
+                        '-crf', '18',
                         '-t', String(durationPerImage),
+                        '-r', '30',
                         '-pix_fmt', 'yuv420p',
-                        '-r', '30'
+                        '-movflags', '+faststart'
                     ])
                     .output(tempPath)
                     .on('end', () => res())
@@ -279,15 +471,18 @@ async function createTeaserVideo(
                 if (audioPath && fs.existsSync(audioPath)) {
                     cmd.input(audioPath);
                     cmd.outputOptions([
-                        '-c:v', 'libx264',
+                        '-c:v', 'copy',
                         '-c:a', 'aac',
                         '-b:a', '128k',
-                        '-shortest',
+                        '-map', '0:v',   // Video from first input (concat)
+                        '-map', '1:a',   // Audio from second input
                         '-pix_fmt', 'yuv420p'
+                        // NOTE: Removed -shortest so video plays full duration
+                        // Audio will end when it ends, video continues silently
                     ]);
                 } else {
                     cmd.outputOptions([
-                        '-c:v', 'libx264',
+                        '-c:v', 'copy',
                         '-pix_fmt', 'yuv420p'
                     ]);
                 }
@@ -346,11 +541,11 @@ export async function generateReplyVideo(
             };
         }
 
-        // 3. Generate audio narration
+        // 3. Generate personalized audio narration
         let audioPath: string | undefined;
         try {
-            console.log(`   🔊 Generating narration...`);
-            const narrationText = generateNarrationText(location, interests);
+            console.log(`   🔊 Generating personalized narration...`);
+            const narrationText = await generatePersonalizedNarration(tweetText, location, interests);
             audioPath = path.join(TEMP_DIR, `narration_${Date.now()}.mp3`);
             await fetchNarration(narrationText, audioPath);
         } catch (e) {

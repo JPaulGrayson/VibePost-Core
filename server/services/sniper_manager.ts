@@ -1,49 +1,26 @@
 import { keywordSearchEngine } from "../keyword-search";
 import { generateDraft } from "./postcard_drafter";
 import { storage } from "../storage";
+import {
+    CampaignType,
+    CAMPAIGN_CONFIGS,
+    hasPositiveIntent,
+    calculateCampaignScore
+} from "../campaign-config";
 
 export class SniperManager {
     private isRunning = false;
     private checkIntervalMs = 5 * 60 * 1000; // 5 Minutes (Safe Rate Limit for Search)
-
-    // Intent-focused keywords to find genuine travel planning questions
-    // More specific phrases = higher quality leads
-    private keywords = [
-        // High-intent questions (people actively seeking help)
-        "where should I stay in",
-        "recommendations for visiting",
-        "first time visiting",
-        "itinerary help",
-        "travel advice for",
-
-        // Planning with context (indicates genuine research)
-        "planning a trip to",
-        "how many days in",
-        "worth visiting",
-        "must see in",
-
-        // Budget/logistics (serious travelers)
-        "best time to visit",
-        "anyone been to",
-
-        // VIRAL MOMENT KEYWORDS (high engagement opportunities)
-        // These catch trending travel content like the Mexico/Mariachi post
-        "vacation in Mexico",
-        "vacation in Italy",
-        "vacation in Japan",
-        "vacation in Paris",
-        "vacation in Thailand",
-        "traveling to Spain",
-        "trip to Bali",
-        "visiting Greece",
-        "just got back from",
-        "travel fail",
-        "vacation was amazing",
-    ];
+    private currentCampaign: CampaignType = 'turai'; // Default to Turai
 
     private dailyLimit = 500; // Increased for Ranking Mode
     private draftsGeneratedToday = 0; // Reset for testing
     private lastResetDate = new Date().getDate();
+
+    // Get keywords based on current campaign
+    private get keywords(): string[] {
+        return CAMPAIGN_CONFIGS[this.currentCampaign].keywords;
+    }
 
     async startHunting() {
         if (this.isRunning) return;
@@ -54,15 +31,36 @@ export class SniperManager {
         // setInterval(() => this.hunt(), this.checkIntervalMs);
     }
 
-    async forceHunt() {
+    // Set the active campaign type
+    setCampaign(type: CampaignType) {
+        this.currentCampaign = type;
+        console.log(`🎯 Campaign switched to: ${CAMPAIGN_CONFIGS[type].emoji} ${CAMPAIGN_CONFIGS[type].name}`);
+    }
+
+    getCampaign(): CampaignType {
+        return this.currentCampaign;
+    }
+
+    getCampaignConfig() {
+        return CAMPAIGN_CONFIGS[this.currentCampaign];
+    }
+
+    async forceHunt(campaignType?: CampaignType) {
         if (this.isRunning) {
             console.log("⚠️ Sniper is already hunting. Skipping manual trigger.");
             return { draftsGenerated: 0, message: "Sniper is already running" };
         }
-        console.log("🎯 Manual Sniper Hunt Triggered");
+
+        // Optionally switch campaign for this hunt
+        if (campaignType) {
+            this.setCampaign(campaignType);
+        }
+
+        console.log(`🎯 Manual Sniper Hunt Triggered for ${CAMPAIGN_CONFIGS[this.currentCampaign].name}`);
         const stats = await this.hunt();
         return {
             draftsGenerated: this.draftsGeneratedToday,
+            campaign: this.currentCampaign,
             stats
         };
     }
@@ -87,14 +85,17 @@ export class SniperManager {
             tweetsFound: 0,
             draftsCreated: 0,
             duplicatesSkipped: 0,
+            intentFiltered: 0,
             errors: 0,
-            lastError: "" as string | undefined
+            lastError: "" as string | undefined,
+            campaign: this.currentCampaign
         };
 
         if (this.isRunning) return stats;
         this.isRunning = true;
 
-        console.log("🦅 Sniper Hunting Cycle Started (Twitter + Reddit)...");
+        const config = CAMPAIGN_CONFIGS[this.currentCampaign];
+        console.log(`🦅 Sniper Hunting Cycle Started for ${config.emoji} ${config.name}...`);
 
         try {
             // 0. Run Janitor
@@ -112,9 +113,8 @@ export class SniperManager {
             for (const keyword of this.keywords) {
                 stats.keywordsSearched++;
                 try {
-                    // Search for keyword across ALL platforms (Twitter fallback to Reddit)
-                    // This ensures we get results even if Twitter API is limited (Free Tier)
-                    const results = await keywordSearchEngine.searchAllPlatforms(keyword, ['twitter', 'reddit']);
+                    // Search for keyword on Twitter ONLY
+                    const results = await keywordSearchEngine.searchAllPlatforms(keyword, ['twitter']);
                     stats.tweetsFound += results.length;
 
                     if (results.length === 0) continue;
@@ -122,6 +122,13 @@ export class SniperManager {
                     console.log(`   Found ${results.length} posts for "${keyword}"`);
 
                     for (const result of results) {
+                        // Check campaign-specific intent
+                        if (!hasPositiveIntent(result.content, this.currentCampaign)) {
+                            console.log(`   ❌ No ${config.name} intent detected. Skipping.`);
+                            stats.intentFiltered++;
+                            continue;
+                        }
+
                         // Check if processed
                         const existing = await storage.getDraftByOriginalTweetId(result.id);
                         if (existing) {
@@ -129,7 +136,7 @@ export class SniperManager {
                             continue;
                         }
 
-                        console.log(`   ✨ Generating draft for ${result.platform} user @${result.author}: "${result.content.substring(0, 30)}..."`);
+                        console.log(`   ✨ Generating ${config.emoji} draft for @${result.author}: "${result.content.substring(0, 40)}..."`);
 
                         // Adapt result to generic format expected by generateDraft
                         const postObj = {
@@ -138,18 +145,17 @@ export class SniperManager {
                             author_id: "unknown"
                         };
 
-                        const created = await generateDraft(postObj, result.author);
+                        // Pass campaign type to draft generator
+                        const created = await generateDraft(postObj, result.author, this.currentCampaign);
                         if (created) {
                             this.draftsGeneratedToday++;
                             stats.draftsCreated++;
-                        } else {
-                            // Optional: Track skipped reasons if needed
                         }
 
                         if (!this.checkDailyLimit()) break;
                     }
                 } catch (error) {
-                    console.error(`❌ Error hunting for "${keyword}" on any platform:`, error);
+                    console.error(`❌ Error hunting for "${keyword}":`, error);
                     stats.errors++;
                     stats.lastError = error instanceof Error ? error.message : String(error);
                 }
@@ -163,7 +169,7 @@ export class SniperManager {
             stats.lastError = error instanceof Error ? error.message : String(error);
         } finally {
             this.isRunning = false;
-            console.log("🦅 Sniper Hunting Cycle Complete.", stats);
+            console.log(`🦅 ${config.name} Hunting Cycle Complete.`, stats);
         }
 
         return stats;
