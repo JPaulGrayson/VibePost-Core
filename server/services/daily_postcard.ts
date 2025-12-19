@@ -53,7 +53,16 @@ const TRAVEL_HASHTAGS = [
 ];
 
 // Get a destination based on the day (cycles through the list)
-function getTodaysDestination(): string {
+// Allow manual override for testing/demos
+let overrideDestination: string | null = null;
+
+export function setOverrideDestination(dest: string) {
+    console.log(`🎯 Setting manual override destination: ${dest}`);
+    overrideDestination = dest;
+}
+
+export function getTodaysDestination(): string {
+    if (overrideDestination) return overrideDestination;
     const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
     return FEATURED_DESTINATIONS[dayOfYear % FEATURED_DESTINATIONS.length];
 }
@@ -83,7 +92,7 @@ Caption:`;
 
 // Generate image via Turai API (same endpoint as sniper drafts - THE FIX!)
 async function generateTuraiImage(destination: string): Promise<{ imageUrl: string | null; attribution: string | null }> {
-    const turaiApiUrl = process.env.TURAI_API_URL || "http://localhost:5002";
+    const turaiApiUrl = process.env.TURAI_API_URL || "http://localhost:5050";
     const turaiApiKey = process.env.TURAI_API_KEY || "any-key-for-dev";
 
     try {

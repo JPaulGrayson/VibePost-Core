@@ -142,18 +142,21 @@ const TOPIC_PRESETS = {
 
 
 // Geographic scope presets
+// Note: "World" and region scopes send a region identifier to the server,
+// which picks a random famous city from that region for geocoding
 const GEOGRAPHIC_SCOPES = {
-    world: { label: "🌍 World / Global", value: "World" },
+    world: { label: "🎲 Random World Destination", value: "random_world" },
     regions: {
         label: "🌎 Regions",
         options: [
-            { label: "North America", value: "North America" },
-            { label: "Europe", value: "Europe" },
-            { label: "Asia", value: "Asia" },
-            { label: "Australia & Oceania", value: "Australia and Oceania" },
-            { label: "South America", value: "South America" },
-            { label: "Africa", value: "Africa" },
-            { label: "Middle East", value: "Middle East" },
+            { label: "🎲 Surprise Me (Any Region)", value: "random_region" },
+            { label: "Europe", value: "region_europe" },
+            { label: "Asia", value: "region_asia" },
+            { label: "North America", value: "region_north_america" },
+            { label: "South America", value: "region_south_america" },
+            { label: "Africa", value: "region_africa" },
+            { label: "Middle East", value: "region_middle_east" },
+            { label: "Australia & Oceania", value: "region_oceania" },
         ]
     },
     countries: {
@@ -209,7 +212,7 @@ export default function ThreadTours() {
     const [topicCategory, setTopicCategory] = useState('');
     const [selectedTopic, setSelectedTopic] = useState('');
     const [geographicScope, setGeographicScope] = useState<'world' | 'region' | 'country' | 'state' | 'custom'>('world');
-    const [topicLocation, setTopicLocation] = useState('World');
+    const [topicLocation, setTopicLocation] = useState('random_world');
     const [customKeywords, setCustomKeywords] = useState('');
 
 
@@ -572,6 +575,36 @@ export default function ThreadTours() {
                         </CardContent>
                         <CardFooter className="flex gap-3">
                             <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setIsPreviewing(true);
+                                    setPreviewData(null);
+                                    let destination = '';
+                                    if (tourSource === 'custom') {
+                                        destination = customDestination;
+                                    } else if (tourSource === 'famous' && selectedFamousTour) {
+                                        const tour = famousToursData?.tours?.find((t: any) => t.id === selectedFamousTour);
+                                        destination = tour?.destination || '';
+                                    } else {
+                                        destination = destinationsData?.todaysDestination || schedulerStatus?.nextDestination;
+                                    }
+                                    previewMutation.mutate({
+                                        location: destination,
+                                        maxStops: parseInt(maxStops)
+                                    });
+                                }}
+                                disabled={isPreviewing}
+                            >
+                                {isPreviewing ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Previewing...
+                                    </>
+                                ) : (
+                                    <>👁️ Preview</>
+                                )}
+                            </Button>
+                            <Button
                                 onClick={handlePostNow}
                                 disabled={isPosting}
                                 className="flex-1"
@@ -599,6 +632,104 @@ export default function ThreadTours() {
                             )}
                         </CardFooter>
                     </Card>
+
+                    {/* Preview Results for Destinations Tab */}
+                    {previewData && previewData.stops && (
+                        <Card className="mt-4">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    👁️ Preview: {previewData.destination}
+                                    {previewData.shareCode && (
+                                        <span className="text-xs text-muted-foreground">
+                                            ({previewData.shareCode})
+                                        </span>
+                                    )}
+                                </CardTitle>
+                                <CardDescription>
+                                    Review the tour before posting. {previewData.stops.length} stops generated.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {previewData.introImageUrl && (
+                                    <div className="space-y-2">
+                                        <p className="text-sm font-medium">Intro Image:</p>
+                                        <img
+                                            src={previewData.introImageUrl}
+                                            alt="Tour intro"
+                                            className="w-full max-w-xs rounded-lg shadow"
+                                        />
+                                    </div>
+                                )}
+                                <div className="space-y-3">
+                                    {previewData.stops.map((stop: any, idx: number) => (
+                                        <div key={idx} className="p-3 bg-muted rounded-lg">
+                                            <p className="font-medium">Stop {idx + 1}: {stop.name}</p>
+                                            {stop.description && (
+                                                <p className="text-sm text-muted-foreground mt-1">
+                                                    {stop.description.substring(0, 100)}...
+                                                </p>
+                                            )}
+                                            {stop.narrationText && (
+                                                <p className="text-xs text-muted-foreground mt-1 italic">
+                                                    "{stop.narrationText.substring(0, 150)}..."
+                                                </p>
+                                            )}
+                                            {stop.videoPath && (
+                                                <p className="text-xs text-green-600 mt-1">
+                                                    ✅ Video generated
+                                                </p>
+                                            )}
+                                            {stop.photoUrls?.length > 0 && (
+                                                <div className="flex gap-1 mt-2">
+                                                    {stop.photoUrls.slice(0, 3).map((url: string, pIdx: number) => (
+                                                        <img
+                                                            key={pIdx}
+                                                            src={url}
+                                                            alt={`${stop.name} photo ${pIdx + 1}`}
+                                                            className="w-16 h-16 object-cover rounded"
+                                                        />
+                                                    ))}
+                                                    {stop.photoUrls.length > 3 && (
+                                                        <span className="text-xs text-muted-foreground self-end">
+                                                            +{stop.photoUrls.length - 3} more
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                            <CardFooter className="flex gap-2">
+                                <Button
+                                    onClick={() => {
+                                        setIsPosting(true);
+                                        postMutation.mutate({
+                                            destination: previewData.destination,
+                                            maxStops: parseInt(maxStops),
+                                            shareCode: previewData.shareCode
+                                        });
+                                    }}
+                                    disabled={isPosting}
+                                >
+                                    {isPosting ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                            Posting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Send className="w-4 h-4 mr-2" />
+                                            Post This Tour
+                                        </>
+                                    )}
+                                </Button>
+                                <Button variant="outline" onClick={() => setPreviewData(null)}>
+                                    Clear Preview
+                                </Button>
+                            </CardFooter>
+                        </Card>
+                    )}
                 </TabsContent>
 
                 {/* Topics Tab */}
@@ -623,10 +754,10 @@ export default function ThreadTours() {
                                         size="sm"
                                         onClick={() => {
                                             setGeographicScope('world');
-                                            setTopicLocation('World');
+                                            setTopicLocation('random_world');
                                         }}
                                     >
-                                        🌍 World
+                                        🎲 World
                                     </Button>
                                     <Button
                                         variant={geographicScope === 'region' ? 'default' : 'outline'}
@@ -716,7 +847,12 @@ export default function ThreadTours() {
                                 )}
 
                                 <p className="text-xs text-muted-foreground">
-                                    Current: <span className="font-medium">{topicLocation || 'None selected'}</span>
+                                    Current: <span className="font-medium">
+                                        {topicLocation === 'random_world' ? '🎲 Random World Destination' :
+                                            topicLocation === 'random_region' ? '🎲 Surprise Me (Any Region)' :
+                                                topicLocation?.startsWith('region_') ? `🌎 ${topicLocation.replace('region_', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}` :
+                                                    topicLocation || 'None selected'}
+                                    </span>
                                 </p>
                             </div>
 
@@ -970,11 +1106,12 @@ export default function ThreadTours() {
                         {destinationsData?.destinations?.map((dest: string) => (
                             <Badge
                                 key={dest}
-                                variant={dest === destinationsData?.todaysDestination ? "default" : "outline"}
-                                className="cursor-pointer"
+                                variant={dest === schedulerStatus?.nextDestination ? "default" : "outline"}
+                                className={`cursor-pointer hover:bg-primary/90 transition-colors ${dest === schedulerStatus?.nextDestination ? 'ring-2 ring-primary' : ''}`}
                                 onClick={() => {
                                     setTourSource('custom');
                                     setCustomDestination(dest);
+                                    setNextMutation.mutate(dest);
                                 }}
                             >
                                 {dest}

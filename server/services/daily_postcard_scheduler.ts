@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import fs from 'fs';
 import path from 'path';
-import { generateDailyPostcard } from './daily_postcard';
+import { generateDailyPostcard, getTodaysDestination } from './daily_postcard';
 import { storage } from '../storage';
 
 // Configuration
@@ -143,23 +143,6 @@ export function getSchedulerStatus() {
         isRunning: isSchedulerRunning,
         scheduledTime: `${DAILY_POST_HOUR}:${DAILY_POST_MINUTE.toString().padStart(2, '0')}`,
         timezone: TIMEZONE,
-        nextDestination: getNextDestination()
+        nextDestination: getTodaysDestination()
     };
 }
-
-// Helper to peek at next destination (uses same logic as daily_postcard.ts)
-function getNextDestination(): string {
-    const FEATURED_DESTINATIONS = [
-        "Kyoto, Japan", "Santorini, Greece", "Machu Picchu, Peru", "Paris, France",
-        "Bali, Indonesia", "Cinque Terre, Italy", "Banff, Canada", "Iceland Northern Lights",
-        "Chefchaouen, Morocco", "Hallstatt, Austria", "Dubrovnik, Croatia", "Petra, Jordan",
-        "Cappadocia, Turkey", "Plitvice Lakes, Croatia", "Faroe Islands", "Queenstown, New Zealand",
-        "Swiss Alps", "Patagonia, Argentina", "Norwegian Fjords", "Scottish Highlands",
-        "Okinawa, Japan", "Albanian Riviera", "Tbilisi, Georgia", "Bogotá, Colombia",
-        "Raja Ampat, Indonesia"
-    ];
-
-    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
-    return FEATURED_DESTINATIONS[dayOfYear % FEATURED_DESTINATIONS.length];
-}
-

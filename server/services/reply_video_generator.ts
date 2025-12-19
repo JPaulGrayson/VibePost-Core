@@ -112,8 +112,8 @@ async function fetchInterestImage(interest: TravelInterest, location: string): P
 
     console.log(`      Fetching ${interest.emoji} ${interest.theme}...`);
 
-    // Use localhost:5002 as default for dev environment (same as postcard_drafter.ts)
-    const turaiApiUrl = process.env.TURAI_API_URL || "http://localhost:5002";
+    // Use Turai API URL from env (local: 5050, production: turai.org)
+    const turaiApiUrl = process.env.TURAI_API_URL || "http://localhost:5050";
 
     // 1. Try Turai API first (Gemini-powered, best quality)
     try {

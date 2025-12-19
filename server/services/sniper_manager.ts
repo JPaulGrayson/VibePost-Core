@@ -1,70 +1,100 @@
 import { keywordSearchEngine } from "../keyword-search";
 import { generateDraft } from "./postcard_drafter";
 import { storage } from "../storage";
-import {
-    CampaignType,
-    CAMPAIGN_CONFIGS,
-    hasPositiveIntent,
-    calculateCampaignScore
-} from "../campaign-config";
 
 export class SniperManager {
-    private isRunning = false;
-    private checkIntervalMs = 5 * 60 * 1000; // 5 Minutes (Safe Rate Limit for Search)
-    private currentCampaign: CampaignType = 'turai'; // Default to Turai
+    private isHunting = false;  // Tracks if a hunt is in progress
+    private isStarted = false;  // Tracks if the auto-loop has been started
+    private checkIntervalMs = 5 * 60 * 1000; // 5 Minutes
 
-    private dailyLimit = 500; // Increased for Ranking Mode
-    private draftsGeneratedToday = 0; // Reset for testing
+    // Travel-focused keywords - kept simple for broad matching
+    private keywords = [
+        // High-intent travel phrases (catch ANY destination)
+        "planning a trip to",
+        "traveling to",
+        "flying to",
+        "driving to",
+        "road trip to",
+        "visiting",
+        "headed to",
+        "going to",
+        "vacation in",
+        "holiday in",
+
+        // Questions & recommendations (high engagement)
+        "travel recommendations",
+        "where should I stay",
+        "any tips for",
+        "first time visiting",
+        "itinerary help",
+        "food recommendations",
+        "restaurant suggestions",
+        "things to do in",
+        "what to see in",
+        "places to visit",
+
+        // US Destinations (balanced representation)
+        "New York",
+        "Las Vegas",
+        "Miami",
+        "Los Angeles",
+        "Chicago",
+        "Hawaii",
+        "San Francisco",
+        "Orlando",
+        "Nashville",
+        "Austin",
+
+        // International Destinations
+        "Paris",
+        "London",
+        "Tokyo",
+        "Rome",
+        "Barcelona",
+        "Bali",
+        "Thailand",
+    ];
+
+    private dailyLimit = 500;
+    private draftsGeneratedToday = 0;
     private lastResetDate = new Date().getDate();
 
-    // Get keywords based on current campaign
-    private get keywords(): string[] {
-        return CAMPAIGN_CONFIGS[this.currentCampaign].keywords;
-    }
-
     async startHunting() {
-        if (this.isRunning) return;
-        console.log("🎯 Sniper Manager Started (Auto-Pilot Active)");
+        if (this.isStarted) return;
+        this.isStarted = true;
+        console.log("🎯 Sniper Manager Started (Hunting every 5 mins)");
 
-        // Initial hunt after 10 seconds (give server time to breathe)
+        // Initial Run after 10 seconds (give server time to breathe)
         setTimeout(() => this.hunt(), 10000);
 
-        // Start the continuous loop
+        // Loop
         setInterval(() => this.hunt(), this.checkIntervalMs);
     }
 
-    // Set the active campaign type
-    setCampaign(type: CampaignType) {
-        this.currentCampaign = type;
-        console.log(`🎯 Campaign switched to: ${CAMPAIGN_CONFIGS[type].emoji} ${CAMPAIGN_CONFIGS[type].name}`);
-    }
-
-    getCampaign(): CampaignType {
-        return this.currentCampaign;
-    }
-
-    getCampaignConfig() {
-        return CAMPAIGN_CONFIGS[this.currentCampaign];
-    }
-
-    async forceHunt(campaignType?: CampaignType) {
-        if (this.isRunning) {
+    async forceHunt() {
+        if (this.isHunting) {
             console.log("⚠️ Sniper is already hunting. Skipping manual trigger.");
             return { draftsGenerated: 0, message: "Sniper is already running" };
         }
-
-        // Optionally switch campaign for this hunt
-        if (campaignType) {
-            this.setCampaign(campaignType);
-        }
-
-        console.log(`🎯 Manual Sniper Hunt Triggered for ${CAMPAIGN_CONFIGS[this.currentCampaign].name}`);
+        console.log("🎯 Manual Sniper Hunt Triggered");
         const stats = await this.hunt();
         return {
             draftsGenerated: this.draftsGeneratedToday,
-            campaign: this.currentCampaign,
             stats
         };
+    }
+
+    // Expose state for health checks
+    get isRunning(): boolean {
+        return this.isHunting;
+    }
+
+    get todaysDrafts(): number {
+        return this.draftsGeneratedToday;
+    }
+
+    get dailyDraftLimit(): number {
+        return this.dailyLimit;
     }
 
     private checkDailyLimit(): boolean {
@@ -87,17 +117,17 @@ export class SniperManager {
             tweetsFound: 0,
             draftsCreated: 0,
             duplicatesSkipped: 0,
-            intentFiltered: 0,
             errors: 0,
-            lastError: "" as string | undefined,
-            campaign: this.currentCampaign
+            lastError: "" as string | undefined
         };
 
-        if (this.isRunning) return stats;
-        this.isRunning = true;
+        if (this.isHunting) {
+            console.log("⚠️ Hunt already in progress, skipping...");
+            return stats;
+        }
+        this.isHunting = true;
 
-        const config = CAMPAIGN_CONFIGS[this.currentCampaign];
-        console.log(`🦅 Sniper Hunting Cycle Started for ${config.emoji} ${config.name}...`);
+        console.log("🦅 Sniper Hunting Cycle Started...");
 
         try {
             // 0. Run Janitor
@@ -108,14 +138,14 @@ export class SniperManager {
             }
 
             if (!this.checkDailyLimit()) {
-                this.isRunning = false;
+                this.isHunting = false;
                 return stats;
             }
 
             for (const keyword of this.keywords) {
                 stats.keywordsSearched++;
                 try {
-                    // Search for keyword on Twitter ONLY
+                    // Search for keyword on Twitter
                     const results = await keywordSearchEngine.searchAllPlatforms(keyword, ['twitter']);
                     stats.tweetsFound += results.length;
 
@@ -124,13 +154,6 @@ export class SniperManager {
                     console.log(`   Found ${results.length} posts for "${keyword}"`);
 
                     for (const result of results) {
-                        // Check campaign-specific intent
-                        if (!hasPositiveIntent(result.content, this.currentCampaign)) {
-                            console.log(`   ❌ No ${config.name} intent detected. Skipping.`);
-                            stats.intentFiltered++;
-                            continue;
-                        }
-
                         // Check if processed
                         const existing = await storage.getDraftByOriginalTweetId(result.id);
                         if (existing) {
@@ -138,7 +161,7 @@ export class SniperManager {
                             continue;
                         }
 
-                        console.log(`   ✨ Generating ${config.emoji} draft for @${result.author}: "${result.content.substring(0, 40)}..."`);
+                        console.log(`   ✨ Generating draft for @${result.author}: "${result.content.substring(0, 40)}..."`);
 
                         // Adapt result to generic format expected by generateDraft
                         const postObj = {
@@ -147,8 +170,7 @@ export class SniperManager {
                             author_id: "unknown"
                         };
 
-                        // Pass campaign type to draft generator
-                        const created = await generateDraft(postObj, result.author, this.currentCampaign);
+                        const created = await generateDraft(postObj, result.author);
                         if (created) {
                             this.draftsGeneratedToday++;
                             stats.draftsCreated++;
@@ -162,16 +184,16 @@ export class SniperManager {
                     stats.lastError = error instanceof Error ? error.message : String(error);
                 }
 
-                // Wait 5 seconds between keywords to be nice to the API
-                await new Promise(resolve => setTimeout(resolve, 5000));
+                // Wait 3 seconds between keywords
+                await new Promise(resolve => setTimeout(resolve, 3000));
             }
         } catch (error) {
             console.error("Sniper hunt failed:", error);
             stats.errors++;
             stats.lastError = error instanceof Error ? error.message : String(error);
         } finally {
-            this.isRunning = false;
-            console.log(`🦅 ${config.name} Hunting Cycle Complete.`, stats);
+            this.isHunting = false;
+            console.log("🦅 Sniper Hunting Cycle Complete.", stats);
         }
 
         return stats;

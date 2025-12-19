@@ -38,6 +38,74 @@ const FEATURED_DESTINATIONS = [
     "Raja Ampat, Indonesia"
 ];
 
+// Regional destination pools for topic-based tours
+// When a region is selected, pick a random city from that region
+const REGIONAL_DESTINATIONS: Record<string, string[]> = {
+    region_europe: [
+        "Paris, France", "Rome, Italy", "Barcelona, Spain", "London, UK",
+        "Prague, Czech Republic", "Vienna, Austria", "Amsterdam, Netherlands",
+        "Berlin, Germany", "Athens, Greece", "Lisbon, Portugal", "Budapest, Hungary",
+        "Dubrovnik, Croatia", "Edinburgh, Scotland", "Florence, Italy", "Venice, Italy"
+    ],
+    region_asia: [
+        "Tokyo, Japan", "Kyoto, Japan", "Bangkok, Thailand", "Singapore",
+        "Hong Kong", "Seoul, South Korea", "Bali, Indonesia", "Hanoi, Vietnam",
+        "Mumbai, India", "Beijing, China", "Taipei, Taiwan", "Kathmandu, Nepal"
+    ],
+    region_north_america: [
+        "New York City, USA", "San Francisco, USA", "Los Angeles, USA", "Miami, USA",
+        "New Orleans, USA", "Chicago, USA", "Vancouver, Canada", "Toronto, Canada",
+        "Mexico City, Mexico", "Montreal, Canada", "Boston, USA", "Seattle, USA"
+    ],
+    region_south_america: [
+        "Rio de Janeiro, Brazil", "Buenos Aires, Argentina", "Cusco, Peru",
+        "Cartagena, Colombia", "Santiago, Chile", "Bogotá, Colombia",
+        "Lima, Peru", "Montevideo, Uruguay", "Quito, Ecuador", "Medellín, Colombia"
+    ],
+    region_africa: [
+        "Cape Town, South Africa", "Marrakech, Morocco", "Cairo, Egypt",
+        "Nairobi, Kenya", "Victoria Falls, Zimbabwe", "Zanzibar, Tanzania",
+        "Casablanca, Morocco", "Johannesburg, South Africa", "Accra, Ghana"
+    ],
+    region_middle_east: [
+        "Dubai, UAE", "Jerusalem, Israel", "Istanbul, Turkey", "Petra, Jordan",
+        "Muscat, Oman", "Tel Aviv, Israel", "Amman, Jordan", "Beirut, Lebanon"
+    ],
+    region_oceania: [
+        "Sydney, Australia", "Melbourne, Australia", "Auckland, New Zealand",
+        "Queenstown, New Zealand", "Gold Coast, Australia", "Fiji Islands",
+        "Hobart, Tasmania", "Perth, Australia", "Wellington, New Zealand"
+    ],
+    // Aggregates
+    random_region: [], // Will be filled from all regions
+    random_world: []   // Will use FEATURED_DESTINATIONS
+};
+
+// Populate random pools
+REGIONAL_DESTINATIONS.random_region = Object.entries(REGIONAL_DESTINATIONS)
+    .filter(([key]) => key.startsWith('region_'))
+    .flatMap(([_, cities]) => cities);
+REGIONAL_DESTINATIONS.random_world = [...FEATURED_DESTINATIONS];
+
+/**
+ * Resolve a location identifier to a specific city
+ * Handles region_ prefixes and random_ options
+ */
+function resolveLocation(locationOrRegion: string): string {
+    // If it's a region identifier, pick a random city from that region
+    if (REGIONAL_DESTINATIONS[locationOrRegion]) {
+        const cities = REGIONAL_DESTINATIONS[locationOrRegion];
+        if (cities.length === 0) {
+            // Fall back to featured destinations
+            return FEATURED_DESTINATIONS[Math.floor(Math.random() * FEATURED_DESTINATIONS.length)];
+        }
+        const selectedCity = cities[Math.floor(Math.random() * cities.length)];
+        console.log(`🎲 Region "${locationOrRegion}" resolved to: ${selectedCity}`);
+        return selectedCity;
+    }
+    // Otherwise return as-is (it's already a specific city)
+    return locationOrRegion;
+}
 // Interfaces
 interface POI {
     id: string;
@@ -99,7 +167,9 @@ function getTodaysDestination(): string {
  */
 async function generateTour(destination: string, theme: string = 'hidden_gems', focus?: string): Promise<{ success: boolean; tour?: TourData; shareCode?: string; error?: string }> {
     try {
-        console.log(`🗺️ Generating tour for: ${destination}${focus ? ` (focus: ${focus.substring(0, 50)}...)` : ''}`);
+        // Resolve region identifiers to actual cities
+        const resolvedDestination = resolveLocation(destination);
+        console.log(`🗺️ Generating tour for: ${resolvedDestination}${focus ? ` (focus: ${focus.substring(0, 50)}...)` : ''}`);
 
         const response = await fetch(`${TURAI_API_URL}/api/tour-maker/wizard/generate`, {
             method: "POST",
@@ -107,7 +177,7 @@ async function generateTour(destination: string, theme: string = 'hidden_gems', 
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                location: destination,
+                location: resolvedDestination,
                 theme: theme,
                 focus: focus, // Qualifying words/phrases for topic-based tours
                 email: "vibepost@turai.org" // System email for tracking

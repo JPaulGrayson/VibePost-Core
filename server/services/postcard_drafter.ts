@@ -133,14 +133,17 @@ export async function generateDraft(
 
     const drafter = new PostcardDrafter();
 
-    // 0. Verify Intent based on campaign type
-    console.log(`Verifying ${config.name} intent...`);
-    const hasIntent = await verifyIntent(tweet.text, campaignType);
-    if (!hasIntent) {
-        console.log(`❌ No ${config.name} intent detected. Skipping.`);
-        return false;
-    }
-    console.log(`✅ ${config.name} intent verified.`);
+    // NOTE: Intent verification disabled to increase draft throughput
+    // The keyword search already filters for travel-related content
+    // Location extraction below provides secondary validation
+    // Comment back in if spam becomes an issue:
+    // console.log(`Verifying ${config.name} intent...`);
+    // const hasIntent = await verifyIntent(tweet.text, campaignType);
+    // if (!hasIntent) {
+    //     console.log(`❌ No ${config.name} intent detected. Skipping.`);
+    //     return false;
+    // }
+    // console.log(`✅ ${config.name} intent verified.`);
 
     // 1. Extract context based on campaign type
     let contextInfo: string | null = null;
@@ -225,8 +228,9 @@ export class PostcardDrafter {
     async generateTuraiImage(location: string): Promise<{ imageUrl: string; attribution: string | null }> {
         let attribution: string | null = null;
 
-        // Use localhost:5003 as default for dev environment
-        const turaiApiUrl = process.env.TURAI_API_URL || "http://localhost:5002";
+        // Use localhost:5050 as default for dev environment (since 5000 is often taken)
+        const turaiApiUrl = process.env.TURAI_API_URL || "http://localhost:5050";
+        console.log(`🗺️ Requesting Turai Image from: ${turaiApiUrl}`);
         const turaiApiKey = process.env.TURAI_API_KEY || "any-key-for-dev";
 
         // Try Turai API first (best quality)

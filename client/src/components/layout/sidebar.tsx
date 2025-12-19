@@ -106,6 +106,56 @@ export default function Sidebar() {
           })}
         </div>
       </div>
+
+      {/* System Health Status */}
+      <HealthStatusSection />
     </aside>
   );
 }
+
+function HealthStatusSection() {
+  const { data: status } = useQuery<any>({
+    queryKey: ["/api/health/detailed"],
+    refetchInterval: 30000, // Check every 30s
+  });
+
+  if (!status) return null;
+
+  return (
+    <div className="p-4 border-t border-sidebar-border">
+      <h3 className="text-sm font-semibold text-muted-foreground mb-3">System Health</h3>
+      <div className="space-y-2">
+        {/* Sniper Status */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-sidebar-foreground">Sniper</span>
+          <div className="flex items-center space-x-2" title={status.sniper?.isRunning ? "Auto-Pilot Active" : "Stopped"}>
+            <span className="text-xs text-muted-foreground">{status.sniper?.isRunning ? "Active" : "Stopped"}</span>
+            <Circle className={`w-2 h-2 ${status.sniper?.isRunning ? 'text-green-500 fill-current' : 'text-red-500 fill-current'}`} />
+          </div>
+        </div>
+
+        {/* Turai Status */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-sidebar-foreground">Turai API</span>
+          <div className="flex items-center space-x-2" title={status.turai?.url}>
+            <span className="text-xs text-muted-foreground capitalize">{status.turai?.status === 'connected' ? 'Online' : 'Offline'}</span>
+            <Circle className={`w-2 h-2 ${status.turai?.status === 'connected' ? 'text-green-500 fill-current' : 'text-red-500 fill-current'}`} />
+          </div>
+        </div>
+
+        {/* Last Draft Info */}
+        {status.lastDraft && (
+          <div className="pt-1 border-t border-sidebar-border mt-1">
+            <div className="flex justify-between items-center">
+              <span className="text-[10px] text-muted-foreground">Last Draft:</span>
+              <span className="text-[10px] text-sidebar-foreground">
+                {new Date(status.lastDraft.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+

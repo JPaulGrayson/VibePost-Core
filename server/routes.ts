@@ -10,7 +10,7 @@ import { keywordSearchEngine } from "./keyword-search";
 import { postcardDrafter, generateDraft } from "./services/postcard_drafter";
 import { publishDraft } from "./services/twitter_publisher";
 import { sniperManager } from "./services/sniper_manager";
-import { generateDailyPostcard, previewDailyPostcard, generatePostcardForDestination, getAvailableDestinations } from "./services/daily_postcard";
+import { generateDailyPostcard, previewDailyPostcard, generatePostcardForDestination, getAvailableDestinations, setOverrideDestination } from "./services/daily_postcard";
 import { startDailyPostcardScheduler, getSchedulerStatus, triggerDailyPostcardNow } from "./services/daily_postcard_scheduler";
 import { generateVideoSlideshow, getVideoDestinations, previewVideoSlideshow, listGeneratedVideos } from "./services/video_slideshow";
 import { postThreadTour, previewThreadTour, getThreadTourDestinations, getTodaysThreadDestination, fetchFamousTours } from "./services/thread_tour";
@@ -44,6 +44,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/logout', (req, res) => {
     // Simple logout - in production this would clear session
     res.redirect('/');
+  });
+
+  // System Health Check
+  app.get("/api/health/detailed", async (req, res) => {
+    try {
+      const turaiUrl = process.env.TURAI_API_URL || "http://localhost:5050";
+      let turaiStatus = "unknown";
+      try {
+        // Short timeout for health check
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const turaiRes = await fetch(turaiUrl + "/health", { signal: controller.signal });
+        clearTimeout(timeoutId);
+        turaiStatus = turaiRes.ok ? "connected" : "error";
+      } catch (e) {
+        turaiStatus = "unreachable";
+      }
+
+      const sniperStatus = {
+        isRunning: sniperManager.isRunning,
+        draftsGeneratedToday: sniperManager.todaysDrafts,
+        dailyLimit: sniperManager.dailyDraftLimit
+      };
+
+      res.json({
+        status: "ok",
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+        sniper: sniperStatus,
+        turai: { url: turaiUrl, status: turaiStatus }
+      });
+    } catch (error) {
+      console.error("🏥 Health check error:", error);
+      res.status(500).json({ status: "error", message: (error as Error).message });
+    }
   });
 
   // Posts endpoints
@@ -836,12 +871,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(results);
   });
 
-  // Manual Hunt Trigger (Debug) - now supports campaign type
+  // Manual Hunt Trigger (Debug)
   app.post("/api/debug/hunt", async (req, res) => {
     try {
-      const { campaignType } = req.body; // Optional: 'turai' or 'logigo'
-      console.log(`🎯 Manual hunt triggered via API${campaignType ? ` for campaign: ${campaignType}` : ''}`);
-      const result = await sniperManager.forceHunt(campaignType);
+      console.log(`🎯 Manual hunt triggered via API`);
+      const result = await sniperManager.forceHunt();
       res.json({ success: true, message: "Hunt completed", result });
     } catch (error) {
       console.error("Manual hunt failed:", error);
@@ -849,30 +883,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get current campaign configuration
+  // Get current campaign configuration (simplified - always turai)
   app.get("/api/sniper/campaign", (req, res) => {
+    const { CAMPAIGN_CONFIGS } = require("./campaign-config");
     res.json({
-      currentCampaign: sniperManager.getCampaign(),
-      config: sniperManager.getCampaignConfig()
+      currentCampaign: 'turai',
+      config: CAMPAIGN_CONFIGS['turai']
     });
   });
 
-  // Set sniper campaign type
+  // Set sniper campaign type (no-op for simplified sniper)
   app.post("/api/sniper/campaign", (req, res) => {
-    try {
-      const { campaignType } = req.body;
-      if (!campaignType || !['turai', 'logigo'].includes(campaignType)) {
-        return res.status(400).json({ error: "Invalid campaignType. Must be 'turai' or 'logigo'" });
-      }
-      sniperManager.setCampaign(campaignType);
-      res.json({
-        success: true,
-        message: `Campaign switched to ${campaignType}`,
-        config: sniperManager.getCampaignConfig()
-      });
-    } catch (error) {
-      res.status(500).json({ success: false, error: String(error) });
-    }
+    const { CAMPAIGN_CONFIGS } = require("./campaign-config");
+    res.json({
+      success: true,
+      message: `Campaign is fixed to turai (simplified sniper mode)`,
+      config: CAMPAIGN_CONFIGS['turai']
+    });
   });
 
   // Get all available campaign configs
@@ -880,7 +907,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { CAMPAIGN_CONFIGS } = require("./campaign-config");
     res.json({
       campaigns: Object.values(CAMPAIGN_CONFIGS),
-      currentCampaign: sniperManager.getCampaign()
+      currentCampaign: 'turai'
     });
   });
 
@@ -970,6 +997,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Manual trigger error:", error);
       res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
+  // Set next destination manual override
+  app.post("/api/daily-postcard/set-destination", async (req, res) => {
+    try {
+      const { destination } = req.body;
+      if (!destination) {
+        return res.status(400).json({ message: "Destination required" });
+      }
+      setOverrideDestination(destination);
+      res.json({ success: true, destination });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to set destination" });
     }
   });
 

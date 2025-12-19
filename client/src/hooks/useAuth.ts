@@ -6,9 +6,11 @@ export function useAuth() {
     retry: false,
   });
 
+  // Auth disabled - always return authenticated
+  // This is a single-user app, no login required
   return {
-    user,
-    isLoading,
-    isAuthenticated: !!user,
+    user: user || { id: "owner", name: "Owner" },
+    isLoading: false,
+    isAuthenticated: true,
   };
 }

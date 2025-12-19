@@ -49,7 +49,7 @@ export const CAMPAIGN_CONFIGS: Record<CampaignType, CampaignConfig> = {
         description: 'Target travelers planning trips - promote AI Tour Guide',
 
         keywords: [
-            // HIGHEST QUALITY: People explicitly asking for tips/help
+            // ===== HIGHEST QUALITY: People explicitly asking for tips/help =====
             "visiting for the first time any tips",
             "any tips for visiting",
             "first time visiting any recommendations",
@@ -57,31 +57,157 @@ export const CAMPAIGN_CONFIGS: Record<CampaignType, CampaignConfig> = {
             "going to need advice",
             "anyone been to any tips",
 
-            // Specific trip planning questions
+            // ===== Specific trip planning questions =====
             "planning my first trip to",
             "help planning trip to",
             "where should I stay",
             "what should I see in",
             "is it worth visiting",
-
-            // Budget/itinerary questions
             "how many days should I spend",
             "best time of year to visit",
             "solo trip to need advice",
+            "family trip recommendations",
+            "honeymoon destination advice",
 
-            // Destination-specific with question words
-            "Japan travel tips",
-            "Italy travel advice",
-            "Paris recommendations",
-            "Bali tips",
-            "Spain travel help",
+            // ===== TRANSPORTATION - Flights & Airlines =====
+            "flight tips",
+            "first time flying advice",
+            "airport tips",
+            "what airport should I fly into",
+            "direct flight to",
+            "booking flights to",
+            "best airline for",
+            "first class upgrade",
+            "seat selection advice",
+            "long haul flight tips",
+            "layover in",
+            "connecting flight help",
+
+            // ===== TRANSPORTATION - Ground =====
+            "train from",
+            "train to",
+            "train tips",
+            "bus from",
+            "rental car at",
+            "should I rent a car",
+            "driving in",
+            "airport transfer",
+            "uber or taxi",
+            "public transport tips",
+
+            // ===== ACCOMMODATIONS =====
+            "hotel recommendations",
+            "where to stay in",
+            "best area to stay",
+            "Airbnb vs hotel",
+            "hostel recommendations",
+            "resort recommendations",
+            "hotel near",
+            "booking hotel",
+
+            // ===== FOOD & DINING =====
+            "restaurant recommendations",
+            "where to eat in",
+            "best food in",
+            "must try food",
+            "dining recommendations",
+            "local food tips",
+            "street food",
+            "food tour recommendations",
+
+            // ===== POPULAR DESTINATIONS - Americas =====
+            "visiting New York",
+            "NYC tips",
+            "visiting Los Angeles",
+            "visiting Miami",
+            "visiting Las Vegas",
+            "visiting Chicago",
+            "visiting San Francisco",
+            "visiting Hawaii",
+            "visiting Alaska",
+            "visiting Mexico",
+            "visiting Cancun",
+            "visiting Canada",
+            "visiting Toronto",
+            "visiting Vancouver",
+
+            // ===== POPULAR DESTINATIONS - Europe =====
+            "visiting London",
+            "visiting Paris",
+            "visiting Rome",
+            "visiting Barcelona",
+            "visiting Amsterdam",
+            "visiting Berlin",
+            "visiting Prague",
+            "visiting Vienna",
+            "visiting Dublin",
+            "visiting Edinburgh",
+            "visiting Lisbon",
+            "visiting Athens",
+            "visiting Santorini",
+            "visiting Croatia",
+
+            // ===== POPULAR DESTINATIONS - Asia & Pacific =====
+            "visiting Tokyo",
+            "visiting Japan",
+            "visiting Thailand",
+            "visiting Bangkok",
+            "visiting Singapore",
+            "visiting Hong Kong",
+            "visiting Korea",
+            "visiting Seoul",
+            "visiting Bali",
+            "visiting Vietnam",
+            "visiting Australia",
+            "visiting Sydney",
+            "visiting New Zealand",
+
+            // ===== POPULAR DESTINATIONS - Other =====
+            "visiting Dubai",
+            "visiting Egypt",
+            "visiting Morocco",
+            "visiting South Africa",
+            "visiting Israel",
+            "visiting Turkey",
+            "visiting Istanbul",
+
+            // ===== TRAVEL LOGISTICS =====
+            "packing for",
+            "what to pack for",
+            "travel insurance for",
+            "visa for",
+            "do I need visa",
+            "currency exchange",
+            "sim card for",
+            "wifi abroad",
+            "travel adapter",
+
+            // ===== TRAVEL EXPERIENCE =====
+            "tourist trap or worth it",
+            "overrated or underrated",
+            "hidden gems in",
+            "off the beaten path",
+            "local experience",
+            "best time to visit",
+            "weather in",
+            "crowd levels",
         ],
 
         intentSignals: {
             positive: [
+                // Trip planning
                 "planning", "trip", "travel", "visiting", "vacation", "holiday",
                 "recommendations", "tips", "advice", "help", "suggestions",
-                "first time", "never been", "bucket list", "dream destination"
+                "first time", "never been", "bucket list", "dream destination",
+                // Transportation
+                "flight", "airport", "airline", "flying", "train", "bus", "rental",
+                // Accommodations
+                "hotel", "hostel", "airbnb", "stay", "booking",
+                // Food & Experience
+                "restaurant", "dining", "eat", "food tour", "itinerary",
+                // Common destinations (to match visiting [city])
+                "new york", "paris", "london", "tokyo", "rome", "barcelona",
+                "amsterdam", "dubai", "bali", "thailand", "japan", "italy"
             ],
             negative: [
                 "selling", "book now", "discount", "promo", "affiliate",
@@ -194,7 +320,7 @@ export function hasPositiveIntent(content: string, type: CampaignType): boolean 
         }
     }
 
-    // Check for at least 2 positive signals
+    // Check for at least 1 positive signal (relaxed from 2 to catch more leads)
     let positiveCount = 0;
     for (const signal of config.intentSignals.positive) {
         if (lower.includes(signal.toLowerCase())) {
@@ -202,7 +328,7 @@ export function hasPositiveIntent(content: string, type: CampaignType): boolean 
         }
     }
 
-    return positiveCount >= 2;
+    return positiveCount >= 1;
 }
 
 // Calculate campaign-specific score adjustments

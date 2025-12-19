@@ -30,8 +30,7 @@ interface PostcardPreview {
     destination: string;
     caption: string;
     imageUrl: string;
-    hashtags: string[];
-    fullText: string;
+    attribution?: string | null;
 }
 
 interface DailyPostResult {
@@ -108,6 +107,20 @@ export default function DailyPostcard() {
                 title: "Post Failed",
                 description: "Could not post to Twitter. Check console for details.",
             });
+        }
+    });
+
+    // Set destination mutation
+    const setDestinationMutation = useMutation({
+        mutationFn: async (destination: string) => {
+            await apiRequest("POST", "/api/daily-postcard/set-destination", { destination });
+        },
+        onSuccess: (_, destination) => {
+            toast({
+                title: "Next Destination Updated! 📍",
+                description: `Daily Postcard will feature ${destination}`,
+            });
+            queryClient.invalidateQueries({ queryKey: ["/api/daily-postcard/scheduler-status"] });
         }
     });
 
@@ -251,16 +264,14 @@ export default function DailyPostcard() {
                             {/* Caption */}
                             <div>
                                 <h4 className="font-medium mb-2">Caption:</h4>
-                                <p className="text-sm text-muted-foreground whitespace-pre-wrap mb-4">
-                                    {previewData.fullText}
+                                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                    {previewData.caption}
                                 </p>
-
-                                <h4 className="font-medium mb-2">Hashtags:</h4>
-                                <div className="flex flex-wrap gap-2">
-                                    {previewData.hashtags?.map((tag, i) => (
-                                        <Badge key={i} variant="secondary">{tag}</Badge>
-                                    ))}
-                                </div>
+                                {previewData.attribution && (
+                                    <p className="text-xs text-muted-foreground mt-2 italic">
+                                        📸 {previewData.attribution}
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </CardContent>
@@ -284,7 +295,8 @@ export default function DailyPostcard() {
                             <Badge
                                 key={i}
                                 variant={schedulerStatus?.nextDestination === dest ? "default" : "outline"}
-                                className={schedulerStatus?.nextDestination === dest ? "ring-2 ring-primary" : ""}
+                                className={`cursor-pointer hover:bg-primary/90 transition-colors ${schedulerStatus?.nextDestination === dest ? "ring-2 ring-primary" : ""}`}
+                                onClick={() => setDestinationMutation.mutate(dest)}
                             >
                                 {dest}
                             </Badge>

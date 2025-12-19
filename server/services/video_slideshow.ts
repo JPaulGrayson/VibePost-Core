@@ -5,8 +5,10 @@ import fs from 'fs';
 import { storage } from '../storage';
 
 // Configuration
-const TURAI_BASE_URL = process.env.TURAI_BASE_URL || 'http://localhost:5002';
-const TURAI_API_URL = process.env.TURAI_API_URL || 'http://localhost:5002';
+// Turai API and frontend run on the same server
+// Set TURAI_API_URL in .env (local: http://localhost:5050, production: https://turai.org)
+const TURAI_API_URL = process.env.TURAI_API_URL || process.env.TURAI_BASE_URL || 'http://localhost:5050';
+const TURAI_BASE_URL = process.env.TURAI_BASE_URL || TURAI_API_URL;
 const VIDEO_OUTPUT_DIR = path.join(process.cwd(), 'videos');
 const DEFAULT_VIDEO_DURATION = 60; // seconds
 const VIEWPORT_WIDTH = 1080;

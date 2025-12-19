@@ -291,6 +291,23 @@ export default function Analytics() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Retweets</p>
+                    <p className="text-2xl font-bold text-foreground">{totalMetrics.shares.toLocaleString()}</p>
+                  </div>
+                  <Repeat2 className="h-8 w-8 text-green-500" />
+                </div>
+                <div className="flex items-center mt-4 text-sm">
+                  <span className="text-muted-foreground">
+                    {totalMetrics.shares > 0 ? "Retweets + Quote tweets" : "Sync to see shares"}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
                     <p className="text-sm font-medium text-muted-foreground">Total Views</p>
                     <p className="text-2xl font-bold text-foreground">{totalMetrics.views.toLocaleString()}</p>
                   </div>
@@ -314,7 +331,7 @@ export default function Analytics() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg text-center">
                   <div className="text-2xl font-bold text-blue-600">{postsPublishedToday.length}</div>
                   <div className="text-sm text-muted-foreground">Posts Published</div>
@@ -329,7 +346,20 @@ export default function Analytics() {
                       return total + likes;
                     }, 0)}
                   </div>
-                  <div className="text-sm text-muted-foreground">Today's Engagement</div>
+                  <div className="text-sm text-muted-foreground">Today's Likes</div>
+                </div>
+                <div className="bg-teal-50 p-4 rounded-lg text-center">
+                  <div className="text-2xl font-bold text-teal-600">
+                    {postsPublishedToday.reduce((total, post) => {
+                      const platformData = post.platformData as any;
+                      let retweets = 0;
+                      if (platformData?.twitter) {
+                        retweets += (platformData.twitter.retweets || 0) + (platformData.twitter.quotes || 0);
+                      }
+                      return total + retweets;
+                    }, 0)}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Today's Retweets</div>
                 </div>
                 <div className="bg-yellow-50 p-4 rounded-lg text-center">
                   <div className="text-2xl font-bold text-yellow-600">
@@ -348,10 +378,11 @@ export default function Analytics() {
           </Card>
 
           <Tabs defaultValue="engagement" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="engagement">Engagement Trends</TabsTrigger>
               <TabsTrigger value="platforms">Platform Distribution</TabsTrigger>
               <TabsTrigger value="posts">Top Performing Posts</TabsTrigger>
+              <TabsTrigger value="recent">Recent Activity</TabsTrigger>
             </TabsList>
 
             <TabsContent value="engagement" className="space-y-6">
@@ -464,7 +495,6 @@ export default function Analytics() {
                     ) : (
                       topPosts.map((post, index) => {
                         const platformData = post.platformData as any;
-                        // Check for both tweetId (new) and id (old) for backwards compatibility
                         const tweetId = platformData?.twitter?.tweetId || platformData?.twitter?.id;
                         const twitterUrl = tweetId ? `https://twitter.com/MaxTruth_Seeker/status/${tweetId}` : null;
 
@@ -485,21 +515,8 @@ export default function Analytics() {
                                 <span className="text-xs text-muted-foreground">
                                   {post.publishedAt && format(new Date(post.publishedAt), "MMM d, yyyy")}
                                 </span>
-                                <div className="flex items-center space-x-2">
-                                  {post.platforms.map((platform) => {
-                                    const IconComponent = platformIcons[platform as keyof typeof platformIcons];
-                                    return IconComponent ? (
-                                      <IconComponent key={platform} className="w-3 h-3" style={{ color: platformColors[platform as keyof typeof platformColors] }} />
-                                    ) : null;
-                                  })}
-                                </div>
                                 {twitterUrl && (
-                                  <a
-                                    href={twitterUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-blue-500 hover:underline"
-                                  >
+                                  <a href={twitterUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">
                                     View on Twitter ↗
                                   </a>
                                 )}
@@ -507,12 +524,77 @@ export default function Analytics() {
                             </div>
                             <div className="flex-shrink-0 text-right">
                               <p className="text-lg font-bold text-foreground">{post.totalEngagement}</p>
-                              <p className="text-xs text-muted-foreground">total engagement</p>
+                              <p className="text-xs text-muted-foreground">engagement</p>
                             </div>
                           </div>
                         );
                       })
                     )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="recent" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Activity Stream</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {publishedPosts
+                      .sort((a, b) => new Date(b.publishedAt || 0).getTime() - new Date(a.publishedAt || 0).getTime())
+                      .slice(0, 20)
+                      .map((post) => {
+                        const platformData = post.platformData as any;
+                        const isAutoReply = platformData?.twitter?.autoPublished;
+                        const tweetId = platformData?.twitter?.tweetId || platformData?.twitter?.id;
+                        const twitterUrl = tweetId ? `https://twitter.com/MaxTruth_Seeker/status/${tweetId}` : null;
+
+                        return (
+                          <div key={post.id} className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                            <div className="flex-shrink-0">
+                              {isAutoReply ? (
+                                <Badge variant="secondary" className="bg-purple-100 text-purple-800">Auto-Reply</Badge>
+                              ) : (
+                                <Badge variant="outline">Post</Badge>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-foreground truncate">
+                                {post.content?.substring(0, 100)}{post.content?.length > 100 ? '...' : ''}
+                              </p>
+                              <div className="flex items-center space-x-4 mt-2">
+                                <span className="text-xs text-muted-foreground">
+                                  {post.publishedAt && format(new Date(post.publishedAt), "MMM d, h:mm a")}
+                                </span>
+                                {/* Engagement metrics */}
+                                {platformData?.twitter?.metrics && (
+                                  <div className="flex items-center space-x-3 text-xs text-muted-foreground">
+                                    <span className="flex items-center gap-1">
+                                      <Heart className="w-3 h-3" />
+                                      {platformData.twitter.metrics.like_count || 0}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Repeat2 className="w-3 h-3" />
+                                      {platformData.twitter.metrics.retweet_count || 0}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Eye className="w-3 h-3" />
+                                      {platformData.twitter.metrics.impression_count || 0}
+                                    </span>
+                                  </div>
+                                )}
+                                {twitterUrl && (
+                                  <a href={twitterUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">
+                                    View on Twitter ↗
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                   </div>
                 </CardContent>
               </Card>

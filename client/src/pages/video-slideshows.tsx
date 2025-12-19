@@ -53,7 +53,7 @@ export default function VideoSlideshows() {
     });
 
     // Fetch generated videos
-    const { data: videosData, refetch: refetchVideos } = useQuery<{ videos: VideoInfo[] }>({
+    const { data: videosData, refetch: refetchVideos, isRefetching } = useQuery<{ videos: VideoInfo[] }>({
         queryKey: ["/api/video-slideshow/videos"],
         refetchInterval: isGenerating ? 5000 : false // Poll while generating
     });
@@ -256,9 +256,9 @@ export default function VideoSlideshows() {
                             {videosData?.videos?.length || 0} videos ready
                         </CardDescription>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => refetchVideos()}>
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Refresh
+                    <Button variant="outline" size="sm" onClick={() => refetchVideos()} disabled={isRefetching}>
+                        <RefreshCw className={`h-4 w-4 mr-2 ${isRefetching ? 'animate-spin' : ''}`} />
+                        {isRefetching ? 'Refreshing...' : 'Refresh'}
                     </Button>
                 </CardHeader>
                 <CardContent>
