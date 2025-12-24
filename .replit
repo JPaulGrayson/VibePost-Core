@@ -2,6 +2,7 @@ run = "npm run start"
 entrypoint = "server/index.ts"
 
 [deployment]
+build = "npm install && npm run build"
 run = "npm run start"
 deploymentTarget = "cloudrun"
 ignorePorts = false
