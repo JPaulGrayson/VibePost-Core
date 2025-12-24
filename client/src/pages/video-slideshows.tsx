@@ -456,38 +456,55 @@ export default function VideoPosts() {
                                     />
                                 </div>
                                 <Button
-                                    onClick={() => {
+                                    onClick={async () => {
                                         if (existingShareCode) {
-                                            // Fetch the tour preview using the shareCode
+                                            // Fetch the tour preview using the shareCode with 30s timeout
                                             setIsPreviewing(true);
                                             setPreview(null);
-                                            apiRequest("GET", `/api/video-post/preview/${existingShareCode}?maxStops=10`)
-                                                .then(res => res.json())
-                                                .then(data => {
-                                                    setIsPreviewing(false);
-                                                    if (data.success) {
-                                                        setPreview(data);
-                                                        setCustomDestination(data.destination || "");
-                                                        toast({
-                                                            title: "Tour Loaded! 🎉",
-                                                            description: `${data.stops.length} stops ready from "${data.destination}"`,
-                                                        });
-                                                    } else {
-                                                        toast({
-                                                            variant: "destructive",
-                                                            title: "Tour Not Found",
-                                                            description: data.error || "Invalid share code",
-                                                        });
-                                                    }
-                                                })
-                                                .catch(err => {
-                                                    setIsPreviewing(false);
+
+                                            const controller = new AbortController();
+                                            const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+                                            try {
+                                                const res = await fetch(`/api/video-post/preview/${existingShareCode}?maxStops=10`, {
+                                                    signal: controller.signal
+                                                });
+                                                clearTimeout(timeoutId);
+                                                const data = await res.json();
+
+                                                setIsPreviewing(false);
+                                                if (data.success) {
+                                                    setPreview(data);
+                                                    setCustomDestination(data.destination || "");
+                                                    toast({
+                                                        title: "Tour Loaded! 🎉",
+                                                        description: `${data.stops.length} stops ready from "${data.destination}"`,
+                                                    });
+                                                } else {
+                                                    toast({
+                                                        variant: "destructive",
+                                                        title: "Tour Not Found",
+                                                        description: data.error || "Invalid share code. Make sure the tour exists on the same environment (local vs production).",
+                                                    });
+                                                }
+                                            } catch (err: any) {
+                                                clearTimeout(timeoutId);
+                                                setIsPreviewing(false);
+
+                                                if (err.name === 'AbortError') {
+                                                    toast({
+                                                        variant: "destructive",
+                                                        title: "Request Timed Out",
+                                                        description: "Server took too long to respond. Try again or check if Turai is running.",
+                                                    });
+                                                } else {
                                                     toast({
                                                         variant: "destructive",
                                                         title: "Failed to Load",
                                                         description: String(err),
                                                     });
-                                                });
+                                                }
+                                            }
                                         }
                                     }}
                                     disabled={!existingShareCode || isPreviewing}

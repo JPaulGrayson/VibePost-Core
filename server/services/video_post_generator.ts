@@ -301,22 +301,56 @@ export async function refreshPreviewData(shareCode: string, maxStops: number = 5
         shareCode
     };
 
+    // Helper function for fetch with timeout
+    async function fetchWithTimeout(url: string, timeoutMs: number = 15000): Promise<Response> {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const response = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            return response;
+        } catch (error: any) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error(`Request timed out after ${timeoutMs}ms`);
+            }
+            throw error;
+        }
+    }
+
     try {
         console.log(`🔄 Refreshing preview data for: ${shareCode}`);
 
-        // Try local slideshow endpoint first
-        let response = await fetch(`${TURAI_API_URL}/api/slideshows/${shareCode}`);
+        // Try local slideshow endpoint first (with timeout)
+        let response: Response;
+        try {
+            response = await fetchWithTimeout(`${TURAI_API_URL}/api/slideshows/${shareCode}`);
+        } catch (e) {
+            console.log(`   Local slideshow request failed: ${e}`);
+            response = new Response(null, { status: 500 });
+        }
 
         // If slideshow not found locally, try the local export endpoint
         if (!response.ok) {
             console.log(`   Local slideshow not found, trying local export endpoint...`);
-            response = await fetch(`${TURAI_API_URL}/api/tours/${shareCode}/export`);
+            try {
+                response = await fetchWithTimeout(`${TURAI_API_URL}/api/tours/${shareCode}/export`);
+            } catch (e) {
+                console.log(`   Local export request failed: ${e}`);
+                response = new Response(null, { status: 500 });
+            }
         }
 
         // If still not found, try production Turai (turai.org)
         if (!response.ok) {
             console.log(`   Not found locally, trying production Turai...`);
-            response = await fetch(`${TURAI_PRODUCTION_URL}/api/slideshows/${shareCode}`);
+            try {
+                response = await fetchWithTimeout(`${TURAI_PRODUCTION_URL}/api/slideshows/${shareCode}`);
+            } catch (e) {
+                console.log(`   Production request failed: ${e}`);
+                result.error = `Tour not found or request timed out. Check if the share code is valid.`;
+                return result;
+            }
         }
 
         if (!response.ok) {
