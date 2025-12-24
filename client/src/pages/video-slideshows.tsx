@@ -458,6 +458,23 @@ export default function VideoPosts() {
                                 <Button
                                     onClick={async () => {
                                         if (existingShareCode) {
+                                            // Extract share code from URL if user pasted a full URL
+                                            let shareCode = existingShareCode.trim();
+
+                                            // Handle full URLs like http://turai.org/slideshow/CODE or https://turai.org/slideshow/CODE
+                                            const slideshowMatch = shareCode.match(/turai\.org\/slideshow\/([^/?#]+)/);
+                                            if (slideshowMatch) {
+                                                shareCode = slideshowMatch[1];
+                                                console.log(`Extracted share code from URL: ${shareCode}`);
+                                            }
+
+                                            // Also handle tour-maker URLs like /tour-maker/play/CODE
+                                            const tourMatch = shareCode.match(/tour-maker\/play\/([^/?#]+)/);
+                                            if (tourMatch) {
+                                                shareCode = tourMatch[1];
+                                                console.log(`Extracted tour code from URL: ${shareCode}`);
+                                            }
+
                                             // Fetch the tour preview using the shareCode with 30s timeout
                                             setIsPreviewing(true);
                                             setPreview(null);
@@ -466,7 +483,7 @@ export default function VideoPosts() {
                                             const timeoutId = setTimeout(() => controller.abort(), 30000);
 
                                             try {
-                                                const res = await fetch(`/api/video-post/preview/${existingShareCode}?maxStops=10`, {
+                                                const res = await fetch(`/api/video-post/preview/${shareCode}?maxStops=10`, {
                                                     signal: controller.signal
                                                 });
                                                 clearTimeout(timeoutId);
