@@ -16,33 +16,35 @@ let ffmpegPath = '';
 let ffprobePath = '';
 
 try {
-    // Use system FFmpeg (Homebrew) for better QuickTime compatibility on macOS
-    const systemFfmpegPath = '/opt/homebrew/bin/ffmpeg';
-    const systemFfprobePath = '/opt/homebrew/bin/ffprobe';
+    // 1. Priority: Local static binary (for Replit deployment)
+    const localFfmpeg = path.join(process.cwd(), 'repl_bin', 'ffmpeg');
+    const localFfprobe = path.join(process.cwd(), 'repl_bin', 'ffprobe');
 
-    if (fs.existsSync(systemFfmpegPath)) {
-        ffmpegPath = systemFfmpegPath;
-        ffprobePath = systemFfprobePath;
-    } else {
-        // Fallback to bundled version
-        const { path: bundledFfmpegPath } = require('@ffmpeg-installer/ffmpeg');
-        const { path: bundledFfprobePath } = require('@ffprobe-installer/ffprobe');
-        ffmpegPath = bundledFfmpegPath;
-        ffprobePath = bundledFfprobePath;
+    if (fs.existsSync(localFfmpeg)) {
+        console.log('🚀 Using local static FFmpeg binary (Replit Mode)');
+        ffmpegPath = localFfmpeg;
+        ffprobePath = localFfprobe;
+    }
+    // 2. System FFmpeg (Homebrew on Mac)
+    else if (fs.existsSync('/opt/homebrew/bin/ffmpeg')) {
+        ffmpegPath = '/opt/homebrew/bin/ffmpeg';
+        ffprobePath = '/opt/homebrew/bin/ffprobe';
+    }
+    // 3. Last Resort: System PATH
+    else {
+        ffmpegPath = 'ffmpeg';
+        ffprobePath = 'ffprobe';
     }
 
+    // Set paths
     ffmpeg.setFfmpegPath(ffmpegPath);
     ffmpeg.setFfprobePath(ffprobePath);
-    console.log(`📹 Using FFmpeg: ${ffmpegPath}`);
 } catch (err) {
-    console.error('⚠️ FFmpeg initialization failed:', err);
-    console.log('🔄 Falling back to system "ffmpeg" from PATH');
-    ffmpegPath = 'ffmpeg';
-    ffprobePath = 'ffprobe';
+    console.error('⚠️ FFmpeg initialization error:', err);
+    // Silent fallback to PATH
+    ffmpeg.setFfmpegPath('ffmpeg');
+    ffmpeg.setFfprobePath('ffprobe');
 }
-
-ffmpeg.setFfmpegPath(ffmpegPath);
-ffmpeg.setFfprobePath(ffprobePath);
 
 const TURAI_API_URL = process.env.TURAI_API_URL || "http://localhost:5002";
 const TURAI_PRODUCTION_URL = "https://turai.org";
