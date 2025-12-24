@@ -358,11 +358,14 @@ export async function refreshPreviewData(shareCode: string, maxStops: number = 5
             return result;
         }
 
+        console.log(`   Parsing slideshow response...`);
         const data = await response.json();
         const slideshowData = data.data || data;
         const tour = slideshowData.tour;
         const narrations = slideshowData.narrations || [];
         const pois = (tour?.pointsOfInterest || []).slice(0, maxStops);
+
+        console.log(`   Tour: ${tour?.name || tour?.destination || 'unknown'}, POIs: ${pois.length}, Narrations: ${narrations.length}`);
 
         result.destination = tour?.destination || tour?.name || '';
 
@@ -372,27 +375,28 @@ export async function refreshPreviewData(shareCode: string, maxStops: number = 5
         }
 
         // Build stops with current narration data
+        const MAX_IMAGES_PER_STOP = 5; // Limit memory usage
         for (let i = 0; i < pois.length; i++) {
             const poi = pois[i];
             const narration = narrations[i];
 
             const allImageUrls: string[] = [];
 
-            // Collect from all sources
+            // Collect from all sources (limited to MAX_IMAGES_PER_STOP)
             if (narration?.photoUrls?.length > 0) {
-                narration.photoUrls.forEach((url: string) => allImageUrls.push(makeAbsoluteUrl(url)));
+                narration.photoUrls.slice(0, MAX_IMAGES_PER_STOP).forEach((url: string) => allImageUrls.push(makeAbsoluteUrl(url)));
             }
-            if (poi.photoUrls?.length > 0) {
-                poi.photoUrls.forEach((url: string) => {
+            if (allImageUrls.length < MAX_IMAGES_PER_STOP && poi.photoUrls?.length > 0) {
+                poi.photoUrls.slice(0, MAX_IMAGES_PER_STOP - allImageUrls.length).forEach((url: string) => {
                     const absUrl = makeAbsoluteUrl(url);
                     if (!allImageUrls.includes(absUrl)) allImageUrls.push(absUrl);
                 });
             }
-            if (poi.heroImageUrl) {
+            if (poi.heroImageUrl && allImageUrls.length < MAX_IMAGES_PER_STOP) {
                 const absUrl = makeAbsoluteUrl(poi.heroImageUrl);
                 if (!allImageUrls.includes(absUrl)) allImageUrls.unshift(absUrl);
             }
-            if (narration?.thumbnailUrl) {
+            if (narration?.thumbnailUrl && allImageUrls.length < MAX_IMAGES_PER_STOP) {
                 const absUrl = makeAbsoluteUrl(narration.thumbnailUrl);
                 if (!allImageUrls.includes(absUrl)) allImageUrls.unshift(absUrl);
             }
@@ -402,7 +406,7 @@ export async function refreshPreviewData(shareCode: string, maxStops: number = 5
                 name: poi.name || `Stop ${i + 1}`,
                 description: narration?.text || poi.description || '',
                 imageUrl: allImageUrls[0] || '',
-                imageUrls: allImageUrls,
+                imageUrls: allImageUrls.slice(0, MAX_IMAGES_PER_STOP),
                 audioUrl: narration?.audioUrl ? makeAbsoluteUrl(narration.audioUrl) : undefined,
                 narrationText: narration?.text
             });
