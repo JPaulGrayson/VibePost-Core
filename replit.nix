@@ -1,7 +1,7 @@
 { pkgs }: {
   deps = [
     pkgs.nodejs-20_x
-    pkgs.ffmpeg
-    pkgs.libuuid
+    pkgs.nodePackages.typescript-language-server
+    pkgs.ffmpeg-full
   ];
 }
