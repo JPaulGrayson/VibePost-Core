@@ -13,6 +13,9 @@ try {
     console.log(`📹 Stop Video Generator: FFmpeg initialized`);
 } catch (err) {
     console.error('⚠️ FFmpeg initialization failed in stop_video_generator:', err);
+    console.log('🔄 Falling back to system "ffmpeg" from PATH');
+    ffmpeg.setFfmpegPath('ffmpeg');
+    ffmpeg.setFfprobePath('ffprobe');
 }
 
 // Output directory for generated videos
@@ -421,7 +424,7 @@ export async function createSimpleStopVideo(
                     '-t', String(Math.ceil(audioDuration))
                 ])
                 .output(outputPath)
-                .on('end', resolve)
+                .on('end', () => resolve())
                 .on('error', reject)
                 .run();
         });

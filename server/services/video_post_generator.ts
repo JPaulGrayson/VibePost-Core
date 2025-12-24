@@ -36,8 +36,13 @@ try {
     console.log(`📹 Using FFmpeg: ${ffmpegPath}`);
 } catch (err) {
     console.error('⚠️ FFmpeg initialization failed:', err);
-    console.log('📹 Video generation will not be available');
+    console.log('🔄 Falling back to system "ffmpeg" from PATH');
+    ffmpegPath = 'ffmpeg';
+    ffprobePath = 'ffprobe';
 }
+
+ffmpeg.setFfmpegPath(ffmpegPath);
+ffmpeg.setFfprobePath(ffprobePath);
 
 const TURAI_API_URL = process.env.TURAI_API_URL || "http://localhost:5002";
 const TURAI_PRODUCTION_URL = "https://turai.org";

@@ -20,6 +20,9 @@ try {
     ffmpeg.setFfprobePath(ffprobePath);
 } catch (err) {
     console.error('⚠️ FFmpeg initialization failed in reply_video_generator:', err);
+    console.log('🔄 Falling back to system "ffmpeg" from PATH');
+    ffmpeg.setFfmpegPath('ffmpeg');
+    ffmpeg.setFfprobePath('ffprobe');
 }
 
 const TURAI_API_URL = process.env.TURAI_API_URL || "https://turai.org";
