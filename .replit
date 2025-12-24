@@ -1,5 +1,6 @@
 run = "npm run start"
 entrypoint = "server/index.ts"
+modules = ["nodejs-20"]
 
 [deployment]
 build = "npm install && npm run build"
