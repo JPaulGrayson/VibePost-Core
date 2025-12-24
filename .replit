@@ -1,2 +1,7 @@
 run = "npm run start"
 entrypoint = "server/index.ts"
+
+[deployment]
+run = "npm run start"
+deploymentTarget = "cloudrun"
+ignorePorts = false
