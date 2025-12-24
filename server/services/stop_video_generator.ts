@@ -473,6 +473,8 @@ async function createStaticMultiImageVideo(
                 ffmpeg()
                     .input(photoPath)
                     .inputOptions(['-loop', '1'])
+                    // Add scaling filter to fill the screen (1920x1080) and remove black bars
+                    .videoFilters('scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080')
                     .outputOptions([
                         '-c:v', 'libx264',
                         '-preset', 'ultrafast', // Crucial for speed
