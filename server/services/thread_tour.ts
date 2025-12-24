@@ -211,36 +211,60 @@ async function generateTour(destination: string, theme: string = 'hidden_gems', 
 
 /**
  * Fetch tour data by share code
+ * Tries multiple endpoints: slideshow API (turai.org) and tour share API (local)
  */
 async function fetchTourData(shareCode: string): Promise<{ success: boolean; tour?: TourData; narrations?: Narration[]; error?: string }> {
     try {
         console.log(`📥 Fetching tour data for: ${shareCode}`);
 
-        const response = await fetch(`${TURAI_API_URL}/api/tours/share/${shareCode}`, {
+        // Try slideshow endpoint first (for turai.org slideshow tokens)
+        let response = await fetch(`${TURAI_API_URL}/api/slideshows/${shareCode}`, {
             signal: AbortSignal.timeout(30000)
         });
 
-        if (!response.ok) {
-            return { success: false, error: `Failed to fetch tour: ${response.status}` };
+        let data = null;
+        let slideshowData = null;
+
+        if (response.ok) {
+            const jsonData = await response.json();
+            if (jsonData.success && jsonData.data) {
+                slideshowData = jsonData.data;
+                console.log(`   ✓ Found via slideshow API`);
+            }
         }
 
-        const data = await response.json();
+        // If slideshow API failed, try tour share API (for local wizard tours)
+        if (!slideshowData) {
+            console.log(`   Trying tour share API...`);
+            response = await fetch(`${TURAI_API_URL}/api/tours/share/${shareCode}`, {
+                signal: AbortSignal.timeout(30000)
+            });
 
-        if (!data.success || !data.data) {
-            return { success: false, error: 'Invalid tour data' };
+            if (!response.ok) {
+                return { success: false, error: `Failed to fetch tour: ${response.status}` };
+            }
+
+            const jsonData = await response.json();
+            if (!jsonData.success || !jsonData.data) {
+                return { success: false, error: 'Invalid tour data' };
+            }
+            slideshowData = jsonData.data;
         }
+
+        // Extract tour data - handle both slideshow format (nested .tour) and direct format
+        const tourSource = slideshowData.tour || slideshowData;
 
         const tour: TourData = {
-            id: data.data.id,
-            name: data.data.name,
-            destination: data.data.destination || data.data.startPoint,
+            id: tourSource.id || shareCode,
+            name: tourSource.name,
+            destination: tourSource.destination || tourSource.startPoint || tourSource.name,
             shareCode: shareCode,
-            pointsOfInterest: data.data.pointsOfInterest || [],
-            aiImageUrl: data.data.aiImageUrl
+            pointsOfInterest: tourSource.pointsOfInterest || [],
+            aiImageUrl: tourSource.aiImageUrl || tourSource.customImageUrl
         };
 
-        // Get narrations if available
-        const rawNarrations = data.data.narrations || [];
+        // Get narrations - check both slideshow format and direct format
+        const rawNarrations = slideshowData.narrations || tourSource.narrations || [];
         console.log(`📜 Found ${rawNarrations.length} narrations`);
 
         const narrations: Narration[] = rawNarrations.map((n: any, idx: number) => {
@@ -888,7 +912,7 @@ export async function previewThreadTour(
                 name: poi.name,
                 description: poi.description || '',
                 videoPath,
-                photoUrls: photos,
+                photoUrls: absolutePhotos,  // Use absolute URLs so browser can load them
                 narrationText: fullNarration
             });
         }

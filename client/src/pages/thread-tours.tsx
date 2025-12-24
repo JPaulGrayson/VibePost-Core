@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, Send, Clock, MapPin, ListOrdered, ChevronRight, RefreshCw, Flame, Globe } from "lucide-react";
+import { Loader2, Send, Clock, MapPin, ListOrdered, ChevronRight, RefreshCw, Flame, Globe, Video, Play, Download } from "lucide-react";
 
 // Preset topic categories for quick selection
 const TOPIC_PRESETS = {
@@ -196,6 +196,8 @@ const GEOGRAPHIC_SCOPES = {
 };
 
 export default function ThreadTours() {
+    // Add state for video playing
+    const [playingVideo, setPlayingVideo] = useState<string | null>(null);
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
@@ -236,7 +238,8 @@ export default function ThreadTours() {
     // Post thread tour (destination-based)
     const postMutation = useMutation({
         mutationFn: async (params: { destination: string; maxStops: number; shareCode?: string }) => {
-            return apiRequest("POST", "/api/thread-tour/post", params);
+            const response = await apiRequest("POST", "/api/thread-tour/post", params);
+            return response.json();
         },
         onSuccess: (data: any) => {
             if (data.success) {
@@ -268,7 +271,8 @@ export default function ThreadTours() {
     // Post topic-based tour
     const postTopicMutation = useMutation({
         mutationFn: async (params: { location: string; focus: string; maxStops: number }) => {
-            return apiRequest("POST", "/api/thread-tour/post-topic", params);
+            const response = await apiRequest("POST", "/api/thread-tour/post-topic", params);
+            return response.json();
         },
         onSuccess: (data: any) => {
             if (data.success) {
@@ -300,7 +304,8 @@ export default function ThreadTours() {
     // Preview tour (without posting)
     const previewMutation = useMutation({
         mutationFn: async (params: { location: string; focus?: string; maxStops: number }) => {
-            return apiRequest("POST", "/api/thread-tour/preview", params);
+            const response = await apiRequest("POST", "/api/thread-tour/preview", params);
+            return response.json();  // Parse the JSON response
         },
         onSuccess: (data: any) => {
             if (data.success) {
@@ -332,7 +337,8 @@ export default function ThreadTours() {
     // Set next destination
     const setNextMutation = useMutation({
         mutationFn: async (destination: string) => {
-            return apiRequest("POST", "/api/thread-tour/set-next", { destination });
+            const response = await apiRequest("POST", "/api/thread-tour/set-next", { destination });
+            return response.json();
         },
         onSuccess: () => {
             toast({ title: "Next destination set!" });
@@ -675,9 +681,16 @@ export default function ThreadTours() {
                                                 </p>
                                             )}
                                             {stop.videoPath && (
-                                                <p className="text-xs text-green-600 mt-1">
-                                                    ✅ Video generated
-                                                </p>
+                                                <div className="mt-2">
+                                                    <Button
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        onClick={() => setPlayingVideo(stop.videoPath)}
+                                                    >
+                                                        <Play className="w-4 h-4 mr-2" />
+                                                        Play Video
+                                                    </Button>
+                                                </div>
                                             )}
                                             {stop.photoUrls?.length > 0 && (
                                                 <div className="flex gap-1 mt-2">
@@ -1120,6 +1133,31 @@ export default function ThreadTours() {
                     </div>
                 </CardContent>
             </Card>
+            {/* Video Player Modal */}
+            {playingVideo && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm" onClick={() => setPlayingVideo(null)}>
+                    <div className="relative w-full max-w-lg bg-card border rounded-lg shadow-lg p-2" onClick={e => e.stopPropagation()}>
+                        <div className=" flex justify-between items-center p-2">
+                            <h3 className="font-semibold">Preview Video</h3>
+                            <Button variant="ghost" size="sm" onClick={() => setPlayingVideo(null)}>Close</Button>
+                        </div>
+                        {/* Determine if it's a full URL or relative path */}
+                        <video
+                            controls
+                            autoPlay
+                            className="w-full rounded bg-black aspect-[9/16]"
+                            src={playingVideo.startsWith('http') ? playingVideo : `/api/video-slideshow/stream?path=${encodeURIComponent(playingVideo)}`}
+                        />
+                        <div className="p-4 flex justify-between">
+                            <a href={playingVideo.startsWith('http') ? playingVideo : `/api/video-slideshow/stream?path=${encodeURIComponent(playingVideo)}`} download>
+                                <Button variant="outline" size="sm">
+                                    <Download className="h-4 w-4 mr-2" /> Download
+                                </Button>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

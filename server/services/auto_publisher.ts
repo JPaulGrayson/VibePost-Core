@@ -112,39 +112,31 @@ class AutoPublisher {
         this.isPublishing = true;
 
         try {
-            // Get all pending drafts
-            const allDrafts = await storage.getPostcardDrafts();
-
-            // Filter for high-quality, unprocessed drafts that are TWITTER-based
-            // Skip Reddit drafts (alphanumeric IDs) and standalone posts (daily-, thread-)
-            const eligibleDrafts = allDrafts.filter(d =>
-                d.status === "pending_review" &&
-                (d.score || 0) >= AUTO_PUBLISH_THRESHOLD &&
-                d.originalTweetId &&
-                /^\d+$/.test(d.originalTweetId) // Only valid Twitter numeric IDs
-            );
+            // Use optimized query that filters at DB level (much faster than fetching all drafts)
+            // This returns only pending_review drafts with score >= 80 and valid Twitter IDs
+            const eligibleDrafts = await storage.getTopEligibleDrafts({
+                minScore: AUTO_PUBLISH_THRESHOLD,
+                maxResults: 50,
+                status: 'pending_review'
+            });
 
             if (eligibleDrafts.length === 0) {
                 return; // No eligible drafts
             }
 
-            // Sort by score (highest first), then by age (oldest first for same score)
-            eligibleDrafts.sort((a, b) => {
-                if ((b.score || 0) !== (a.score || 0)) {
-                    return (b.score || 0) - (a.score || 0);
-                }
-                return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
-            });
-
+            // Already sorted by score DESC from the database query
             const draft = eligibleDrafts[0];
 
             console.log(`🤖 Auto-publishing: ${draft.detectedLocation} (Score: ${draft.score}) by @${draft.originalAuthorHandle}`);
 
             // Generate personalized video reply based on user's tweet
+            // Now with Grok TTS voice personalization!
             console.log(`   🎬 Generating personalized video for @${draft.originalAuthorHandle}...`);
             const videoResult = await generateReplyVideo(
                 draft.originalTweetText || "",
-                draft.detectedLocation || ""
+                draft.detectedLocation || "",
+                draft.originalAuthorHandle || "",  // For voice personalization
+                draft.originalAuthorHandle || ""   // Handle used as fallback for name
             );
 
             let result: { success: boolean; tweetId?: string; error?: string };

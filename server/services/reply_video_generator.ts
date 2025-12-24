@@ -12,6 +12,7 @@ import * as path from 'path';
 import * as https from 'https';
 import * as http from 'http';
 import { GoogleGenAI } from "@google/genai";
+import { analyzeForVoicePersonalization, generateGrokTTS, addLocalGreeting, enhanceNarrationForEmotion } from './grok_tts';
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 ffmpeg.setFfprobePath(ffprobePath);
@@ -245,25 +246,33 @@ async function generatePersonalizedNarration(
     try {
         const interestList = interests.map(i => i.theme).join(', ');
 
-        const prompt = `You are a friendly travel expert creating a 30-second video narration.
+        const prompt = `You are a CHARISMATIC travel friend creating a 30-second video narration.
 
 User's tweet: "${tweetText}"
 Destination: ${location}
 Topics to cover: ${interestList}
 
+PERSONALITY (This is what makes you memorable):
+- You're an enthusiastic local friend, not a travel brochure
+- Share secrets like you're letting them in on something special: "Most tourists miss this, but..."
+- Express genuine EXCITEMENT: "I absolutely love this part of ${location}..."
+- Add light humor where appropriate
+- Use SENSORY language: What does it smell/sound/feel like?
+
 Write a warm, personalized narration that:
-1. Directly acknowledges what they're looking for (based on their tweet)
-2. Gives ONE quick, specific tip or answer to their question
-3. Briefly mentions each topic (${interestList}) as we show images
-4. Ends with a friendly call to action for turai.org
+1. Opens with a HOOK that grabs attention (reference something specific from their tweet)
+2. Gives ONE quick, insider tip that answers their question
+3. Mentions each topic (${interestList}) with genuine enthusiasm
+4. Ends with a friendly invite to turai.org
 
 Rules:
 - Keep it 75-90 words (30 seconds when spoken)
-- Sound like a helpful friend, not a commercial
-- Reference something specific from their tweet
+- Sound like an excited friend, not a tour guide
+- Use short, punchy sentences
 - No hashtags or emojis in the narration
+- Vary your sentence starters - don't repeat
 
-Example tone: "So you're looking for coworking spots with good vibes? You've picked the perfect destination! Bali's got you covered..."
+Example tone: "So you're curious about ${location}? Oh, you're in for a treat! Here's what most people don't know..."
 
 Write ONLY the narration text, no quotes or labels:`;
 
@@ -365,8 +374,8 @@ async function fetchNarration(text: string, outputPath: string): Promise<void> {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 text,
-                provider: 'google',
-                voice: 'en-US-Studio-O',
+                provider: 'elevenlabs',  // Use ElevenLabs for more expressive delivery
+                voice: '21m00Tcm4TlvDq8ikWAM',  // Rachel - expressive female voice
                 speed: 1.0,
                 volume: 0.8
             })
@@ -509,10 +518,13 @@ async function createTeaserVideo(
 
 /**
  * Generate a teaser video reply for a travel tweet
+ * Now with Grok TTS for expressive voices and local greetings!
  */
 export async function generateReplyVideo(
     tweetText: string,
-    location: string
+    location: string,
+    authorHandle?: string,
+    authorName?: string
 ): Promise<ReplyVideoResult> {
     console.log(`🎬 Generating reply video for ${location}...`);
 
@@ -541,13 +553,49 @@ export async function generateReplyVideo(
             };
         }
 
-        // 3. Generate personalized audio narration
+        // 3. Analyze poster for voice personalization
+        let voiceProfile;
+        try {
+            console.log(`   🎭 Analyzing poster for voice personalization...`);
+            voiceProfile = await analyzeForVoicePersonalization(
+                tweetText,
+                authorHandle || '',
+                authorName || '',
+                location
+            );
+            console.log(`   Voice: ${voiceProfile.suggestedVoice}, Greeting: ${voiceProfile.localGreeting} (${voiceProfile.destinationLanguage})`);
+        } catch (e) {
+            console.log(`   ⚠️ Voice personalization failed, using defaults`);
+            voiceProfile = {
+                suggestedVoice: 'Ara',
+                localGreeting: 'Hey there!',
+                destinationLanguage: 'English',
+                inferredGender: 'unknown' as const
+            };
+        }
+
+        // 4. Generate personalized audio narration with Grok TTS
         let audioPath: string | undefined;
         try {
             console.log(`   🔊 Generating personalized narration...`);
-            const narrationText = await generatePersonalizedNarration(tweetText, location, interests);
+            let narrationText = await generatePersonalizedNarration(tweetText, location, interests);
+
+            // Add local greeting if destination is non-English
+            narrationText = addLocalGreeting(narrationText, voiceProfile.localGreeting, voiceProfile.destinationLanguage);
+
+            // Enhance for emotional delivery
+            narrationText = enhanceNarrationForEmotion(narrationText);
+
             audioPath = path.join(TEMP_DIR, `narration_${Date.now()}.mp3`);
-            await fetchNarration(narrationText, audioPath);
+
+            // Try Grok TTS first (more expressive)
+            const grokResult = await generateGrokTTS(narrationText, audioPath, voiceProfile.suggestedVoice);
+
+            if (!grokResult.success) {
+                // Fallback to existing Turai TTS
+                console.log(`   ⚠️ Grok TTS unavailable, using fallback TTS...`);
+                await fetchNarration(narrationText, audioPath);
+            }
         } catch (e) {
             console.log(`   ⚠️ Narration skipped (continuing without audio)`);
             audioPath = undefined;

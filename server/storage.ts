@@ -72,12 +72,15 @@ export interface IStorage {
   updateFoundPost(id: number, updates: Partial<InsertFoundPost>): Promise<FoundPost | undefined>;
 
   // Postcard Drafts
-  getPostcardDrafts(): Promise<PostcardDraft[]>;
+  getPostcardDrafts(limit?: number): Promise<PostcardDraft[]>;
   getPostcardDraft(id: number): Promise<PostcardDraft | undefined>;
   getDraftByOriginalTweetId(tweetId: string): Promise<PostcardDraft | undefined>;
   updatePostcardDraft(id: number, updates: Partial<InsertPostcardDraft>): Promise<PostcardDraft | undefined>;
   cleanupOldDrafts(): Promise<void>;
   cleanupAllDrafts(): Promise<void>;
+
+  // Optimized method for auto-publisher: returns top N eligible drafts sorted by score
+  getTopEligibleDrafts(options?: { minScore?: number; maxResults?: number; status?: string }): Promise<PostcardDraft[]>;
 }
 
 
@@ -384,8 +387,22 @@ export class MemStorage implements IStorage {
   }
 
   // Postcard Drafts
-  async getPostcardDrafts(): Promise<PostcardDraft[]> {
-    return Array.from(this.postcardDrafts.values());
+  async getPostcardDrafts(limit?: number): Promise<PostcardDraft[]> {
+    const all = Array.from(this.postcardDrafts.values());
+    return limit ? all.slice(0, limit) : all;
+  }
+
+  async getTopEligibleDrafts(options?: { minScore?: number; maxResults?: number; status?: string }): Promise<PostcardDraft[]> {
+    const { minScore = 80, maxResults = 50, status = 'pending_review' } = options || {};
+    return Array.from(this.postcardDrafts.values())
+      .filter(d =>
+        d.status === status &&
+        (d.score || 0) >= minScore &&
+        d.originalTweetId &&
+        /^\d+$/.test(d.originalTweetId)
+      )
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
+      .slice(0, maxResults);
   }
 
   async getPostcardDraft(id: number): Promise<PostcardDraft | undefined> {
@@ -637,8 +654,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Postcard Drafts
-  async getPostcardDrafts(): Promise<PostcardDraft[]> {
-    return await db.select().from(postcardDrafts).orderBy(desc(postcardDrafts.createdAt));
+  async getPostcardDrafts(limit: number = 100): Promise<PostcardDraft[]> {
+    // Added limit to prevent memory issues with large draft counts
+    return await db.select()
+      .from(postcardDrafts)
+      .orderBy(desc(postcardDrafts.createdAt))
+      .limit(limit);
+  }
+
+  /**
+   * Optimized method for auto-publisher: returns top N eligible drafts sorted by score
+   * Only fetches pending_review drafts with score >= minScore
+   * Much faster than getPostcardDrafts() for auto-publishing use case
+   */
+  async getTopEligibleDrafts(options: { minScore?: number; maxResults?: number; status?: string } = {}): Promise<PostcardDraft[]> {
+    const { minScore = 80, maxResults = 50, status = 'pending_review' } = options;
+
+    // Use raw SQL for the regex filter on originalTweetId (numeric Twitter IDs only)
+    const { sql } = await import('drizzle-orm');
+    const { gte } = await import('drizzle-orm');
+
+    // Cast status to the proper enum type for type safety
+    const statusValue = status as "pending_review" | "published" | "approved" | "rejected" | "failed" | "pending_retry";
+
+    return await db.select()
+      .from(postcardDrafts)
+      .where(
+        and(
+          eq(postcardDrafts.status, statusValue),
+          gte(postcardDrafts.score, minScore),
+          // Filter for numeric Twitter IDs (valid for replying)
+          sql`${postcardDrafts.originalTweetId} ~ '^[0-9]+$'`
+        )
+      )
+      .orderBy(desc(postcardDrafts.score), postcardDrafts.createdAt)
+      .limit(maxResults);
   }
 
   async getPostcardDraft(id: number): Promise<PostcardDraft | undefined> {

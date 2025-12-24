@@ -25,6 +25,7 @@ server.log
 reply_videos/
 thread_videos/
 videos/
+video_posts/
 temp_assets/
 
 # Local databases

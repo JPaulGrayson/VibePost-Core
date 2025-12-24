@@ -1,8 +1,25 @@
 import "dotenv/config";
-// Trigger restart
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+
+// ============================================
+// GLOBAL ERROR HANDLERS - Prevent server crashes
+// ============================================
+process.on('uncaughtException', (error: Error) => {
+  console.error('🚨 UNCAUGHT EXCEPTION (server continues running):');
+  console.error('   Error:', error.message);
+  console.error('   Stack:', error.stack);
+  // Server continues running - do not exit
+});
+
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  console.error('🚨 UNHANDLED PROMISE REJECTION (server continues running):');
+  console.error('   Reason:', reason);
+  // Server continues running - do not exit
+});
+
+console.log('🛡️ Global error handlers installed - server will not crash on errors');
 
 const app = express();
 app.use(express.json());
@@ -66,20 +83,13 @@ import { twitterListener } from "./services/twitter_listener";
     console.error("Failed to start Sniper Manager:", error);
   }
 
-  // Start Daily Postcard Scheduler (Auto-posts at 9 AM daily)
+  // Start Daily Video Scheduler (Auto-posts video slideshows at 9 AM daily)
+  // Replaces both Daily Postcard and Thread Tour schedulers
   try {
-    const { startDailyPostcardScheduler } = await import("./services/daily_postcard_scheduler");
-    startDailyPostcardScheduler();
+    const { startDailyVideoScheduler } = await import("./services/daily_video_scheduler");
+    startDailyVideoScheduler();
   } catch (error) {
-    console.error("Failed to start Daily Postcard Scheduler:", error);
-  }
-
-  // Start Thread Tour Scheduler (Auto-posts thread tours at 6 PM daily)
-  try {
-    const { startThreadTourScheduler } = await import("./services/thread_tour_scheduler");
-    startThreadTourScheduler();
-  } catch (error) {
-    console.error("Failed to start Thread Tour Scheduler:", error);
+    console.error("Failed to start Daily Video Scheduler:", error);
   }
 
   // Start Auto-Publisher (Auto-posts 80+ score leads with rate limiting)
@@ -94,8 +104,10 @@ import { twitterListener } from "./services/twitter_listener";
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    // Log the error but DON'T re-throw (prevents crashes)
+    console.error(`❌ Express error: ${message}`, err.stack);
     res.status(status).json({ message });
-    throw err;
+    // Note: Removed 'throw err' which was crashing the server!
   });
 
   // importantly only setup vite in development and after

@@ -16,6 +16,8 @@ import { generateVideoSlideshow, getVideoDestinations, previewVideoSlideshow, li
 import { postThreadTour, previewThreadTour, getThreadTourDestinations, getTodaysThreadDestination, fetchFamousTours } from "./services/thread_tour";
 import { getThreadTourSchedulerStatus, setNextThreadDestination, clearNextThreadDestination } from "./services/thread_tour_scheduler";
 import { autoPublisher } from "./services/auto_publisher";
+import { previewVideoPost, generateVideoPost, generateVideoCaption, refreshPreviewData } from "./services/video_post_generator";
+import { getDailyVideoSchedulerStatus, setNextVideoDestination, clearNextVideoDestination, triggerDailyVideoNow, getVideoDestinationQueue } from "./services/daily_video_scheduler";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Simple authentication middleware
   const isAuthenticated = (req: any, res: any, next: any) => {
@@ -1053,6 +1055,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate a video slideshow (long-running operation)
+  // Stream video file
+  app.get("/api/video-slideshow/stream", (req, res) => {
+    try {
+      const videoPath = req.query.path as string;
+      if (!videoPath || !fs.existsSync(videoPath)) {
+        return res.status(404).json({ error: "Video not found" });
+      }
+
+      const stat = fs.statSync(videoPath);
+      const fileSize = stat.size;
+      const range = req.headers.range;
+
+      if (range) {
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunksize = (end - start) + 1;
+        const file = fs.createReadStream(videoPath, { start, end });
+        const head = {
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize,
+          'Content-Type': 'video/mp4',
+        };
+        res.writeHead(206, head);
+        file.pipe(res);
+      } else {
+        const head = {
+          'Content-Length': fileSize,
+          'Content-Type': 'video/mp4',
+        };
+        res.writeHead(200, head);
+        fs.createReadStream(videoPath).pipe(res);
+      }
+    } catch (error) {
+      console.error("Stream error:", error);
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
   app.post("/api/video-slideshow/generate", async (req, res) => {
     try {
       const { destination, duration = 60, theme = 'general' } = req.body;
@@ -1223,6 +1265,260 @@ export async function registerRoutes(app: Express): Promise<Server> {
       message: "Reverted to automatic destination selection",
       status: getThreadTourSchedulerStatus()
     });
+  });
+
+  // ============================================
+  // VIDEO POST ENDPOINTS (New FFmpeg-based system)
+  // ============================================
+
+  // Preview a video post (shows stops, images, narration before generating)
+  app.post("/api/video-post/preview", async (req, res) => {
+    try {
+      const { destination, topic, maxStops = 5, theme = 'hidden_gems' } = req.body;
+
+      if (!destination) {
+        return res.status(400).json({ error: "Destination required" });
+      }
+
+      console.log(`👁️ Video post preview: ${destination}${topic ? ` (${topic})` : ''}`);
+
+      const preview = await previewVideoPost({
+        destination,
+        topic,
+        maxStops,
+        theme
+      });
+
+      res.json(preview);
+    } catch (error) {
+      console.error("Video post preview failed:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Refresh preview data from existing share code
+  app.get("/api/video-post/preview/:shareCode", async (req, res) => {
+    try {
+      const { shareCode } = req.params;
+      const maxStops = parseInt(req.query.maxStops as string) || 5;
+
+      console.log(`🔄 Refreshing preview: ${shareCode}`);
+      const preview = await refreshPreviewData(shareCode, maxStops);
+      res.json(preview);
+    } catch (error) {
+      console.error("Video post refresh failed:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Generate video from options or existing preview
+  app.post("/api/video-post/generate", async (req, res) => {
+    try {
+      const { destination, topic, maxStops = 5, secondsPerStop = 12, theme = 'hidden_gems', shareCode } = req.body;
+
+      if (!destination) {
+        return res.status(400).json({ error: "Destination required" });
+      }
+
+      console.log(`🎬 Video post generate: ${destination}${shareCode ? ` (shareCode: ${shareCode})` : ''}`);
+
+      // If we have a shareCode from preview, fetch that tour's data instead of creating new
+      let existingPreview = undefined;
+      if (shareCode) {
+        console.log(`   Using existing preview from shareCode: ${shareCode}`);
+        existingPreview = await refreshPreviewData(shareCode, maxStops);
+        if (!existingPreview.success) {
+          console.log(`   ⚠️ Could not fetch preview for ${shareCode}, generating new...`);
+          existingPreview = undefined;
+        }
+      }
+
+      const result = await generateVideoPost({
+        destination,
+        topic,
+        maxStops,
+        secondsPerStop,
+        theme
+      }, existingPreview);
+
+      res.json(result);
+    } catch (error) {
+      console.error("Video post generation failed:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Generate caption for video post
+  app.post("/api/video-post/caption", async (req, res) => {
+    try {
+      const { destination, topic } = req.body;
+
+      if (!destination) {
+        return res.status(400).json({ error: "Destination required" });
+      }
+
+      const caption = await generateVideoCaption(destination, topic);
+      res.json({ success: true, caption });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Post video to X (using existing publish infrastructure)
+  app.post("/api/video-post/publish", async (req, res) => {
+    try {
+      const { videoPath, caption, destination } = req.body;
+
+      if (!videoPath || !caption) {
+        return res.status(400).json({ error: "videoPath and caption required" });
+      }
+
+      // Use existing video publish function
+      const { publishDraftWithVideo } = await import("./services/twitter_publisher");
+      const result = await publishDraftWithVideo(videoPath, caption);
+
+      res.json({
+        success: true,
+        tweetId: result.tweetId,
+        destination,
+        message: "Video posted successfully!"
+      });
+    } catch (error) {
+      console.error("Video publish failed:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // List generated video posts
+  app.get("/api/video-post/list", (req, res) => {
+    try {
+      const videosDir = path.join(process.cwd(), 'video_posts');
+      if (!fs.existsSync(videosDir)) {
+        return res.json({ videos: [] });
+      }
+
+      const files = fs.readdirSync(videosDir)
+        .filter(f => f.endsWith('.mp4'))
+        .map(f => {
+          const fullPath = path.join(videosDir, f);
+          const stats = fs.statSync(fullPath);
+          return {
+            filename: f,
+            path: fullPath,
+            size: stats.size,
+            createdAt: stats.mtime.toISOString()
+          };
+        })
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      res.json({ videos: files });
+    } catch (error) {
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
+  // Delete a video post
+  app.delete("/api/video-post/delete", (req, res) => {
+    try {
+      const videoPath = req.query.path as string;
+
+      if (!videoPath) {
+        return res.status(400).json({ error: "Path required" });
+      }
+
+      // Security: ensure path is within video_posts directory
+      const videosDir = path.join(process.cwd(), 'video_posts');
+      const normalizedPath = path.normalize(videoPath);
+
+      if (!normalizedPath.startsWith(videosDir)) {
+        return res.status(403).json({ error: "Invalid path" });
+      }
+
+      if (!fs.existsSync(normalizedPath)) {
+        return res.status(404).json({ error: "Video not found" });
+      }
+
+      fs.unlinkSync(normalizedPath);
+      console.log(`🗑️ Deleted video: ${normalizedPath}`);
+
+      res.json({ success: true, message: "Video deleted" });
+    } catch (error) {
+      console.error("Video delete error:", error);
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
+  // ============================================
+  // DAILY VIDEO SCHEDULER ENDPOINTS
+  // ============================================
+
+  // Get daily video scheduler status
+  app.get("/api/daily-video/status", (req, res) => {
+    res.json(getDailyVideoSchedulerStatus());
+  });
+
+  // Get destination queue
+  app.get("/api/daily-video/queue", (req, res) => {
+    res.json({ queue: getVideoDestinationQueue() });
+  });
+
+  // Set next destination
+  app.post("/api/daily-video/set-next", (req, res) => {
+    const { destination, topic } = req.body;
+
+    if (!destination) {
+      return res.status(400).json({ error: "Destination required" });
+    }
+
+    setNextVideoDestination(destination, topic);
+    res.json({
+      success: true,
+      message: `Next daily video set to: ${destination}`,
+      status: getDailyVideoSchedulerStatus()
+    });
+  });
+
+  // Clear custom next destination
+  app.post("/api/daily-video/clear-next", (req, res) => {
+    clearNextVideoDestination();
+    res.json({
+      success: true,
+      message: "Reverted to automatic destination selection",
+      status: getDailyVideoSchedulerStatus()
+    });
+  });
+
+  // Trigger daily video now (manual)
+  app.post("/api/daily-video/trigger", async (req, res) => {
+    try {
+      console.log("📹 Manual daily video trigger");
+      await triggerDailyVideoNow();
+      res.json({
+        success: true,
+        message: "Daily video triggered",
+        status: getDailyVideoSchedulerStatus()
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   });
 
   // Keyword search endpoints

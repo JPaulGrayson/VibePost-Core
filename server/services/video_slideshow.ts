@@ -68,9 +68,9 @@ export async function generateVideoSlideshow(
         const shareCode = tourResult.shareCode;
         console.log(`✅ Tour generated with share code: ${shareCode}`);
 
-        // Step 2: Wait for narrations to be ready
+        // Step 2: Wait for narrations to be ready (need at least 3)
         console.log('⏳ Waiting for narrations to generate...');
-        const slideshowReady = await waitForSlideshowReady(shareCode, 120000); // 2 min timeout
+        const slideshowReady = await waitForSlideshowReady(shareCode, 180000); // 3 min timeout for full tour
 
         if (!slideshowReady) {
             return { success: false, error: 'Slideshow narrations not ready in time' };
@@ -122,18 +122,16 @@ export async function generateVideoSlideshow(
         console.log('   ⏳ Waiting for React to hydrate...');
         await new Promise(resolve => setTimeout(resolve, 3000));
 
-        // Wait for the "Begin Journey" or similar button
-        // Try multiple selectors that might match the CTA button
+        // Wait for the "Start Tour" button
         console.log('   🔍 Looking for start button...');
 
         try {
-            // First try: any button with text content
-            await page.waitForSelector('button', { timeout: 20000 });
-            console.log('   ✅ Found button element');
+            await page.waitForSelector('[data-testid="button-start-slideshow"]', { timeout: 20000 });
+            console.log('   ✅ Found start button');
         } catch (e) {
             // Log page content for debugging
             const pageContent = await page.content();
-            console.log('   ⚠️ Button not found. Page contains:', pageContent.slice(0, 500));
+            console.log('   ⚠️ Start button not found. Page content length:', pageContent.length);
             throw new Error('Could not find start button on slideshow page');
         }
 
@@ -143,10 +141,16 @@ export async function generateVideoSlideshow(
 
         // Click the button to start the slideshow
         try {
-            await page.click('button');
+            await page.click('[data-testid="button-start-slideshow"]');
             console.log('   ✅ Clicked start button');
+
+            // Wait for the slideshow view to load (look for play/pause button)
+            await page.waitForSelector('[data-testid="button-play-pause"]', { timeout: 10000 });
+            console.log('   ✅ Slideshow view loaded');
+
         } catch (e) {
-            console.log('   ⚠️ Failed to click button, continuing anyway...');
+            console.log('   ⚠️ Failed to start slideshow properly:', e);
+            // Continue anyway, maybe it started but selector failed?
         }
 
         // Record for the specified duration
@@ -160,6 +164,70 @@ export async function generateVideoSlideshow(
         // Verify video file exists
         if (!fs.existsSync(videoPath)) {
             return { success: false, error: 'Video file was not created' };
+        }
+
+        // Re-encode to proper MP4 format (puppeteer-screen-recorder outputs WebM internally)
+        console.log('🔄 Re-encoding to MP4 for compatibility...');
+        const tempPath = videoPath.replace('.mp4', '_temp.webm');
+        fs.renameSync(videoPath, tempPath);
+
+        try {
+            const ffmpeg = await import('fluent-ffmpeg').then(m => m.default);
+            const { path: ffmpegPath } = await import('@ffmpeg-installer/ffmpeg');
+            ffmpeg.setFfmpegPath(ffmpegPath);
+
+            await new Promise<void>((resolve, reject) => {
+                ffmpeg(tempPath)
+                    .outputOptions([
+                        '-c:v', 'libx264',    // H.264 codec
+                        '-preset', 'fast',
+                        '-crf', '23',         // Quality (lower = better)
+                        '-c:a', 'aac',        // AAC audio
+                        '-b:a', '128k',
+                        '-pix_fmt', 'yuv420p', // Required for QuickTime compatibility
+                        '-movflags', '+faststart' // Enable streaming
+                    ])
+                    .output(videoPath)
+                    .on('end', () => {
+                        console.log('✅ Re-encoding complete');
+                        fs.unlinkSync(tempPath); // Clean up temp file
+                        resolve();
+                    })
+                    .on('error', (err) => {
+                        console.error('❌ Re-encoding failed:', err);
+                        // Restore original file
+                        fs.renameSync(tempPath, videoPath);
+                        reject(err);
+                    })
+                    .run();
+            });
+        } catch (reencodeError) {
+            console.error('⚠️ FFmpeg re-encoding failed, keeping original:', reencodeError);
+            // Restore original if re-encoding failed
+            if (fs.existsSync(tempPath)) {
+                fs.renameSync(tempPath, videoPath);
+            }
+        }
+
+        // Step 5: Download and merge audio
+        const audioResult = await downloadAndMergeAudio(shareCode, VIDEO_OUTPUT_DIR);
+
+        if (audioResult.success && audioResult.audioPath) {
+            // Merge audio with video
+            const videoWithAudioPath = videoPath.replace('.mp4', '_with_audio.mp4');
+            const mergeSuccess = await mergeAudioWithVideo(videoPath, audioResult.audioPath, videoWithAudioPath);
+
+            if (mergeSuccess) {
+                // Replace original with audio version
+                fs.unlinkSync(videoPath);
+                fs.renameSync(videoWithAudioPath, videoPath);
+
+                // Cleanup temp audio
+                try { fs.unlinkSync(audioResult.audioPath); } catch (e) { }
+                console.log('🔊 Audio track added to video');
+            }
+        } else {
+            console.log('⚠️ Video saved without audio (narration download failed)');
         }
 
         const stats = fs.statSync(videoPath);
@@ -241,10 +309,14 @@ async function generateTuraiTour(destination: string, theme: string): Promise<{
 
 /**
  * Wait for slideshow narrations to be ready
+ * Wait for at least MIN_NARRATIONS to ensure a proper slideshow
  */
 async function waitForSlideshowReady(shareCode: string, timeoutMs: number): Promise<boolean> {
     const startTime = Date.now();
     const pollInterval = 5000; // Check every 5 seconds
+    const MIN_NARRATIONS = 3;  // Need at least 3 stops for a good slideshow
+    let lastNarrationCount = 0;
+    let stableCount = 0;  // Track if narration count is stable (generation complete)
 
     while (Date.now() - startTime < timeoutMs) {
         try {
@@ -256,8 +328,28 @@ async function waitForSlideshowReady(shareCode: string, timeoutMs: number): Prom
                 const slideshowData = responseData.data || responseData;
 
                 if (slideshowData.narrations && slideshowData.narrations.length > 0) {
-                    console.log(`   ✅ ${slideshowData.narrations.length} narrations ready`);
-                    return true;
+                    const narrationCount = slideshowData.narrations.length;
+
+                    // Check if we have enough narrations
+                    if (narrationCount >= MIN_NARRATIONS) {
+                        console.log(`   ✅ ${narrationCount} narrations ready (min ${MIN_NARRATIONS} required)`);
+                        return true;
+                    }
+
+                    // Check if generation has stabilized (count not increasing)
+                    if (narrationCount === lastNarrationCount) {
+                        stableCount++;
+                        if (stableCount >= 3) {
+                            // Count hasn't changed in 3 polls, generation might be done
+                            console.log(`   ⚠️ Only ${narrationCount} narrations available, proceeding anyway`);
+                            return narrationCount > 0;
+                        }
+                    } else {
+                        stableCount = 0;
+                    }
+
+                    lastNarrationCount = narrationCount;
+                    console.log(`   ⏳ ${narrationCount}/${MIN_NARRATIONS} narrations ready, waiting for more...`);
                 } else {
                     const poiCount = slideshowData.tour?.pointsOfInterest?.length || 0;
                     console.log(`   ⏳ Waiting for narrations... (${poiCount} POIs in tour)`);
@@ -270,7 +362,155 @@ async function waitForSlideshowReady(shareCode: string, timeoutMs: number): Prom
         await new Promise(resolve => setTimeout(resolve, pollInterval));
     }
 
-    return false;
+    return lastNarrationCount > 0;  // Return true if we have any narrations at timeout
+}
+
+/**
+ * Download narration audio files and merge into single audio track
+ */
+async function downloadAndMergeAudio(shareCode: string, outputPath: string): Promise<{ success: boolean; audioPath?: string; error?: string }> {
+    try {
+        console.log('🔊 Downloading narration audio...');
+
+        // Get slideshow data with narrations
+        const response = await fetch(`${TURAI_API_URL}/api/slideshows/${shareCode}`);
+        if (!response.ok) {
+            return { success: false, error: 'Failed to fetch slideshow data' };
+        }
+
+        const responseData = await response.json();
+        const slideshowData = responseData.data || responseData;
+        const narrations = slideshowData.narrations || [];
+
+        if (narrations.length === 0) {
+            return { success: false, error: 'No narrations available' };
+        }
+
+        // Download each audio file
+        const audioFiles: string[] = [];
+        const tempDir = path.join(VIDEO_OUTPUT_DIR, 'temp_audio');
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
+
+        for (let i = 0; i < narrations.length; i++) {
+            const narration = narrations[i];
+            let audioUrl = narration.audioUrl;
+
+            if (!audioUrl) continue;
+
+            // Make URL absolute if needed
+            if (audioUrl.startsWith('/')) {
+                audioUrl = `${TURAI_API_URL}${audioUrl}`;
+            }
+
+            const audioFile = path.join(tempDir, `narration_${i}.mp3`);
+
+            try {
+                console.log(`   📥 Downloading audio ${i + 1}/${narrations.length}...`);
+                const audioResponse = await fetch(audioUrl);
+
+                if (audioResponse.ok) {
+                    const buffer = Buffer.from(await audioResponse.arrayBuffer());
+                    fs.writeFileSync(audioFile, buffer);
+                    audioFiles.push(audioFile);
+                }
+            } catch (e) {
+                console.log(`   ⚠️ Failed to download audio ${i + 1}`);
+            }
+        }
+
+        if (audioFiles.length === 0) {
+            return { success: false, error: 'No audio files downloaded' };
+        }
+
+        console.log(`   ✅ Downloaded ${audioFiles.length} audio files`);
+
+        // Concatenate audio files using FFmpeg
+        const ffmpeg = await import('fluent-ffmpeg').then(m => m.default);
+        const { path: ffmpegPath } = await import('@ffmpeg-installer/ffmpeg');
+        ffmpeg.setFfmpegPath(ffmpegPath);
+
+        // Create concat list file
+        const concatListPath = path.join(tempDir, 'concat_list.txt');
+        const concatContent = audioFiles.map(f => `file '${f}'`).join('\n');
+        fs.writeFileSync(concatListPath, concatContent);
+
+        // Merge audio files
+        const mergedAudioPath = path.join(tempDir, 'merged_audio.mp3');
+
+        await new Promise<void>((resolve, reject) => {
+            ffmpeg()
+                .input(concatListPath)
+                .inputOptions(['-f', 'concat', '-safe', '0'])
+                .outputOptions(['-c', 'copy'])
+                .output(mergedAudioPath)
+                .on('end', () => {
+                    console.log('   ✅ Audio merged successfully');
+                    resolve();
+                })
+                .on('error', (err) => {
+                    console.error('   ❌ Audio merge failed:', err);
+                    reject(err);
+                })
+                .run();
+        });
+
+        // Cleanup individual files
+        for (const file of audioFiles) {
+            try { fs.unlinkSync(file); } catch (e) { }
+        }
+        try { fs.unlinkSync(concatListPath); } catch (e) { }
+
+        return { success: true, audioPath: mergedAudioPath };
+
+    } catch (error) {
+        console.error('Audio download/merge failed:', error);
+        return { success: false, error: String(error) };
+    }
+}
+
+/**
+ * Merge audio track with video
+ */
+async function mergeAudioWithVideo(videoPath: string, audioPath: string, outputPath: string): Promise<boolean> {
+    try {
+        console.log('🎬 Merging audio with video...');
+
+        const ffmpeg = await import('fluent-ffmpeg').then(m => m.default);
+        const { path: ffmpegPath } = await import('@ffmpeg-installer/ffmpeg');
+        ffmpeg.setFfmpegPath(ffmpegPath);
+
+        await new Promise<void>((resolve, reject) => {
+            ffmpeg()
+                .input(videoPath)
+                .input(audioPath)
+                .outputOptions([
+                    '-c:v', 'copy',           // Copy video stream
+                    '-c:a', 'aac',            // Encode audio to AAC
+                    '-b:a', '192k',           // Audio bitrate
+                    '-shortest',              // End when shortest stream ends
+                    '-map', '0:v:0',          // Map video from first input
+                    '-map', '1:a:0',          // Map audio from second input
+                    '-movflags', '+faststart' // Enable streaming
+                ])
+                .output(outputPath)
+                .on('end', () => {
+                    console.log('   ✅ Audio merged with video');
+                    resolve();
+                })
+                .on('error', (err) => {
+                    console.error('   ❌ Video-audio merge failed:', err);
+                    reject(err);
+                })
+                .run();
+        });
+
+        return true;
+    } catch (error) {
+        console.error('Video-audio merge failed:', error);
+        return false;
+    }
 }
 
 /**

@@ -32,7 +32,8 @@ import {
   Bar,
   PieChart,
   Pie,
-  Cell
+  Cell,
+  Legend
 } from "recharts";
 
 export default function Analytics() {
@@ -121,37 +122,68 @@ export default function Analytics() {
     views: 0,
   });
 
-  // Real engagement data over time based on actual posts
-  const analyticsData = publishedPosts.map(post => {
-    const platformData = post.platformData as any;
-    let likes = 0;
-    let comments = 0;
-    let shares = 0;
-    let views = 0;
-
-    if (platformData?.twitter) {
-      likes += platformData.twitter.likes || 0;
-      comments += platformData.twitter.replies || 0;
-      shares += (platformData.twitter.retweets || 0) + (platformData.twitter.quotes || 0);
-      views += platformData.twitter.impressions || 0;
+  // Get the date range based on selected time range
+  const getDateRangeStart = () => {
+    switch (timeRange) {
+      case "7days": return subDays(new Date(), 7);
+      case "30days": return subDays(new Date(), 30);
+      case "90days": return subDays(new Date(), 90);
+      default: return subDays(new Date(), 7);
     }
+  };
+  const dateRangeStart = getDateRangeStart();
 
-    if (platformData?.reddit) {
-      likes += platformData.reddit.upvotes || 0;
-      comments += platformData.reddit.comments || 0;
-    }
-
-    return {
-      date: format(new Date(post.createdAt), "MMM dd"),
-      fullDate: new Date(post.createdAt),
-      post: post.content.substring(0, 30) + "...",
-      platforms: (post.platforms as string[]).join(", "),
-      likes,
-      comments,
-      shares,
-      views,
-    };
+  // Filter posts by time range
+  const filteredPosts = publishedPosts.filter(post => {
+    const postDate = new Date(post.publishedAt || post.createdAt);
+    return isAfter(postDate, dateRangeStart);
   });
+
+  // Aggregate engagement data by day (not per-post)
+  const dailyAggregatedData = (() => {
+    // Create a map to store daily totals
+    const dailyTotals: Record<string, { date: string; likes: number; comments: number; shares: number; views: number; posts: number }> = {};
+
+    // Initialize all days in the range with zeros
+    const days = timeRange === "7days" ? 7 : timeRange === "30days" ? 30 : 90;
+    for (let i = days - 1; i >= 0; i--) {
+      const d = subDays(new Date(), i);
+      const key = format(d, "yyyy-MM-dd");
+      const label = days <= 7 ? format(d, "EEE") : days <= 30 ? format(d, "MMM d") : format(d, "MM/dd");
+      dailyTotals[key] = { date: label, likes: 0, comments: 0, shares: 0, views: 0, posts: 0 };
+    }
+
+    // Aggregate posts into daily buckets
+    filteredPosts.forEach(post => {
+      const postDate = new Date(post.publishedAt || post.createdAt);
+      const key = format(postDate, "yyyy-MM-dd");
+
+      if (dailyTotals[key]) {
+        const platformData = post.platformData as any;
+        dailyTotals[key].posts += 1;
+
+        if (platformData?.twitter) {
+          dailyTotals[key].likes += platformData.twitter.likes || 0;
+          dailyTotals[key].comments += platformData.twitter.replies || 0;
+          dailyTotals[key].shares += (platformData.twitter.retweets || 0) + (platformData.twitter.quotes || 0);
+          dailyTotals[key].views += platformData.twitter.impressions || 0;
+        }
+
+        if (platformData?.reddit) {
+          dailyTotals[key].likes += platformData.reddit.upvotes || 0;
+          dailyTotals[key].comments += platformData.reddit.comments || 0;
+        }
+      }
+    });
+
+    // Convert to array sorted by date
+    return Object.entries(dailyTotals)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([_, data]) => data);
+  })();
+
+  // Use daily aggregated data for charts
+  const analyticsData = dailyAggregatedData;
 
   // Calculate engagement per platform
   let twitterEngagement = 0;
@@ -388,18 +420,45 @@ export default function Analytics() {
             <TabsContent value="engagement" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Engagement Over Time</CardTitle>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Engagement Over Time</span>
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {filteredPosts.length} posts in selected range
+                    </span>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={400}>
                     <LineChart data={analyticsData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="likes" stroke="#ef4444" strokeWidth={2} />
-                      <Line type="monotone" dataKey="comments" stroke="#3b82f6" strokeWidth={2} />
-                      <Line type="monotone" dataKey="shares" stroke="#10b981" strokeWidth={2} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fill: '#9ca3af', fontSize: 12 }}
+                        axisLine={{ stroke: '#4b5563' }}
+                      />
+                      <YAxis
+                        tick={{ fill: '#9ca3af', fontSize: 12 }}
+                        axisLine={{ stroke: '#4b5563' }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#1f2937',
+                          border: '1px solid #374151',
+                          borderRadius: '8px'
+                        }}
+                        labelStyle={{ color: '#f9fafb', fontWeight: 'bold' }}
+                        formatter={(value: number, name: string) => [
+                          value.toLocaleString(),
+                          name.charAt(0).toUpperCase() + name.slice(1)
+                        ]}
+                      />
+                      <Legend
+                        wrapperStyle={{ paddingTop: '20px' }}
+                        formatter={(value) => <span style={{ color: '#9ca3af' }}>{value.charAt(0).toUpperCase() + value.slice(1)}</span>}
+                      />
+                      <Line type="monotone" dataKey="likes" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} name="likes" />
+                      <Line type="monotone" dataKey="comments" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} name="comments" />
+                      <Line type="monotone" dataKey="shares" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} name="shares" />
                     </LineChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -407,16 +466,51 @@ export default function Analytics() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Daily Views</CardTitle>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Daily Views & Posts</span>
+                    <span className="text-sm font-normal text-muted-foreground">
+                      {analyticsData.reduce((sum, d) => sum + d.views, 0).toLocaleString()} total views
+                    </span>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={analyticsData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="views" fill="#8b5cf6" />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fill: '#9ca3af', fontSize: 12 }}
+                        axisLine={{ stroke: '#4b5563' }}
+                      />
+                      <YAxis
+                        yAxisId="left"
+                        tick={{ fill: '#9ca3af', fontSize: 12 }}
+                        axisLine={{ stroke: '#4b5563' }}
+                      />
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        tick={{ fill: '#9ca3af', fontSize: 12 }}
+                        axisLine={{ stroke: '#4b5563' }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#1f2937',
+                          border: '1px solid #374151',
+                          borderRadius: '8px'
+                        }}
+                        labelStyle={{ color: '#f9fafb', fontWeight: 'bold' }}
+                        formatter={(value: number, name: string) => [
+                          value.toLocaleString(),
+                          name === 'views' ? 'Views' : 'Posts'
+                        ]}
+                      />
+                      <Legend
+                        wrapperStyle={{ paddingTop: '10px' }}
+                        formatter={(value) => <span style={{ color: '#9ca3af' }}>{value === 'views' ? 'Views' : 'Posts Published'}</span>}
+                      />
+                      <Bar yAxisId="left" dataKey="views" fill="#8b5cf6" name="views" radius={[4, 4, 0, 0]} />
+                      <Bar yAxisId="right" dataKey="posts" fill="#3b82f6" name="posts" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
