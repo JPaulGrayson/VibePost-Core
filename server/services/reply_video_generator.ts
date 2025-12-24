@@ -5,8 +5,6 @@
  */
 
 import ffmpeg from 'fluent-ffmpeg';
-import { path as ffmpegPath } from '@ffmpeg-installer/ffmpeg';
-import { path as ffprobePath } from '@ffprobe-installer/ffprobe';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as https from 'https';
@@ -14,8 +12,15 @@ import * as http from 'http';
 import { GoogleGenAI } from "@google/genai";
 import { analyzeForVoicePersonalization, generateGrokTTS, addLocalGreeting, enhanceNarrationForEmotion } from './grok_tts';
 
-ffmpeg.setFfmpegPath(ffmpegPath);
-ffmpeg.setFfprobePath(ffprobePath);
+// Safely initialize FFmpeg paths
+try {
+    const { path: ffmpegPath } = require('@ffmpeg-installer/ffmpeg');
+    const { path: ffprobePath } = require('@ffprobe-installer/ffprobe');
+    ffmpeg.setFfmpegPath(ffmpegPath);
+    ffmpeg.setFfprobePath(ffprobePath);
+} catch (err) {
+    console.error('⚠️ FFmpeg initialization failed in reply_video_generator:', err);
+}
 
 const TURAI_API_URL = process.env.TURAI_API_URL || "https://turai.org";
 const TEMP_DIR = path.join(process.cwd(), 'reply_videos');

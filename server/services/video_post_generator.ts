@@ -5,26 +5,39 @@
  */
 
 import ffmpeg from 'fluent-ffmpeg';
-import { path as bundledFfmpegPath } from '@ffmpeg-installer/ffmpeg';
-import { path as bundledFfprobePath } from '@ffprobe-installer/ffprobe';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as https from 'https';
 import * as http from 'http';
 import { GoogleGenAI } from "@google/genai";
 
-// Use system FFmpeg (Homebrew) for better QuickTime compatibility
-// Falls back to bundled version if system version not available
-const systemFfmpegPath = '/opt/homebrew/bin/ffmpeg';
-const systemFfprobePath = '/opt/homebrew/bin/ffprobe';
+// Safely resolve FFmpeg paths with fallbacks
+let ffmpegPath = '';
+let ffprobePath = '';
 
-const ffmpegPath = fs.existsSync(systemFfmpegPath) ? systemFfmpegPath : bundledFfmpegPath;
-const ffprobePath = fs.existsSync(systemFfprobePath) ? systemFfprobePath : bundledFfprobePath;
+try {
+    // Use system FFmpeg (Homebrew) for better QuickTime compatibility on macOS
+    const systemFfmpegPath = '/opt/homebrew/bin/ffmpeg';
+    const systemFfprobePath = '/opt/homebrew/bin/ffprobe';
 
-ffmpeg.setFfmpegPath(ffmpegPath);
-ffmpeg.setFfprobePath(ffprobePath);
+    if (fs.existsSync(systemFfmpegPath)) {
+        ffmpegPath = systemFfmpegPath;
+        ffprobePath = systemFfprobePath;
+    } else {
+        // Fallback to bundled version
+        const { path: bundledFfmpegPath } = require('@ffmpeg-installer/ffmpeg');
+        const { path: bundledFfprobePath } = require('@ffprobe-installer/ffprobe');
+        ffmpegPath = bundledFfmpegPath;
+        ffprobePath = bundledFfprobePath;
+    }
 
-console.log(`📹 Using FFmpeg: ${ffmpegPath}`);
+    ffmpeg.setFfmpegPath(ffmpegPath);
+    ffmpeg.setFfprobePath(ffprobePath);
+    console.log(`📹 Using FFmpeg: ${ffmpegPath}`);
+} catch (err) {
+    console.error('⚠️ FFmpeg initialization failed:', err);
+    console.log('📹 Video generation will not be available');
+}
 
 const TURAI_API_URL = process.env.TURAI_API_URL || "http://localhost:5002";
 const TURAI_PRODUCTION_URL = "https://turai.org";

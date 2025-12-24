@@ -1,14 +1,19 @@
 import ffmpeg from 'fluent-ffmpeg';
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
-import ffprobeInstaller from '@ffprobe-installer/ffprobe';
 import fs from 'fs';
 import path from 'path';
 import https from 'https';
 import http from 'http';
 
-// Set FFmpeg and FFprobe paths
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-ffmpeg.setFfprobePath(ffprobeInstaller.path);
+// Safely initialize FFmpeg paths
+try {
+    const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+    const ffprobeInstaller = require('@ffprobe-installer/ffprobe');
+    ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+    ffmpeg.setFfprobePath(ffprobeInstaller.path);
+    console.log(`📹 Stop Video Generator: FFmpeg initialized`);
+} catch (err) {
+    console.error('⚠️ FFmpeg initialization failed in stop_video_generator:', err);
+}
 
 // Output directory for generated videos
 const VIDEO_OUTPUT_DIR = path.join(process.cwd(), 'thread_videos');
