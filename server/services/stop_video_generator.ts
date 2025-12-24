@@ -194,8 +194,8 @@ export async function createStopVideo(
         const framesPerPhoto = Math.ceil(actualSecondsPerPhoto * 25);
 
         try {
-            // Multi-image approach: Create complex filter for each image
-            await createMultiImageVideo(
+            // Optimization: Fast Mode (Static Images) to prevent 504 Timeout on Replit
+            await createStaticMultiImageVideo(
                 photoPaths,
                 audioPath,
                 outputPath,
@@ -203,14 +203,8 @@ export async function createStopVideo(
                 videoDuration
             );
         } catch (multiError) {
-            console.log(`   ⚠️ Multi-image failed, falling back to primary image...`);
-            // Fallback to single image
-            await createSingleImageVideo(
-                photoPaths[0],
-                audioPath,
-                outputPath,
-                videoDuration
-            );
+            console.log(`   ⚠️ Fast Mode failed:`, multiError);
+            throw multiError;
         }
 
         // Step 4: Cleanup temp files
@@ -454,6 +448,79 @@ export async function createSimpleStopVideo(
             error: error instanceof Error ? error.message : 'Unknown error'
         };
     }
+}
+
+/**
+ * Fast multi-image video (static images, no zoom/pan)
+ * Prevents 504 Timeouts on Replit
+ */
+async function createStaticMultiImageVideo(
+    photoPaths: string[],
+    audioPath: string,
+    outputPath: string,
+    secondsPerPhoto: number,
+    maxDuration: number
+): Promise<void> {
+    return new Promise((resolve, reject) => {
+        // Build complex filter for transitions only (xfade) or just concatenation
+        // Using concatenation is much faster than xfade
+
+        // Strategy: Create individual clips then concat (safest/fastest)
+        const clips: string[] = [];
+        const clipTasks = photoPaths.map((photoPath, i) => {
+            return new Promise<string>((resClip, rejClip) => {
+                const clipPath = outputPath.replace('.mp4', `_clip${i}.ts`); // .ts for easy concat
+                ffmpeg()
+                    .input(photoPath)
+                    .inputOptions(['-loop', '1'])
+                    .outputOptions([
+                        '-c:v', 'libx264',
+                        '-preset', 'ultrafast', // Crucial for speed
+                        '-tune', 'stillimage',
+                        '-t', String(secondsPerPhoto),
+                        '-pix_fmt', 'yuv420p'
+                    ])
+                    .output(clipPath)
+                    .on('end', () => resClip(clipPath))
+                    .on('error', rejClip)
+                    .run();
+            });
+        });
+
+        Promise.all(clipTasks).then(generatedClips => {
+            // Concat clips
+            const concatListPath = outputPath.replace('.mp4', '_list.txt');
+            const fileContent = generatedClips.map(c => `file '${c}'`).join('\n');
+            fs.writeFileSync(concatListPath, fileContent);
+
+            ffmpeg()
+                .input(concatListPath)
+                .inputOptions(['-f', 'concat', '-safe', '0'])
+                .input(audioPath)
+                .outputOptions([
+                    '-c:v', 'copy', // Stream copy video (super fast)
+                    '-c:a', 'aac',
+                    '-b:a', '128k',
+                    '-shortest',
+                    '-movflags', '+faststart'
+                ])
+                .output(outputPath)
+                .on('end', () => {
+                    // Cleanup
+                    try {
+                        generatedClips.forEach(c => fs.unlinkSync(c));
+                        fs.unlinkSync(concatListPath);
+                    } catch (e) { }
+                    console.log(`\n   ✅ Static video created (Fast Mode)`);
+                    resolve();
+                })
+                .on('error', (err) => {
+                    console.error('Concat error:', err);
+                    reject(err);
+                })
+                .run();
+        }).catch(reject);
+    });
 }
 
 /**
