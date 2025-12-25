@@ -687,7 +687,7 @@ export class DatabaseStorage implements IStorage {
           sql`${postcardDrafts.originalTweetId} ~ '^[0-9]+$'`
         )
       )
-      .orderBy(desc(postcardDrafts.score), postcardDrafts.createdAt)
+      .orderBy(desc(postcardDrafts.score), desc(postcardDrafts.createdAt))
       .limit(maxResults);
   }
 

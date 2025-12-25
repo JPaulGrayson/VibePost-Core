@@ -9,8 +9,8 @@ import { generateReplyVideo, generatePersonalizedReplyText } from "./reply_video
 
 // Configuration
 const AUTO_PUBLISH_THRESHOLD = 80; // Only auto-publish 80+ scored leads
-const MIN_INTERVAL_MINUTES = 10;   // Minimum 10 minutes between auto-posts
-const MAX_DAILY_AUTO_POSTS = 50;   // Safety limit for auto-publishing
+const MAX_DAILY_AUTO_POSTS = 144;   // Capacity for one post every 10 mins
+const MIN_INTERVAL_MINUTES = 8;     // Reduced from 10 to clear queue faster
 
 class AutoPublisher {
     private isRunning = false;
