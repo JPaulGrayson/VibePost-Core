@@ -1667,7 +1667,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await generateDraft({
         id: tweetId,
         text: text
-      }, authorHandle);
+      }, authorHandle, 'turai', true);
 
       res.json({ success: true, message: "Draft creation started" });
     } catch (error) {

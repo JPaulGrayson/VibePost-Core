@@ -85,7 +85,8 @@ async function verifyTravelIntent(tweetText: string): Promise<boolean> {
 export async function generateDraft(
     tweet: { id: string; text: string; author_id?: string },
     authorHandle: string,
-    campaignType: CampaignType = 'turai'
+    campaignType: CampaignType = 'turai',
+    force: boolean = false
 ): Promise<boolean> {
     const config = CAMPAIGN_CONFIGS[campaignType];
     console.log(`${config.emoji} Drafting ${config.name} reply for tweet ${tweet.id} from ${authorHandle}`);
@@ -192,7 +193,18 @@ export async function generateDraft(
     );
     console.log(`Generated reply text: ${draftReplyText.substring(0, 20)}... (Score: ${score})`);
 
-    // Save all drafts to DB regardless of score (auto-publisher will still respect threshold)
+    // Skip low-quality leads (won't be auto-published anyway)
+    // UNLESS it's a manual draft (force=true)
+    if (score < 80 && !force) {
+        console.log(`⏭️ Skipping low-quality lead (Score: ${score} < 80)`);
+        return false;
+    }
+
+    if (force && score < 80) {
+        console.log(`⚠️ Manual draft bypass: Saving lead with Score ${score}`);
+    }
+
+    // 5. Save to DB with campaign type
     console.log("Saving draft to DB...");
     try {
         await db.insert(postcardDrafts).values({
@@ -545,13 +557,13 @@ Answer (one word only):` }]
             
             Rules:
             1. Tone: Magical, mysterious, but helpful. Use emojis like 🧙‍♂️, 🔮, ✨, 📜, 🗺️.
-            2. Vocabulary (Use "Crystal Ball" metaphors, NEVER "Telescope" or "Spotted"):
+            2. Vocabulary (Use "Crystal Ball" or "Mystical" metaphors):
                - "The crystal ball reveals your desire for..."
                - "The stars have aligned over [Location]..."
                - "A magical scroll has appeared for your quest..."
                - "Whimsical winds whisper of [Location]..."
+               - "The mystical mists have parted, showing me [Location]..."
                - "Safe travels on your grand adventure!"
-               - NEVER say "My telescope spotted you" -> Say "The mystical winds brought news..."
             3. **CRITICAL SAFETY RULE**: Do NOT include any URLs or links in the text.
             4. **CRITICAL SAFETY RULE**: Do NOT sound like a bot. Be a character.
             5. Length: Keep it under 200 characters.
