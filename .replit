@@ -3,7 +3,7 @@ entrypoint = "server/index.ts"
 modules = ["nodejs-20"]
 
 [[ports]]
-localPort = 3000
+localPort = 5002
 externalPort = 80
 
 [deployment]
@@ -13,5 +13,5 @@ deploymentTarget = "cloudrun"
 ignorePorts = false
 
 [[deployment.ports]]
-localPort = 3000
+localPort = 5002
 externalPort = 80
