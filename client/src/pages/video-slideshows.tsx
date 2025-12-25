@@ -736,291 +736,284 @@ export default function VideoPosts() {
                             Cancel
                         </Button>
 
-                        {/* Output Format Toggle */}
-                        <div className="flex gap-1 p-1 bg-muted rounded-lg">
-                            <Button
-                                variant={outputFormat === "video" ? "secondary" : "ghost"}
-                                size="sm"
-                                onClick={() => setOutputFormat("video")}
-                            >
-                                <Video className="mr-1 h-4 w-4" />
-                                Video
-                            </Button>
-                            <Button
-                                variant={outputFormat === "thread" ? "secondary" : "ghost"}
-                                size="sm"
-                                onClick={() => setOutputFormat("thread")}
-                            >
-                                <ArrowRight className="mr-1 h-4 w-4" />
-                                Thread
-                            </Button>
-                        </div>
-
-                        {outputFormat === "video" ? (
-                            <Button
-                                onClick={() => generateMutation.mutate()}
-                                disabled={isGenerating}
-                            >
-                                {isGenerating ? (
-                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating Video...</>
-                                ) : (
-                                    <><Video className="mr-2 h-4 w-4" />Generate Video</>
-                                )}
-                            </Button>
-                        ) : (
-                            <Button
-                                onClick={async () => {
-                                    if (!preview?.shareCode) {
+                        <Button
+                            onClick={async () => {
+                                if (!preview?.shareCode) {
+                                    toast({
+                                        variant: "destructive",
+                                        title: "Missing Share Code",
+                                        description: "Cannot post thread without a tour",
+                                    });
+                                    return;
+                                }
+                                setIsGenerating(true);
+                                try {
+                                    const res = await apiRequest("POST", "/api/thread-tour/post", {
+                                        destination: effectiveDestination,
+                                        shareCode: preview.shareCode,
+                                        maxStops: preview.stops.length,
+                                    });
+                                    const data = await res.json();
+                                    setIsGenerating(false);
+                                    if (data.success) {
                                         toast({
-                                            variant: "destructive",
-                                            title: "Missing Share Code",
-                                            description: "Cannot post thread without a tour",
+                                            title: "Thread Posted! 🧵",
+                                            description: `${data.tweets?.filter((t: any) => t.status === 'posted').length || 0} tweets posted to ${effectiveDestination}`,
                                         });
-                                        return;
-                                    }
-                                    setIsGenerating(true);
-                                    try {
-                                        const res = await apiRequest("POST", "/api/thread-tour/post", {
-                                            destination: effectiveDestination,
-                                            shareCode: preview.shareCode,
-                                            maxStops: preview.stops.length,
-                                        });
-                                        const data = await res.json();
-                                        setIsGenerating(false);
-                                        if (data.success) {
-                                            toast({
-                                                title: "Thread Posted! 🧵",
-                                                description: `${data.tweets?.filter((t: any) => t.status === 'posted').length || 0} tweets posted to ${effectiveDestination}`,
-                                            });
-                                            setPreview(null);
-                                        } else {
-                                            toast({
-                                                variant: "destructive",
-                                                title: "Thread Failed",
-                                                description: data.error || "Unknown error",
-                                            });
-                                        }
-                                    } catch (e) {
-                                        setIsGenerating(false);
+                                        setPreview(null);
+                                    } else {
                                         toast({
                                             variant: "destructive",
                                             title: "Thread Failed",
-                                            description: String(e),
+                                            description: data.error || "Unknown error",
                                         });
                                     }
-                                }}
-                                disabled={isGenerating}
-                                className="bg-blue-600 hover:bg-blue-700"
-                            >
-                                {isGenerating ? (
-                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Posting Thread...</>
-                                ) : (
-                                    <><Send className="mr-2 h-4 w-4" />Post Thread ({preview.stops.length + 2} tweets)</>
-                                )}
-                            </Button>
-                        )}
-                    </CardFooter>
-                </Card>
-            )}
-
-            {/* Step 3: Video Ready + Publish */}
-            {generatedVideo && generatedVideo.success && (
-                <Card className="mb-6 border-green-500/50 bg-green-500/5">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-green-600">
-                            <Check className="h-5 w-5" />
-                            Step 3: Video Ready!
-                        </CardTitle>
-                        <CardDescription>
-                            {generatedVideo.destination} • {generatedVideo.duration}s
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {/* Video Player */}
-                        <div className="bg-black rounded-lg overflow-hidden max-w-sm mx-auto">
-                            <video
-                                controls
-                                className="w-full aspect-[9/16]"
-                                src={`/api/video-slideshow/stream?path=${encodeURIComponent(generatedVideo.videoPath || '')}`}
-                            />
-                        </div>
-
-                        {/* Caption Editor */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Caption</label>
-                            <Textarea
-                                value={caption}
-                                onChange={(e) => setCaption(e.target.value)}
-                                rows={3}
-                                placeholder="Write your tweet caption..."
-                            />
-                            <p className="text-xs text-muted-foreground text-right">
-                                {caption.length}/280 characters
-                            </p>
-                        </div>
-                    </CardContent>
-                    <CardFooter className="flex justify-between">
-                        <a href={generatedVideo.videoPath} download>
-                            <Button variant="outline">
-                                <Download className="mr-2 h-4 w-4" />
-                                Download
-                            </Button>
-                        </a>
-                        <Button
-                            onClick={() => publishMutation.mutate()}
-                            disabled={isPublishing || !caption.trim()}
+                                } catch (error) {
+                                    setIsGenerating(false);
+                                    toast({
+                                        variant: "destructive",
+                                        title: "Thread Failed",
+                                        description: String(error),
+                                    });
+                                }
+                            }}
+                            disabled={isGenerating}
                         >
-                            {isPublishing ? (
-                                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Posting...</>
+                            {isGenerating ? (
+                                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Posting Thread...</>
                             ) : (
-                                <><Send className="mr-2 h-4 w-4" />Post to X</>
+                                <><ArrowRight className="mr-2 h-4 w-4" />Post Thread (7 tweets)</>
                             )}
                         </Button>
                     </CardFooter>
-                </Card>
-            )}
-
-            {/* Generated Videos Library */}
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle className="flex items-center gap-2">
-                            <Film className="h-5 w-5" />
-                            Video Library
-                        </CardTitle>
-                        <CardDescription>
-                            {videosData?.videos?.length || 0} videos
-                        </CardDescription>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => refetchVideos()} disabled={isRefetching}>
-                        <RefreshCw className={`h-4 w-4 mr-2 ${isRefetching ? 'animate-spin' : ''}`} />
-                        Refresh
-                    </Button>
-                </CardHeader>
-                <CardContent>
-                    {(!videosData?.videos || videosData.videos.length === 0) ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                            <Film className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                            <p>No videos generated yet</p>
-                            <p className="text-sm">Create your first video above!</p>
-                        </div>
+                                    } catch (e) {
+                        setIsGenerating(false);
+                    toast({
+                        variant: "destructive",
+                    title: "Thread Failed",
+                    description: String(e),
+                                        });
+                                    }
+                                }}
+                    disabled={isGenerating}
+                    className="bg-blue-600 hover:bg-blue-700"
+                            >
+                    {isGenerating ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Posting Thread...</>
                     ) : (
-                        <div className="space-y-2">
-                            {videosData.videos.slice(0, 10).map((video) => (
-                                <div
-                                    key={video.filename}
-                                    className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
-                                >
-                                    <div
-                                        className="flex items-center gap-3 cursor-pointer flex-1"
-                                        onClick={() => setSelectedVideo(video)}
-                                    >
-                                        <div className="w-10 h-10 bg-primary/20 rounded flex items-center justify-center">
-                                            <Play className="h-5 w-5 text-primary" />
-                                        </div>
-                                        <div>
-                                            <p className="font-medium text-sm">{video.filename}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {formatFileSize(video.size)} • {formatDate(video.createdAt)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="secondary">
-                                            <Check className="h-3 w-3 mr-1" />
-                                            Ready
-                                        </Badge>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (confirm(`Delete ${video.filename}?`)) {
-                                                    fetch(`/api/video-post/delete?path=${encodeURIComponent(video.path)}`, {
-                                                        method: 'DELETE'
-                                                    }).then(() => refetchVideos()).catch(console.error);
-                                                }
-                                            }}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        <><Send className="mr-2 h-4 w-4" />Post Thread ({preview.stops.length + 2} tweets)</>
                     )}
-                </CardContent>
-            </Card>
-
-            {/* Daily Video Scheduler */}
-            {schedulerStatus && (
-                <Card className="mt-6">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Calendar className="h-5 w-5" />
-                            Daily Scheduled Video
-                        </CardTitle>
-                        <CardDescription>
-                            Auto-posts a video to your profile daily
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid md:grid-cols-3 gap-4">
-                            <div className="space-y-1">
-                                <span className="text-sm text-muted-foreground">Status</span>
-                                <div className="flex items-center gap-2">
-                                    <div className={`w-2 h-2 rounded-full ${schedulerStatus.active ? 'bg-green-500' : 'bg-red-500'}`} />
-                                    <span className="font-medium">{schedulerStatus.active ? 'Active' : 'Inactive'}</span>
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <span className="text-sm text-muted-foreground">Scheduled Time</span>
-                                <p className="font-medium">{schedulerStatus.scheduledTime} {schedulerStatus.timezone}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <span className="text-sm text-muted-foreground">Queue Position</span>
-                                <p className="font-medium">{schedulerStatus.queuePosition} / {schedulerStatus.queueTotal}</p>
-                            </div>
-                        </div>
-
-                        <div className="mt-4 p-4 bg-muted rounded-lg">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="outline">Next Post</Badge>
-                            </div>
-                            <p className="font-medium">{schedulerStatus.nextDestination}</p>
-                            {schedulerStatus.nextTopic && (
-                                <p className="text-sm text-muted-foreground mt-1">{schedulerStatus.nextTopic}</p>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
+                </Button>
             )}
+        </CardFooter>
+                </Card >
+            )
+}
 
-            {/* Video Player Modal */}
-            {selectedVideo && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm" onClick={() => setSelectedVideo(null)}>
-                    <div className="relative w-full max-w-lg bg-card border rounded-lg shadow-lg p-2" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center p-2">
-                            <h3 className="font-semibold truncate pr-4">{selectedVideo.filename}</h3>
-                            <Button variant="ghost" size="sm" onClick={() => setSelectedVideo(null)}>Close</Button>
+{/* Step 3: Video Ready + Publish */ }
+{
+    generatedVideo && generatedVideo.success && (
+        <Card className="mb-6 border-green-500/50 bg-green-500/5">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-green-600">
+                    <Check className="h-5 w-5" />
+                    Step 3: Video Ready!
+                </CardTitle>
+                <CardDescription>
+                    {generatedVideo.destination} • {generatedVideo.duration}s
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {/* Video Player */}
+                <div className="bg-black rounded-lg overflow-hidden max-w-sm mx-auto">
+                    <video
+                        controls
+                        className="w-full aspect-[9/16]"
+                        src={`/api/video-slideshow/stream?path=${encodeURIComponent(generatedVideo.videoPath || '')}`}
+                    />
+                </div>
+
+                {/* Caption Editor */}
+                <div className="space-y-2">
+                    <label className="text-sm font-medium">Caption</label>
+                    <Textarea
+                        value={caption}
+                        onChange={(e) => setCaption(e.target.value)}
+                        rows={3}
+                        placeholder="Write your tweet caption..."
+                    />
+                    <p className="text-xs text-muted-foreground text-right">
+                        {caption.length}/280 characters
+                    </p>
+                </div>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+                <a href={generatedVideo.videoPath} download>
+                    <Button variant="outline">
+                        <Download className="mr-2 h-4 w-4" />
+                        Download
+                    </Button>
+                </a>
+                <Button
+                    onClick={() => publishMutation.mutate()}
+                    disabled={isPublishing || !caption.trim()}
+                >
+                    {isPublishing ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Posting...</>
+                    ) : (
+                        <><Send className="mr-2 h-4 w-4" />Post to X</>
+                    )}
+                </Button>
+            </CardFooter>
+        </Card>
+    )
+}
+
+{/* Generated Videos Library */ }
+<Card>
+    <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+            <CardTitle className="flex items-center gap-2">
+                <Film className="h-5 w-5" />
+                Video Library
+            </CardTitle>
+            <CardDescription>
+                {videosData?.videos?.length || 0} videos
+            </CardDescription>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => refetchVideos()} disabled={isRefetching}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefetching ? 'animate-spin' : ''}`} />
+            Refresh
+        </Button>
+    </CardHeader>
+    <CardContent>
+        {(!videosData?.videos || videosData.videos.length === 0) ? (
+            <div className="text-center py-8 text-muted-foreground">
+                <Film className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No videos generated yet</p>
+                <p className="text-sm">Create your first video above!</p>
+            </div>
+        ) : (
+            <div className="space-y-2">
+                {videosData.videos.slice(0, 10).map((video) => (
+                    <div
+                        key={video.filename}
+                        className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
+                    >
+                        <div
+                            className="flex items-center gap-3 cursor-pointer flex-1"
+                            onClick={() => setSelectedVideo(video)}
+                        >
+                            <div className="w-10 h-10 bg-primary/20 rounded flex items-center justify-center">
+                                <Play className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                                <p className="font-medium text-sm">{video.filename}</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {formatFileSize(video.size)} • {formatDate(video.createdAt)}
+                                </p>
+                            </div>
                         </div>
-                        <video
-                            controls
-                            autoPlay
-                            className="w-full rounded bg-black aspect-[9/16]"
-                            src={`/api/video-slideshow/stream?path=${encodeURIComponent(selectedVideo.path)}`}
-                        />
-                        <div className="p-4">
-                            <a href={selectedVideo.path} download={selectedVideo.filename}>
-                                <Button variant="outline" size="sm">
-                                    <Download className="h-4 w-4 mr-2" /> Download
-                                </Button>
-                            </a>
+                        <div className="flex items-center gap-2">
+                            <Badge variant="secondary">
+                                <Check className="h-3 w-3 mr-1" />
+                                Ready
+                            </Badge>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm(`Delete ${video.filename}?`)) {
+                                        fetch(`/api/video-post/delete?path=${encodeURIComponent(video.path)}`, {
+                                            method: 'DELETE'
+                                        }).then(() => refetchVideos()).catch(console.error);
+                                    }
+                                }}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
                         </div>
+                    </div>
+                ))}
+            </div>
+        )}
+    </CardContent>
+</Card>
+
+{/* Daily Video Scheduler */ }
+{
+    schedulerStatus && (
+        <Card className="mt-6">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Daily Scheduled Video
+                </CardTitle>
+                <CardDescription>
+                    Auto-posts a video to your profile daily
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="grid md:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Status</span>
+                        <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${schedulerStatus.active ? 'bg-green-500' : 'bg-red-500'}`} />
+                            <span className="font-medium">{schedulerStatus.active ? 'Active' : 'Inactive'}</span>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Scheduled Time</span>
+                        <p className="font-medium">{schedulerStatus.scheduledTime} {schedulerStatus.timezone}</p>
+                    </div>
+                    <div className="space-y-1">
+                        <span className="text-sm text-muted-foreground">Queue Position</span>
+                        <p className="font-medium">{schedulerStatus.queuePosition} / {schedulerStatus.queueTotal}</p>
                     </div>
                 </div>
-            )}
+
+                <div className="mt-4 p-4 bg-muted rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Badge variant="outline">Next Post</Badge>
+                    </div>
+                    <p className="font-medium">{schedulerStatus.nextDestination}</p>
+                    {schedulerStatus.nextTopic && (
+                        <p className="text-sm text-muted-foreground mt-1">{schedulerStatus.nextTopic}</p>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
+{/* Video Player Modal */ }
+{
+    selectedVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm" onClick={() => setSelectedVideo(null)}>
+            <div className="relative w-full max-w-lg bg-card border rounded-lg shadow-lg p-2" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center p-2">
+                    <h3 className="font-semibold truncate pr-4">{selectedVideo.filename}</h3>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedVideo(null)}>Close</Button>
+                </div>
+                <video
+                    controls
+                    autoPlay
+                    className="w-full rounded bg-black aspect-[9/16]"
+                    src={`/api/video-slideshow/stream?path=${encodeURIComponent(selectedVideo.path)}`}
+                />
+                <div className="p-4">
+                    <a href={selectedVideo.path} download={selectedVideo.filename}>
+                        <Button variant="outline" size="sm">
+                            <Download className="h-4 w-4 mr-2" /> Download
+                        </Button>
+                    </a>
+                </div>
+            </div>
         </div>
+    )
+}
+        </div >
     );
 }
