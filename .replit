@@ -1,9 +1,17 @@
-run = "npm run start"
+run = "npm run dev"
 entrypoint = "server/index.ts"
 modules = ["nodejs-20"]
+
+[[ports]]
+localPort = 5000
+externalPort = 80
 
 [deployment]
 build = "npm install && npm run build"
 run = "npm run start"
 deploymentTarget = "cloudrun"
 ignorePorts = false
+
+[[deployment.ports]]
+localPort = 5000
+externalPort = 80
