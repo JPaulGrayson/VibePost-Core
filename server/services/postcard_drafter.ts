@@ -192,13 +192,7 @@ export async function generateDraft(
     );
     console.log(`Generated reply text: ${draftReplyText.substring(0, 20)}... (Score: ${score})`);
 
-    // Skip low-quality leads (won't be auto-published anyway)
-    if (score < 80) {
-        console.log(`⏭️ Skipping low-quality lead (Score: ${score} < 80)`);
-        return false;
-    }
-
-    // 5. Save to DB with campaign type
+    // Save all drafts to DB regardless of score (auto-publisher will still respect threshold)
     console.log("Saving draft to DB...");
     try {
         await db.insert(postcardDrafts).values({
