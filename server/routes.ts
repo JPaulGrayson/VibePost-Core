@@ -881,6 +881,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: "Hunt completed", result });
     } catch (error) {
       console.error("Manual hunt failed:", error);
+      const fs = require('fs');
+      fs.appendFileSync('diagnostic.log', `[${new Date().toISOString()}] Hunt Error: ${error}\n${error instanceof Error ? error.stack : ''}\n`);
       res.status(500).json({ success: false, error: String(error) });
     }
   });
@@ -2091,6 +2093,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(pendingDrafts);
     } catch (error) {
       console.error("Error fetching postcard drafts:", error);
+      const fs = require('fs');
+      fs.appendFileSync('diagnostic.log', `[${new Date().toISOString()}] Fetch Drafts Error: ${error}\n${error instanceof Error ? error.stack : ''}\n`);
       res.status(500).json({ message: "Failed to fetch drafts" });
     }
   });
