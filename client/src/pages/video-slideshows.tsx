@@ -788,7 +788,6 @@ export default function VideoPosts() {
                     </CardFooter>
                 </Card>
             )}
-}
 
             {/* Step 3: Video Ready + Publish */}
             {
