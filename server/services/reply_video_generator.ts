@@ -9,6 +9,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as https from 'https';
 import * as http from 'http';
+import { spawn } from 'child_process';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 import { GoogleGenAI } from "@google/genai";
 import { analyzeForVoicePersonalization, generateGrokTTS, addLocalGreeting, enhanceNarrationForEmotion } from './grok_tts';
 
@@ -382,21 +385,37 @@ Write ONLY the tweet text:`;
 }
 
 /**
- * Fetch audio narration from Turai TTS
+ * Fetch audio narration - Direct ElevenLabs with Turai fallback
  */
 async function fetchNarration(text: string, outputPath: string): Promise<void> {
+    // Import ElevenLabs TTS service
+    const { generateElevenLabsTTS } = await import('./elevenlabs_tts');
+
+    // 1. Try Direct ElevenLabs first (fastest, most reliable)
+    try {
+        console.log(`      Generating narration...`);
+        const result = await generateElevenLabsTTS(text, outputPath);
+
+        if (result.success) {
+            return; // Success!
+        }
+
+        console.log(`      ⚠️ ElevenLabs direct failed: ${result.error}, trying Turai...`);
+    } catch (error) {
+        console.log(`      ⚠️ ElevenLabs direct error:`, error);
+    }
+
+    // 2. Fallback to Turai API (if ElevenLabs direct fails)
     const TURAI_API = process.env.TURAI_API_URL || "https://turai.org";
 
     try {
-        console.log(`      Generating narration...`);
-        // Use /api/tts/test endpoint which exists in Turai
         const response = await fetch(`${TURAI_API}/api/tts/test`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 text,
-                provider: 'elevenlabs',  // Use ElevenLabs for more expressive delivery
-                voice: '21m00Tcm4TlvDq8ikWAM',  // Rachel - expressive female voice
+                provider: 'elevenlabs',
+                voice: '21m00Tcm4TlvDq8ikWAM',  // Rachel
                 speed: 1.0,
                 volume: 0.8
             })
@@ -410,13 +429,13 @@ async function fetchNarration(text: string, outputPath: string): Promise<void> {
         const audioUrl = data.data?.audioUrl || data.audioUrl;
         if (!audioUrl) throw new Error('No audio URL in response');
 
-        // Handle base64 data URL (format: data:audio/mp3;base64,...)
+        // Handle base64 data URL
         if (audioUrl.startsWith('data:')) {
             const matches = audioUrl.match(/^data:audio\/\w+;base64,(.+)$/);
             if (matches && matches[1]) {
                 const audioBuffer = Buffer.from(matches[1], 'base64');
                 fs.writeFileSync(outputPath, audioBuffer);
-                console.log(`      ✓ Narration generated (${(audioBuffer.length / 1024).toFixed(1)} KB)`);
+                console.log(`      ✓ Narration generated via Turai (${(audioBuffer.length / 1024).toFixed(1)} KB)`);
                 return;
             }
             throw new Error('Invalid base64 audio data URL format');
@@ -425,9 +444,9 @@ async function fetchNarration(text: string, outputPath: string): Promise<void> {
         // Handle HTTP URL
         const fullAudioUrl = audioUrl.startsWith('http') ? audioUrl : `${TURAI_API}${audioUrl}`;
         await downloadFile(fullAudioUrl, outputPath);
-        console.log(`      ✓ Narration generated`);
+        console.log(`      ✓ Narration generated via Turai`);
     } catch (error) {
-        console.error(`      ⚠️ Narration failed:`, error);
+        console.error(`      ⚠️ All narration methods failed:`, error);
         throw error;
     }
 }
@@ -441,98 +460,162 @@ async function createTeaserVideo(
     outputPath: string,
     audioPath?: string
 ): Promise<void> {
-    return new Promise((resolve, reject) => {
-        // Each image shows for 10 seconds (30 sec total for 3 images)
-        const durationPerImage = 10;
-        const totalDuration = images.length * durationPerImage;
+    // Each image shows for 5 seconds (15-20 sec total)
+    const durationPerImage = 5;
+    const totalDuration = images.length * durationPerImage;
 
-        console.log(`      Building ${totalDuration}s video from ${images.length} images...`);
+    console.log(`      Building ${totalDuration}s video from ${images.length} images...`);
+    fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen] 🎥 Building ${totalDuration}s video... (5s per image)\n`);
 
-        // Create a simpler concat approach - generate video for each image then concat
-        const tempVideos: string[] = [];
-        const tasks: Promise<void>[] = [];
+    // Create individual image clips SEQUENTIALLY to avoid OOM crashes
+    const tempVideos: string[] = [];
 
-        images.forEach((img, idx) => {
-            const tempPath = path.join(TEMP_DIR, `temp_${Date.now()}_${idx}.mp4`);
-            tempVideos.push(tempPath);
+    for (let idx = 0; idx < images.length; idx++) {
+        const img = images[idx];
+        const tempPath = path.join(TEMP_DIR, `temp_${Date.now()}_${idx}.mp4`);
+        tempVideos.push(tempPath);
 
-            tasks.push(new Promise<void>((res, rej) => {
-                // Simple approach: scale image to fit, no zoom animation
-                // This avoids the jitter from zoompan filter
-                ffmpeg(img.path)
-                    .inputOptions(['-loop', '1'])
-                    .videoFilters([
-                        // Scale and crop to 1080x1080
-                        'scale=1080:1080:force_original_aspect_ratio=increase',
-                        'crop=1080:1080',
-                        // Add smooth fade in/out for transitions
-                        `fade=t=in:st=0:d=0.5,fade=t=out:st=${durationPerImage - 0.5}:d=0.5`
-                    ])
-                    .outputOptions([
-                        '-c:v', 'libx264',
-                        '-preset', 'slow',
-                        '-crf', '18',
-                        '-t', String(durationPerImage),
-                        '-r', '30',
-                        '-pix_fmt', 'yuv420p',
-                        '-movflags', '+faststart'
-                    ])
-                    .output(tempPath)
-                    .on('end', () => res())
-                    .on('error', (err) => rej(err))
-                    .run();
-            }));
-        });
+        const { spawn } = require('child_process');
+        const relativeImgPath = path.relative(process.cwd(), img.path);
+        const relativeTempPath = path.relative(process.cwd(), tempPath);
 
-        // Wait for all temp videos to be created
-        Promise.all(tasks)
-            .then(() => {
-                // Create concat file
-                const concatFile = path.join(TEMP_DIR, `concat_${Date.now()}.txt`);
-                const concatContent = tempVideos.map(v => `file '${v}'`).join('\n');
-                fs.writeFileSync(concatFile, concatContent);
+        console.log(`      - Encoding segment ${idx + 1}/${images.length}...`);
 
-                // Concat videos
-                const cmd = ffmpeg()
-                    .input(concatFile)
-                    .inputOptions(['-f', 'concat', '-safe', '0']);
+        await new Promise<void>((res, rej) => {
+            const args = [
+                '-loop', '1',
+                '-i', relativeImgPath,
+                '-vf', `scale=720:720:force_original_aspect_ratio=increase,crop=720:720,fade=t=in:st=0:d=0.5,fade=t=out:st=${durationPerImage - 0.5}:d=0.5`,
+                '-c:v', 'libx264',
+                '-preset', 'ultrafast',
+                '-crf', '32',
+                '-t', String(durationPerImage),
+                '-r', '24',
+                '-pix_fmt', 'yuv420p',
+                '-movflags', '+faststart',
+                '-y',
+                relativeTempPath
+            ];
 
-                // Add audio if available
-                if (audioPath && fs.existsSync(audioPath)) {
-                    cmd.input(audioPath);
-                    cmd.outputOptions([
-                        '-c:v', 'copy',
-                        '-c:a', 'aac',
-                        '-b:a', '128k',
-                        '-map', '0:v',   // Video from first input (concat)
-                        '-map', '1:a',   // Audio from second input
-                        '-pix_fmt', 'yuv420p'
-                        // NOTE: Removed -shortest so video plays full duration
-                        // Audio will end when it ends, video continues silently
-                    ]);
-                } else {
-                    cmd.outputOptions([
-                        '-c:v', 'copy',
-                        '-pix_fmt', 'yuv420p'
-                    ]);
+            let ffmpegBinary = 'ffmpeg';
+            try {
+                const { path: resolvedPath } = require('@ffmpeg-installer/ffmpeg');
+                ffmpegBinary = resolvedPath;
+            } catch (e) {
+                if (fs.existsSync(path.join(process.cwd(), 'repl_bin', 'ffmpeg'))) {
+                    ffmpegBinary = path.join(process.cwd(), 'repl_bin', 'ffmpeg');
                 }
+            }
 
-                cmd.output(outputPath)
-                    .on('end', () => {
-                        // Cleanup temp files
-                        tempVideos.forEach(v => { try { fs.unlinkSync(v); } catch (e) { } });
-                        try { fs.unlinkSync(concatFile); } catch (e) { }
-                        console.log(`✅ Teaser video created: ${outputPath}`);
-                        resolve();
-                    })
-                    .on('error', (err) => {
-                        console.error('FFmpeg concat error:', err);
-                        reject(err);
-                    })
-                    .run();
-            })
-            .catch(reject);
-    });
+            const ff = spawn(ffmpegBinary, args);
+
+            let stderr = '';
+            ff.stderr.on('data', (data: any) => stderr += data.toString());
+
+            ff.on('close', (code: number) => {
+                if (code === 0) {
+                    fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen]    ✅ Segment ${idx + 1} complete\n`);
+                    res();
+                } else {
+                    console.error(`      ❌ Segment ${idx} failed with code ${code}: ${stderr}`);
+                    fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen]    ❌ Segment ${idx + 1} failed (Code ${code}): ${stderr.substring(0, 200)}\n`);
+                    rej(new Error(`FFmpeg failed with code ${code}`));
+                }
+            });
+        });
+    }
+
+    // Proceed to concat
+    try {
+        const concatFile = path.resolve(TEMP_DIR, `concat_${Date.now()}.txt`);
+        const concatContent = tempVideos.map(v => `file '${path.resolve(v)}'`).join('\n');
+        fs.writeFileSync(concatFile, concatContent);
+
+        // Find FFmpeg binary
+        let ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
+        if (ffmpegPath === 'ffmpeg' && fs.existsSync('/opt/homebrew/bin/ffmpeg')) {
+            ffmpegPath = '/opt/homebrew/bin/ffmpeg';
+        }
+
+        const args = [
+            '-y',
+            '-f', 'concat',
+            '-safe', '0',
+            '-i', concatFile
+        ];
+
+        if (audioPath && fs.existsSync(audioPath)) {
+            args.push('-i', path.resolve(audioPath));
+        }
+
+        args.push(
+            '-c:v', 'libx264',
+            '-pix_fmt', 'yuv420p',
+            '-preset', 'ultrafast',
+            '-crf', '28',
+            '-movflags', '+faststart'
+        );
+
+        if (audioPath && fs.existsSync(audioPath)) {
+            args.push('-c:a', 'aac', '-map', '0:v', '-map', '1:a', '-shortest');
+        } else {
+            args.push('-c:a', 'copy');
+        }
+
+        const outPathResolved = path.resolve(outputPath);
+        args.push(outPathResolved);
+
+        fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen] assembling: ${ffmpegPath} ${args.join(' ')}\n`);
+
+        await new Promise<void>((resolve, reject) => {
+            fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen] Spawning FFmpeg process...\n`);
+
+            let child;
+            try {
+                child = spawn(ffmpegPath, args);
+                fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen] FFmpeg process spawned (PID: ${child.pid})\n`);
+            } catch (spawnError) {
+                fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen] ❌ Spawn failed: ${spawnError}\n`);
+                reject(spawnError);
+                return;
+            }
+
+            let stderr = '';
+
+            // Handle timeout
+            const timeout = setTimeout(() => {
+                fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen] ⏱️ Timeout reached, killing process\n`);
+                child.kill('SIGKILL');
+                reject(new Error('FFmpeg assembly timed out after 60s'));
+            }, 60000);
+
+            child.on('error', (err) => {
+                clearTimeout(timeout);
+                fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen] ❌ Process error: ${err.message}\n`);
+                reject(err);
+            });
+
+            child.stderr.on('data', (data) => { stderr += data.toString(); });
+
+            child.on('close', (code) => {
+                clearTimeout(timeout);
+                fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen] Process closed with code ${code}\n`);
+                if (code === 0) {
+                    try {
+                        tempVideos.forEach(v => { if (fs.existsSync(v)) fs.unlinkSync(v); });
+                        if (fs.existsSync(concatFile)) fs.unlinkSync(concatFile);
+                    } catch (e) { }
+                    fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen]    ✅ Video assembled: ${path.basename(outputPath)}\n`);
+                    resolve();
+                } else {
+                    fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen]    ❌ Assembly failed (Code ${code}): ${stderr.substring(0, 200)}\n`);
+                    reject(new Error(`FFmpeg concat failed with code ${code}`));
+                }
+            });
+        });
+    } catch (err) {
+        throw err;
+    }
 }
 
 
@@ -547,26 +630,42 @@ export async function generateReplyVideo(
     authorHandle?: string,
     authorName?: string
 ): Promise<ReplyVideoResult> {
-    console.log(`🎬 Generating reply video for ${location}...`);
+    const log = (msg: string) => {
+        fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen] ${msg}\n`);
+    };
+
+    log(`🎬 Starting generation for ${location}...`);
 
     try {
         // 1. Extract travel interests from tweet
-        console.log("   📊 Analyzing travel interests...");
+        log("📊 Analyzing travel interests with Gemini...");
         const interests = await extractTravelInterests(tweetText, location);
-        console.log(`   Found ${interests.length} interests:`, interests.map(i => i.theme));
+        log(`Found ${interests.length} interests: ${interests.map(i => i.theme).join(', ')}`);
 
         // 2. Fetch images for each interest
-        console.log("   📷 Fetching images...");
+        log("📷 Fetching images for interests...");
         const imageResults: { path: string; interest: TravelInterest }[] = [];
 
         for (const interest of interests) {
-            const imagePath = await fetchInterestImage(interest, location);
-            if (imagePath && fs.existsSync(imagePath)) {
-                imageResults.push({ path: imagePath, interest });
+            log(`   Fetching image for ${interest.theme}...`);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout per image
+
+            try {
+                const imagePath = await fetchInterestImage(interest, location);
+                if (imagePath && fs.existsSync(imagePath)) {
+                    imageResults.push({ path: imagePath, interest });
+                    log(`   ✅ Got image for ${interest.theme}`);
+                } else {
+                    log(`   ⚠️ Failed to get image for ${interest.theme}`);
+                }
+            } finally {
+                clearTimeout(timeoutId);
             }
         }
 
         if (imageResults.length < 2) {
+            log(`❌ Not enough images fetched (${imageResults.length}/2). Aborting.`);
             return {
                 success: false,
                 interests,
@@ -575,18 +674,18 @@ export async function generateReplyVideo(
         }
 
         // 3. Analyze poster for voice personalization
+        log(`🎭 Analyzing poster @${authorHandle} for voice personalization...`);
         let voiceProfile;
         try {
-            console.log(`   🎭 Analyzing poster for voice personalization...`);
             voiceProfile = await analyzeForVoicePersonalization(
                 tweetText,
                 authorHandle || '',
                 authorName || '',
                 location
             );
-            console.log(`   Voice: ${voiceProfile.suggestedVoice}, Greeting: ${voiceProfile.localGreeting} (${voiceProfile.destinationLanguage})`);
+            log(`   Selected voice: ${voiceProfile.suggestedVoice}`);
         } catch (e) {
-            console.log(`   ⚠️ Voice personalization failed, using defaults`);
+            log(`   ⚠️ Voice analysis failed, using fallback`);
             voiceProfile = {
                 suggestedVoice: 'Ara',
                 localGreeting: 'Hey there!',
@@ -596,40 +695,50 @@ export async function generateReplyVideo(
         }
 
         // 4. Generate personalized audio narration with Grok TTS
+        log(`🔊 Generating personalized narration...`);
         let audioPath: string | undefined;
         try {
-            console.log(`   🔊 Generating personalized narration...`);
             let narrationText = await generatePersonalizedNarration(tweetText, location, interests);
+            log(`   Narration text generated (${narrationText.length} chars)`);
 
             // Add local greeting if destination is non-English
             narrationText = addLocalGreeting(narrationText, voiceProfile.localGreeting, voiceProfile.destinationLanguage);
-
-            // Enhance for emotional delivery
             narrationText = enhanceNarrationForEmotion(narrationText);
 
             audioPath = path.join(TEMP_DIR, `narration_${Date.now()}.mp3`);
 
-            // Try Grok TTS first (more expressive)
+            log(`   Generating audio file...`);
             const grokResult = await generateGrokTTS(narrationText, audioPath, voiceProfile.suggestedVoice);
 
             if (!grokResult.success) {
-                // Fallback to existing Turai TTS
-                console.log(`   ⚠️ Grok TTS unavailable, using fallback TTS...`);
-                await fetchNarration(narrationText, audioPath);
+                log(`   ⚠️ Grok TTS unavailable, using fallback TTS (Turai)...`);
+                // Add timeout to fallback tts too
+                const ttsController = new AbortController();
+                const ttsTimeout = setTimeout(() => ttsController.abort(), 60000); // 60s timeout
+                try {
+                    await fetchNarration(narrationText, audioPath);
+                    log(`   ✅ Fallback TTS narration complete`);
+                } finally {
+                    clearTimeout(ttsTimeout);
+                }
+            } else {
+                log(`   ✅ Grok TTS narration complete`);
             }
         } catch (e) {
-            console.log(`   ⚠️ Narration skipped (continuing without audio)`);
+            log(`   ⚠️ Narration generation failed: ${e instanceof Error ? e.message : String(e)}`);
             audioPath = undefined;
         }
 
         // 4. Create video
-        console.log(`   🎥 Creating video with ${imageResults.length} images...`);
+        log(`🎥 Creating FFmpeg video with ${imageResults.length} images...`);
         const videoFilename = `reply_${Date.now()}.mp4`;
         const videoPath = path.join(TEMP_DIR, videoFilename);
 
         await createTeaserVideo(imageResults, location, videoPath, audioPath);
+        log(`✅ Teaser video created at ${videoPath}`);
 
         // 5. Clean up temp files
+        log(`🧹 Cleaning up temp image files...`);
         for (const img of imageResults) {
             try { fs.unlinkSync(img.path); } catch (e) { }
         }
@@ -644,6 +753,7 @@ export async function generateReplyVideo(
         };
 
     } catch (error) {
+        log(`❌ ERROR in generateReplyVideo: ${error instanceof Error ? error.message : String(error)}`);
         console.error("Reply video generation failed:", error);
         return {
             success: false,
