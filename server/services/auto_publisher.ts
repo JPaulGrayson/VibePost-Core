@@ -1,6 +1,6 @@
 /**
  * Auto Publisher Service
- * Automatically publishes high-quality leads (score 80+) with rate limiting
+ * Automatically publishes high-quality leads (score 90+) with rate limiting
  */
 
 import { storage } from "../storage";
@@ -8,7 +8,7 @@ import { publishDraft, publishDraftWithVideo } from "./twitter_publisher";
 import { generateReplyVideo, generatePersonalizedReplyText } from "./reply_video_generator";
 
 // Configuration
-const AUTO_PUBLISH_THRESHOLD = 80; // Only auto-publish 80+ scored leads
+const AUTO_PUBLISH_THRESHOLD = 90; // Only auto-publish 90+ scored leads (97.3% publish rate)
 const MAX_DAILY_AUTO_POSTS = 144;   // Capacity for one post every 10 mins
 const MIN_INTERVAL_MINUTES = 8;     // Reduced from 10 to clear queue faster
 
