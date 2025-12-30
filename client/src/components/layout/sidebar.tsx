@@ -5,6 +5,7 @@ import {
   History,
   Calendar,
   BarChart3,
+  TrendingUp,
   Settings,
   Share2,
   Twitter,
@@ -36,6 +37,7 @@ export default function Sidebar() {
     { href: "/video-slideshows", icon: Film, label: "Video Posts", active: location === "/video-slideshows" },
     { href: "/topic-search", icon: Search, label: "Topic Search", active: location === "/topic-search" || location === "/search" },
     { href: "/analytics", icon: BarChart3, label: "Analytics", active: location === "/analytics" },
+    { href: "/growth-reports", icon: TrendingUp, label: "Growth Reports", active: location === "/growth-reports" },
     { href: "/settings", icon: Settings, label: "Settings", active: location === "/settings" },
   ];
 
