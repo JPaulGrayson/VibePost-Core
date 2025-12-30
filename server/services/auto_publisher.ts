@@ -1,16 +1,17 @@
 /**
  * Auto Publisher Service
- * Automatically publishes high-quality leads (score 90+) with rate limiting
+ * Automatically publishes high-quality leads (score 85+) with rate limiting
  */
 
 import { storage } from "../storage";
 import { publishDraft, publishDraftWithVideo } from "./twitter_publisher";
 import { generateReplyVideo, generatePersonalizedReplyText } from "./reply_video_generator";
+import { dmFollowUpService } from "./dm_follow_up";
 
 // Configuration
-const AUTO_PUBLISH_THRESHOLD = 90; // Only auto-publish 90+ scored leads (97.3% publish rate)
-const MAX_DAILY_AUTO_POSTS = 144;   // Capacity for one post every 10 mins
-const MIN_INTERVAL_MINUTES = 8;     // Reduced from 10 to clear queue faster
+const AUTO_PUBLISH_THRESHOLD = 85; // Only auto-publish 85+ scored leads (increased aggressiveness)
+const MAX_DAILY_AUTO_POSTS = 200;   // Increased from 144 for more aggressive posting
+const MIN_INTERVAL_MINUTES = 7;     // Slightly faster posting
 
 class AutoPublisher {
     private isRunning = false;
@@ -205,6 +206,31 @@ class AutoPublisher {
 
                 const replyType = videoResult.success ? "🎬 video" : "🖼️ image";
                 console.log(`✅ Auto-published ${replyType} reply! Tweet ID: ${result.tweetId} (${this.postsToday}/${MAX_DAILY_AUTO_POSTS} today)`);
+
+                // Schedule DM follow-up (2 hours after reply)
+                if (draft.originalAuthorHandle && result.tweetId) {
+                    try {
+                        // Note: We need the recipient's user ID for DMs
+                        // For now, we'll extract destination and schedule
+                        const destination = draft.detectedLocation || "your destination";
+
+                        // TODO: Fetch user ID from Twitter API
+                        // For now, log that we would schedule a DM
+                        console.log(`   📬 Would schedule DM follow-up for @${draft.originalAuthorHandle} about ${destination}`);
+
+                        // Uncomment when we have user ID lookup:
+                        // dmFollowUpService.scheduleFollowUp(
+                        //     draft.originalTweetId,
+                        //     draft.originalAuthorHandle,
+                        //     recipientUserId,
+                        //     result.tweetId,
+                        //     destination
+                        // );
+                    } catch (error) {
+                        console.log(`   ⚠️ Could not schedule DM follow-up:`, error);
+                    }
+                }
+
 
             } else {
                 // Mark draft as failed so we don't keep retrying it

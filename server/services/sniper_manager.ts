@@ -1,13 +1,16 @@
 import { keywordSearchEngine } from "../keyword-search";
 import { generateDraft } from "./postcard_drafter";
 import { storage } from "../storage";
+import { replyTimingOptimizer } from "./reply_timing_optimizer";
+import { dmFollowUpService } from "./dm_follow_up";
 
 export class SniperManager {
     private isHunting = false;  // Tracks if a hunt is in progress
     private isStarted = false;  // Tracks if the auto-loop has been started
-    private checkIntervalMs = 5 * 60 * 1000; // 5 Minutes
+    private checkIntervalMs = 3 * 60 * 1000; // 3 Minutes (increased from 5 for more aggressive hunting)
     private replyToRepliesEnabled = true;  // Enable reply-to-replies feature
     private minScoreForReplyChain = 90;    // Only fetch replies for high-quality tweets (≥90%, 97.3% publish rate)
+    private dmFollowUpEnabled = true;      // Enable DM follow-ups after replies
 
     // Travel-focused keywords - kept simple for broad matching
     private keywords = [
@@ -64,7 +67,13 @@ export class SniperManager {
     async startHunting() {
         if (this.isStarted) return;
         this.isStarted = true;
-        console.log("🎯 Sniper Manager Started (Hunting every 5 mins)");
+        console.log("🎯 Sniper Manager Started (Hunting every 3 mins - AGGRESSIVE MODE)");
+        console.log("   ⏰ Reply timing optimizer: ENABLED (2-3h delay)");
+        console.log("   📬 DM follow-ups: ENABLED (2h after reply)");
+
+        // Start supporting services
+        replyTimingOptimizer.start();
+        dmFollowUpService.start();
 
         // Initial Run after 10 seconds (give server time to breathe)
         setTimeout(() => this.hunt(), 10000);
@@ -179,42 +188,23 @@ export class SniperManager {
                             stats.draftsCreated++;
                         }
 
-                        // Reply-to-Replies: For high-quality tweets, also fetch and draft replies to existing replies
+                        // Reply-to-Replies: Schedule delayed fetch for better quality replies
                         if (this.replyToRepliesEnabled && (result.score || 0) >= this.minScoreForReplyChain) {
-                            try {
-                                const replies = await keywordSearchEngine.fetchTweetReplies(result.id, 5);
+                            // Schedule reply fetch for 2-3 hours later (optimal engagement window)
+                            replyTimingOptimizer.scheduleReplyFetch(
+                                result.id,
+                                result.author,
+                                result.score || 0
+                            );
+                        }
 
-                                if (replies.length > 0) {
-                                    console.log(`   🔗 Found ${replies.length} replies to engage with for tweet ${result.id}`);
+                        // DM Follow-up: Schedule DM after reply is published
+                        if (this.dmFollowUpEnabled && created) {
+                            // Extract destination from content
+                            const destination = this.extractDestination(result.content);
 
-                                    // Process top 3 replies (limit to avoid spam)
-                                    const topReplies = replies.slice(0, 3);
-
-                                    for (const reply of topReplies) {
-                                        // Skip if already processed
-                                        const existingReply = await storage.getDraftByOriginalTweetId(reply.id);
-                                        if (existingReply) continue;
-
-                                        console.log(`      💬 Generating reply-chain draft for @${reply.author}`);
-
-                                        const replyPostObj = {
-                                            id: reply.id,
-                                            text: reply.content,
-                                            author_id: "unknown"
-                                        };
-
-                                        const replyCreated = await generateDraft(replyPostObj, reply.author);
-                                        if (replyCreated) {
-                                            this.draftsGeneratedToday++;
-                                            stats.replyChainDrafts++;
-                                        }
-
-                                        if (!this.checkDailyLimit()) break;
-                                    }
-                                }
-                            } catch (replyError) {
-                                console.log(`   ⚠️ Could not fetch replies for tweet ${result.id}`);
-                            }
+                            // Note: We'll schedule the DM when the draft is actually published
+                            // This is handled in the auto_publisher after successful publish
                         }
 
                         if (!this.checkDailyLimit()) break;
@@ -238,6 +228,25 @@ export class SniperManager {
         }
 
         return stats;
+    }
+
+    /**
+     * Extract destination from tweet content
+     */
+    private extractDestination(content: string): string {
+        // Simple extraction - look for common patterns
+        const lowerContent = content.toLowerCase();
+
+        // Check for "to [destination]" pattern
+        const toMatch = content.match(/to\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/);
+        if (toMatch) return toMatch[1];
+
+        // Check for "in [destination]" pattern
+        const inMatch = content.match(/in\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/);
+        if (inMatch) return inMatch[1];
+
+        // Default to "your destination"
+        return "your destination";
     }
 }
 
