@@ -158,6 +158,10 @@ Changelog:
 - July 3, 2025. ADDED: Bulk reply functionality for campaign automation - select multiple posts and reply with one click
 - July 3, 2025. CONFIGURED: Reddit API credentials saved to database (Client ID: 9Tg4Cif3mLTEa2F7WObbdw)
 - July 3, 2025. STATUS: Twitter search fully operational, Reddit search blocked by platform restrictions
+- December 30, 2025. ENHANCED: Added "Reply to Replies" feature to sniper system
+- December 30, 2025. NEW: fetchTweetReplies method fetches replies to high-quality tweets (score >= 70)
+- December 30, 2025. FEATURE: Sniper now creates draft replies to engage with active conversation participants
+- December 30, 2025. PROTECTION: Bot/spam filtering and max 3 replies per tweet to avoid spam behavior
 ```
 
 ## User Preferences
