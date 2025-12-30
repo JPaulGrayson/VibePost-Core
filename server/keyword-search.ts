@@ -395,6 +395,106 @@ export class KeywordSearchEngine {
     }
   }
 
+  async fetchTweetReplies(tweetId: string, maxResults: number = 10): Promise<SearchResult[]> {
+    const twitterClient = await this.getTwitterClient();
+
+    if (!twitterClient) {
+      console.log('Twitter API not configured for fetching replies');
+      return [];
+    }
+
+    try {
+      console.log(`🔍 Fetching replies to tweet ${tweetId}...`);
+
+      const query = `conversation_id:${tweetId} is:reply -is:retweet`;
+
+      const searchResults = await twitterClient.v2.search(query, {
+        max_results: Math.max(10, Math.min(maxResults, 100)),
+        'tweet.fields': ['created_at', 'author_id', 'public_metrics', 'in_reply_to_user_id'],
+        'user.fields': ['username', 'public_metrics', 'description'],
+        expansions: ['author_id']
+      });
+
+      const results: SearchResult[] = [];
+
+      let tweets: any[] = [];
+      let users: any[] = [];
+
+      if (Array.isArray(searchResults.data)) {
+        tweets = searchResults.data;
+      } else if (searchResults.data && Array.isArray(searchResults.data.data)) {
+        tweets = searchResults.data.data;
+        users = searchResults.data.includes?.users || [];
+      } else if (searchResults.data) {
+        tweets = [searchResults.data];
+      }
+
+      if (searchResults.includes?.users) {
+        users = searchResults.includes.users;
+      }
+
+      console.log(`   Found ${tweets.length} replies to tweet ${tweetId}`);
+
+      const BOT_INDICATORS = ['bot', 'auto', 'spam', 'promo', 'deals', 'crypto', 'nft'];
+
+      for (const tweet of tweets) {
+        const author = users.find((user: any) => user.id === tweet.author_id);
+        const authorUsername = (author?.username || '').toLowerCase();
+        const authorDescription = (author?.description || '').toLowerCase();
+
+        if (BOT_INDICATORS.some(indicator => 
+          authorUsername.includes(indicator) || authorDescription.includes(indicator)
+        )) {
+          continue;
+        }
+
+        if ((tweet.text.match(/#/g) || []).length > 5) {
+          continue;
+        }
+
+        const createdAt = new Date(tweet.created_at || new Date());
+        const metrics = tweet.public_metrics || {};
+
+        let score = 50;
+        const lowerText = tweet.text.toLowerCase();
+
+        if (tweet.text.includes("?")) score += 15;
+        if (lowerText.includes("recommend") || lowerText.includes("suggest")) score += 10;
+        if (lowerText.includes("visit") || lowerText.includes("trip")) score += 10;
+        if (lowerText.includes("love") || lowerText.includes("amazing")) score += 5;
+
+        const followerCount = author?.public_metrics?.followers_count || 0;
+        if (followerCount >= 100 && followerCount < 5000) score += 15;
+        else if (followerCount < 100) score += 5;
+        else if (followerCount > 50000) score -= 10;
+
+        if (metrics.like_count > 0) score += 5;
+        if (metrics.reply_count > 0) score += 5;
+
+        results.push({
+          platform: 'twitter',
+          id: tweet.id,
+          author: author?.username || 'unknown',
+          content: tweet.text,
+          url: `https://twitter.com/${author?.username || 'unknown'}/status/${tweet.id}`,
+          createdAt: createdAt,
+          score: Math.round(score),
+          metadata: {
+            likes: metrics.like_count,
+            replies: metrics.reply_count,
+            shares: metrics.retweet_count,
+            views: metrics.impression_count
+          }
+        });
+      }
+
+      return results.sort((a, b) => (b.score || 0) - (a.score || 0));
+    } catch (error: any) {
+      console.error('Error fetching tweet replies:', error);
+      return [];
+    }
+  }
+
   async replyToRedditPost(postId: string, replyText: string): Promise<boolean> {
     // Reddit replies require OAuth and more complex setup
     console.log('Reddit replies not implemented - requires OAuth setup');
