@@ -5,6 +5,7 @@ import * as fs from "fs";
 import { z } from "zod";
 import { TwitterApi } from "twitter-api-v2";
 import { storage } from "./storage";
+import { pool } from "./db";
 import { insertPostSchema, insertPlatformConnectionSchema, insertCampaignSchema, Platform, PostStatus } from "@shared/schema";
 import { keywordSearchEngine } from "./keyword-search";
 import { postcardDrafter, generateDraft } from "./services/postcard_drafter";
@@ -1013,7 +1014,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Growth Reports API - Current Metrics
   app.get("/api/growth/current", async (req, res) => {
     try {
-      const result = await storage.db.execute(sql`
+      const result = await pool.query(`
         SELECT * FROM growth_metrics
         ORDER BY date DESC
         LIMIT 1
@@ -1051,7 +1052,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Growth Reports API - Top Destinations
   app.get("/api/growth/destinations", async (req, res) => {
     try {
-      const result = await storage.db.execute(sql`
+      const result = await pool.query(`
         SELECT * FROM destination_performance
         ORDER BY avg_engagement DESC
         LIMIT 10
