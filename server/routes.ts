@@ -18,6 +18,7 @@ import { getThreadTourSchedulerStatus, setNextThreadDestination, clearNextThread
 import { autoPublisher } from "./services/auto_publisher";
 import { previewVideoPost, generateVideoPost, generateVideoCaption, refreshPreviewData } from "./services/video_post_generator";
 import { getDailyVideoSchedulerStatus, setNextVideoDestination, clearNextVideoDestination, triggerDailyVideoNow, getVideoDestinationQueue } from "./services/daily_video_scheduler";
+import { CAMPAIGN_CONFIGS } from "./campaign-config";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Simple authentication middleware
   const isAuthenticated = (req: any, res: any, next: any) => {
@@ -881,7 +882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true, message: "Hunt completed", result });
     } catch (error) {
       console.error("Manual hunt failed:", error);
-      const fs = require('fs');
+      console.error("Manual hunt failed:", error);
       fs.appendFileSync('diagnostic.log', `[${new Date().toISOString()}] Hunt Error: ${error}\n${error instanceof Error ? error.stack : ''}\n`);
       res.status(500).json({ success: false, error: String(error) });
     }
@@ -889,16 +890,301 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get current campaign configuration (simplified - always turai)
   app.get("/api/sniper/campaign", (req, res) => {
-    const { CAMPAIGN_CONFIGS } = require("./campaign-config");
     res.json({
       currentCampaign: 'turai',
       config: CAMPAIGN_CONFIGS['turai']
     });
   });
 
+  // Analytics Dashboard API
+  app.get("/api/analytics/dashboard", async (req, res) => {
+    try {
+      const range = req.query.range as string || '7d';
+      const days = range === '7d' ? 7 : range === '30d' ? 30 : 365;
+
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - days);
+
+      // Fetch posts in range
+      const posts = await storage.getPostsInRange(cutoffDate);
+
+      // Calculate overall metrics
+      let totalLikes = 0, totalRetweets = 0, totalReplies = 0, totalImpressions = 0;
+      const destinations: Record<string, { posts: number; engagements: number }> = {};
+      const hourlyData: Record<number, number> = {};
+      const dailyData: Record<string, { posts: number; likes: number; retweets: number; replies: number; impressions: number }> = {};
+      let likesOnly = 0, retweetsOnly = 0, repliesOnly = 0, multiEngagement = 0;
+
+      posts.forEach((post: any) => {
+        const twitter = post.platformData?.twitter;
+        if (!twitter) return;
+
+        const likes = twitter.likes || 0;
+        const retweets = twitter.retweets || 0;
+        const replies = twitter.replies || 0;
+        const impressions = twitter.impressions || 0;
+
+        totalLikes += likes;
+        totalRetweets += retweets;
+        totalReplies += replies;
+        totalImpressions += impressions;
+
+        // Extract destination
+        const destMatch = post.content.match(/(?:to|in|over|through)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/);
+        if (destMatch) {
+          const dest = destMatch[1];
+          if (!destinations[dest]) destinations[dest] = { posts: 0, engagements: 0 };
+          destinations[dest].posts++;
+          destinations[dest].engagements += likes + retweets + replies;
+        }
+
+        // Hourly distribution
+        const hour = new Date(post.createdAt).getHours();
+        hourlyData[hour] = (hourlyData[hour] || 0) + (likes + retweets + replies);
+
+        // Daily trends
+        const date = new Date(post.createdAt).toISOString().split('T')[0];
+        if (!dailyData[date]) {
+          dailyData[date] = { posts: 0, likes: 0, retweets: 0, replies: 0, impressions: 0 };
+        }
+        dailyData[date].posts++;
+        dailyData[date].likes += likes;
+        dailyData[date].retweets += retweets;
+        dailyData[date].replies += replies;
+        dailyData[date].impressions += impressions;
+
+        // Engagement types
+        const hasLikes = likes > 0;
+        const hasRetweets = retweets > 0;
+        const hasReplies = replies > 0;
+        const engagementCount = [hasLikes, hasRetweets, hasReplies].filter(Boolean).length;
+
+        if (engagementCount > 1) multiEngagement++;
+        else if (hasLikes) likesOnly++;
+        else if (hasRetweets) retweetsOnly++;
+        else if (hasReplies) repliesOnly++;
+      });
+
+      const totalEngagements = totalLikes + totalRetweets + totalReplies;
+      const engagementRate = posts.length > 0 ? (totalEngagements / posts.length) : 0;
+
+      // Format response
+      const response = {
+        overall: {
+          totalPosts: posts.length,
+          totalEngagements,
+          engagementRate,
+          avgImpressionsPerPost: posts.length > 0 ? totalImpressions / posts.length : 0,
+        },
+        trends: Object.entries(dailyData)
+          .map(([date, data]) => ({
+            date,
+            ...data,
+            engagementRate: data.posts > 0 ? ((data.likes + data.retweets + data.replies) / data.posts) : 0,
+          }))
+          .sort((a, b) => a.date.localeCompare(b.date)),
+        topDestinations: Object.entries(destinations)
+          .map(([name, data]) => ({
+            name,
+            posts: data.posts,
+            totalEngagements: data.engagements,
+            avgEngagement: data.posts > 0 ? data.engagements / data.posts : 0,
+          }))
+          .sort((a, b) => b.avgEngagement - a.avgEngagement)
+          .slice(0, 10),
+        hourlyDistribution: Object.entries(hourlyData)
+          .map(([hour, engagements]) => ({ hour: Number(hour), engagements }))
+          .sort((a, b) => a.hour - b.hour),
+        engagementTypes: [
+          { name: 'Likes Only', value: likesOnly },
+          { name: 'Retweets Only', value: retweetsOnly },
+          { name: 'Replies Only', value: repliesOnly },
+          { name: 'Multi-Engagement', value: multiEngagement },
+        ],
+      };
+
+      res.json(response);
+    } catch (error) {
+      console.error('Dashboard API error:', error);
+      res.status(500).json({ error: 'Failed to fetch dashboard data' });
+    }
+  });
+
+  // Growth Reports API - Current Metrics
+  app.get("/api/growth/current", async (req, res) => {
+    try {
+      const [metrics] = await storage.db.select().from(storage.schema.growthMetrics)
+        .orderBy(storage.schema.desc(storage.schema.growthMetrics.date))
+        .limit(1);
+
+      if (!metrics) {
+        return res.json({
+          date: new Date().toISOString().split('T')[0],
+          followerCount: 0,
+          totalPosts: 0,
+          engagementRate: 0,
+          avgImpressionsPerPost: 0,
+          postsWithEngagement: 0,
+          topDestination: null,
+        });
+      }
+
+      res.json(metrics);
+    } catch (error) {
+      console.error('Growth metrics error:', error);
+      res.status(500).json({ error: 'Failed to fetch growth metrics' });
+    }
+  });
+
+  // Growth Reports API - Top Destinations
+  app.get("/api/growth/destinations", async (req, res) => {
+    try {
+      const destinations = await storage.db.select().from(storage.schema.destinationPerformance)
+        .orderBy(storage.schema.desc(storage.schema.destinationPerformance.avgEngagement))
+        .limit(10);
+
+      res.json(destinations);
+    } catch (error) {
+      console.error('Destinations error:', error);
+      res.status(500).json({ error: 'Failed to fetch destinations' });
+    }
+  });
+
+  // Growth Reports API - Pattern Analysis
+  app.get("/api/growth/patterns", async (req, res) => {
+    try {
+      // Get all posts with engagement
+      const posts = await storage.getPosts();
+
+      const postsWithEngagement = posts
+        .filter(p => p.platformData?.twitter)
+        .map(p => {
+          const twitter = p.platformData.twitter;
+          const engagement = (twitter.likes || 0) + (twitter.retweets || 0) + (twitter.replies || 0);
+          return { ...p, engagement, twitter };
+        })
+        .filter(p => p.engagement > 0);
+
+      // Analyze emojis
+      const emojiStats: Record<string, { count: number; totalEng: number }> = {};
+      const emojis = ['🔮', '✨', '🗺️', '🌟', '🇲🇽', '🇪🇸'];
+
+      emojis.forEach(emoji => {
+        emojiStats[emoji] = { count: 0, totalEng: 0 };
+        postsWithEngagement.forEach(post => {
+          if (post.content.includes(emoji)) {
+            emojiStats[emoji].count++;
+            emojiStats[emoji].totalEng += post.engagement;
+          }
+        });
+      });
+
+      const topEmoji = Object.entries(emojiStats)
+        .filter(([, data]) => data.count > 0)
+        .sort(([, a], [, b]) => (b.totalEng / b.count) - (a.totalEng / a.count))[0];
+
+      // Analyze keywords
+      const keywordStats: Record<string, { count: number; totalEng: number }> = {};
+      const keywords = ['crystal ball', 'mystical', 'whimsical', 'quest', 'stars'];
+
+      keywords.forEach(keyword => {
+        keywordStats[keyword] = { count: 0, totalEng: 0 };
+        postsWithEngagement.forEach(post => {
+          if (post.content.toLowerCase().includes(keyword)) {
+            keywordStats[keyword].count++;
+            keywordStats[keyword].totalEng += post.engagement;
+          }
+        });
+      });
+
+      const topKeyword = Object.entries(keywordStats)
+        .filter(([, data]) => data.count > 0)
+        .sort(([, a], [, b]) => (b.totalEng / b.count) - (a.totalEng / a.count))[0];
+
+      // Analyze destinations
+      const destStats: Record<string, { count: number; totalEng: number }> = {};
+
+      postsWithEngagement.forEach(post => {
+        const match = post.content.match(/(?:to|in|over|through)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/);
+        if (match) {
+          const dest = match[1];
+          if (!destStats[dest]) destStats[dest] = { count: 0, totalEng: 0 };
+          destStats[dest].count++;
+          destStats[dest].totalEng += post.engagement;
+        }
+      });
+
+      const topDestination = Object.entries(destStats)
+        .sort(([, a], [, b]) => (b.totalEng / b.count) - (a.totalEng / a.count))[0];
+
+      // Analyze posting times
+      const hourStats: Record<number, { count: number; totalEng: number }> = {};
+
+      postsWithEngagement.forEach(post => {
+        const hour = new Date(post.createdAt).getHours();
+        if (!hourStats[hour]) hourStats[hour] = { count: 0, totalEng: 0 };
+        hourStats[hour].count++;
+        hourStats[hour].totalEng += post.engagement;
+      });
+
+      const bestHour = Object.entries(hourStats)
+        .sort(([, a], [, b]) => (b.totalEng / b.count) - (a.totalEng / a.count))[0];
+
+      // Analyze length
+      const lengthStats = {
+        'Short (<100 chars)': { count: 0, totalEng: 0 },
+        'Medium (100-150)': { count: 0, totalEng: 0 },
+        'Long (>150 chars)': { count: 0, totalEng: 0 },
+      };
+
+      postsWithEngagement.forEach(post => {
+        const len = post.content.length;
+        if (len < 100) {
+          lengthStats['Short (<100 chars)'].count++;
+          lengthStats['Short (<100 chars)'].totalEng += post.engagement;
+        } else if (len < 150) {
+          lengthStats['Medium (100-150)'].count++;
+          lengthStats['Medium (100-150)'].totalEng += post.engagement;
+        } else {
+          lengthStats['Long (>150 chars)'].count++;
+          lengthStats['Long (>150 chars)'].totalEng += post.engagement;
+        }
+      });
+
+      const bestLength = Object.entries(lengthStats)
+        .filter(([, data]) => data.count > 0)
+        .sort(([, a], [, b]) => (b.totalEng / b.count) - (a.totalEng / a.count))[0];
+
+      res.json({
+        topEmoji: {
+          emoji: topEmoji?.[0] || 'N/A',
+          avgEngagement: topEmoji ? topEmoji[1].totalEng / topEmoji[1].count : 0,
+        },
+        topKeyword: {
+          keyword: topKeyword?.[0] || 'N/A',
+          avgEngagement: topKeyword ? topKeyword[1].totalEng / topKeyword[1].count : 0,
+        },
+        topDestination: {
+          name: topDestination?.[0] || 'N/A',
+          avgEngagement: topDestination ? topDestination[1].totalEng / topDestination[1].count : 0,
+        },
+        bestHour: {
+          hour: bestHour ? Number(bestHour[0]) : 0,
+          avgEngagement: bestHour ? bestHour[1].totalEng / bestHour[1].count : 0,
+        },
+        bestLength: {
+          range: bestLength?.[0] || 'N/A',
+          avgEngagement: bestLength ? bestLength[1].totalEng / bestLength[1].count : 0,
+        },
+      });
+    } catch (error) {
+      console.error('Patterns error:', error);
+      res.status(500).json({ error: 'Failed to fetch patterns' });
+    }
+  });
+
   // Set sniper campaign type (no-op for simplified sniper)
   app.post("/api/sniper/campaign", (req, res) => {
-    const { CAMPAIGN_CONFIGS } = require("./campaign-config");
     res.json({
       success: true,
       message: `Campaign is fixed to turai (simplified sniper mode)`,
@@ -908,7 +1194,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get all available campaign configs
   app.get("/api/sniper/campaigns", (req, res) => {
-    const { CAMPAIGN_CONFIGS } = require("./campaign-config");
     res.json({
       campaigns: Object.values(CAMPAIGN_CONFIGS),
       currentCampaign: 'turai'
@@ -2093,8 +2378,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(pendingDrafts);
     } catch (error) {
       console.error("Error fetching postcard drafts:", error);
-      const fs = require('fs');
-      fs.appendFileSync('diagnostic.log', `[${new Date().toISOString()}] Fetch Drafts Error: ${error}\n${error instanceof Error ? error.stack : ''}\n`);
+      // Assuming 'fs' is imported at the top level or available globally in the environment
+      // If not, 'import fs from 'fs';' would be needed at the top of the file.
+      fs.appendFileSync('publish_error.log', `[${new Date().toISOString()}] - Error: ${JSON.stringify(error)}\n${error instanceof Error ? error.stack : ''}\n`);
       res.status(500).json({ message: "Failed to fetch drafts" });
     }
   });

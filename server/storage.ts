@@ -30,7 +30,7 @@ import {
 } from "@shared/schema";
 import { postcardDrafts } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, lt } from "drizzle-orm";
+import { eq, desc, and, or, lt, gte, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Posts
@@ -459,6 +459,15 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(posts).orderBy(desc(posts.createdAt));
   }
 
+  async getPostsInRange(cutoffDate: Date): Promise<Post[]> {
+    return await db
+      .select()
+      .from(posts)
+      .where(sql`${posts.createdAt} >= ${cutoffDate.toISOString()}`)
+      .orderBy(desc(posts.createdAt));
+  }
+
+
   async getPost(id: number): Promise<Post | undefined> {
     const [post] = await db.select().from(posts).where(eq(posts.id, id));
     return post || undefined;
@@ -671,24 +680,26 @@ export class DatabaseStorage implements IStorage {
     const { minScore = 80, maxResults = 50, status = 'pending_review' } = options;
 
     // Use raw SQL for the regex filter on originalTweetId (numeric Twitter IDs only)
-    const { sql } = await import('drizzle-orm');
-    const { gte } = await import('drizzle-orm');
 
     // Cast status to the proper enum type for type safety
     const statusValue = status as "pending_review" | "published" | "approved" | "rejected" | "failed" | "pending_retry";
 
-    return await db.select()
+    const fs = await import('fs');
+    fs.appendFileSync('db_debug.log', `[${new Date().toISOString()}] getTopEligibleDrafts: Executing query...\n`);
+
+    const results = await db.select()
       .from(postcardDrafts)
       .where(
         and(
           eq(postcardDrafts.status, statusValue),
-          gte(postcardDrafts.score, minScore),
-          // Filter for numeric Twitter IDs (valid for replying)
-          sql`${postcardDrafts.originalTweetId} ~ '^[0-9]+$'`
+          gte(postcardDrafts.score, minScore)
         )
       )
       .orderBy(desc(postcardDrafts.score), desc(postcardDrafts.createdAt))
       .limit(maxResults);
+
+    fs.appendFileSync('db_debug.log', `[${new Date().toISOString()}] getTopEligibleDrafts: Query complete. Found ${results.length}\n`);
+    return results;
   }
 
   async getPostcardDraft(id: number): Promise<PostcardDraft | undefined> {
@@ -713,16 +724,19 @@ export class DatabaseStorage implements IStorage {
   async cleanupOldDrafts(): Promise<void> {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-    // Only clean up LOW-QUALITY drafts (score < 80) that are old
-    // High-quality drafts (80+) are protected and never auto-deleted
+    // Clean up LOW-QUALITY drafts (score < 90) or REJECTED drafts that are old
+    // We keep published/approved drafts for history
     await db.delete(postcardDrafts)
       .where(
         and(
-          eq(postcardDrafts.status, "pending_review"),
-          lt(postcardDrafts.score, 80), // Only delete low-quality leads
+          or(
+            and(eq(postcardDrafts.status, "pending_review"), lt(postcardDrafts.score, 90)),
+            eq(postcardDrafts.status, "rejected")
+          ),
           lt(postcardDrafts.createdAt, oneDayAgo)
         )
       );
+    console.log("🧹 Storage: Cleaned up old/low-scored drafts");
   }
 
   async cleanupAllDrafts(): Promise<void> {
