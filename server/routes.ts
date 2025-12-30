@@ -1013,9 +1013,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Growth Reports API - Current Metrics
   app.get("/api/growth/current", async (req, res) => {
     try {
-      const [metrics] = await storage.db.select().from(storage.schema.growthMetrics)
-        .orderBy(storage.schema.desc(storage.schema.growthMetrics.date))
-        .limit(1);
+      const result = await storage.db.execute(sql`
+        SELECT * FROM growth_metrics
+        ORDER BY date DESC
+        LIMIT 1
+      `);
+
+      const metrics = result.rows[0];
 
       if (!metrics) {
         return res.json({
@@ -1029,7 +1033,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      res.json(metrics);
+      res.json({
+        date: metrics.date,
+        followerCount: metrics.follower_count || 0,
+        totalPosts: metrics.total_posts || 0,
+        engagementRate: parseFloat(metrics.engagement_rate) || 0,
+        avgImpressionsPerPost: parseFloat(metrics.avg_impressions_per_post) || 0,
+        postsWithEngagement: metrics.posts_with_engagement || 0,
+        topDestination: metrics.top_destination,
+      });
     } catch (error) {
       console.error('Growth metrics error:', error);
       res.status(500).json({ error: 'Failed to fetch growth metrics' });
@@ -1039,9 +1051,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Growth Reports API - Top Destinations
   app.get("/api/growth/destinations", async (req, res) => {
     try {
-      const destinations = await storage.db.select().from(storage.schema.destinationPerformance)
-        .orderBy(storage.schema.desc(storage.schema.destinationPerformance.avgEngagement))
-        .limit(10);
+      const result = await storage.db.execute(sql`
+        SELECT * FROM destination_performance
+        ORDER BY avg_engagement DESC
+        LIMIT 10
+      `);
+
+      const destinations = result.rows.map((row: any) => ({
+        destination: row.destination,
+        totalPosts: row.total_posts || 0,
+        totalEngagements: row.total_engagements || 0,
+        avgEngagement: parseFloat(row.avg_engagement) || 0,
+      }));
 
       res.json(destinations);
     } catch (error) {
