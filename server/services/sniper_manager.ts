@@ -6,6 +6,8 @@ export class SniperManager {
     private isHunting = false;  // Tracks if a hunt is in progress
     private isStarted = false;  // Tracks if the auto-loop has been started
     private checkIntervalMs = 5 * 60 * 1000; // 5 Minutes
+    private replyToRepliesEnabled = true;  // Enable reply-to-replies feature
+    private minScoreForReplyChain = 70;    // Only fetch replies for high-quality tweets
 
     // Travel-focused keywords - kept simple for broad matching
     private keywords = [
@@ -117,6 +119,7 @@ export class SniperManager {
             tweetsFound: 0,
             draftsCreated: 0,
             duplicatesSkipped: 0,
+            replyChainDrafts: 0,
             errors: 0,
             lastError: "" as string | undefined
         };
@@ -174,6 +177,44 @@ export class SniperManager {
                         if (created) {
                             this.draftsGeneratedToday++;
                             stats.draftsCreated++;
+                        }
+
+                        // Reply-to-Replies: For high-quality tweets, also fetch and draft replies to existing replies
+                        if (this.replyToRepliesEnabled && (result.score || 0) >= this.minScoreForReplyChain) {
+                            try {
+                                const replies = await keywordSearchEngine.fetchTweetReplies(result.id, 5);
+                                
+                                if (replies.length > 0) {
+                                    console.log(`   🔗 Found ${replies.length} replies to engage with for tweet ${result.id}`);
+                                    
+                                    // Process top 3 replies (limit to avoid spam)
+                                    const topReplies = replies.slice(0, 3);
+                                    
+                                    for (const reply of topReplies) {
+                                        // Skip if already processed
+                                        const existingReply = await storage.getDraftByOriginalTweetId(reply.id);
+                                        if (existingReply) continue;
+                                        
+                                        console.log(`      💬 Generating reply-chain draft for @${reply.author}`);
+                                        
+                                        const replyPostObj = {
+                                            id: reply.id,
+                                            text: reply.content,
+                                            author_id: "unknown"
+                                        };
+                                        
+                                        const replyCreated = await generateDraft(replyPostObj, reply.author);
+                                        if (replyCreated) {
+                                            this.draftsGeneratedToday++;
+                                            stats.replyChainDrafts++;
+                                        }
+                                        
+                                        if (!this.checkDailyLimit()) break;
+                                    }
+                                }
+                            } catch (replyError) {
+                                console.log(`   ⚠️ Could not fetch replies for tweet ${result.id}`);
+                            }
                         }
 
                         if (!this.checkDailyLimit()) break;
