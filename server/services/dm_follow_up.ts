@@ -24,19 +24,41 @@ interface ScheduledDM {
 }
 
 export class DMFollowUpService {
-    private client: TwitterApi;
+    private client: TwitterApi | null = null;
     private pendingDMs: Map<string, ScheduledDM> = new Map();
     private isRunning = false;
     private checkIntervalMs = 10 * 60 * 1000; // Check every 10 minutes
     private delayHours = 2; // Wait 2 hours after reply
+    private enabled = false;
 
     constructor() {
-        this.client = new TwitterApi({
-            appKey: process.env.TWITTER_API_KEY!,
-            appSecret: process.env.TWITTER_API_SECRET!,
-            accessToken: process.env.TWITTER_ACCESS_TOKEN!,
-            accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET!,
-        });
+        // Only initialize if credentials are available
+        if (this.hasCredentials()) {
+            try {
+                this.client = new TwitterApi({
+                    appKey: process.env.TWITTER_API_KEY!,
+                    appSecret: process.env.TWITTER_API_SECRET!,
+                    accessToken: process.env.TWITTER_ACCESS_TOKEN!,
+                    accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET!,
+                });
+                this.enabled = true;
+            } catch (error) {
+                console.warn('⚠️ DM Follow-up Service: Twitter client initialization failed', error);
+                this.enabled = false;
+            }
+        } else {
+            console.warn('⚠️ DM Follow-up Service: Twitter credentials not configured (service disabled)');
+            this.enabled = false;
+        }
+    }
+
+    private hasCredentials(): boolean {
+        return !!(
+            process.env.TWITTER_API_KEY &&
+            process.env.TWITTER_API_SECRET &&
+            process.env.TWITTER_ACCESS_TOKEN &&
+            process.env.TWITTER_ACCESS_TOKEN_SECRET
+        );
     }
 
     /**
@@ -49,6 +71,11 @@ export class DMFollowUpService {
         replyTweetId: string,
         destination: string
     ) {
+        if (!this.enabled) {
+            console.log(`   📬 DM follow-up disabled (no credentials)`);
+            return;
+        }
+
         const now = new Date();
         const scheduledFor = new Date(now.getTime() + this.delayHours * 60 * 60 * 1000);
 
@@ -71,6 +98,11 @@ export class DMFollowUpService {
      * Start the DM follow-up service
      */
     start() {
+        if (!this.enabled) {
+            console.log('📬 DM Follow-up Service: DISABLED (Twitter credentials not configured)');
+            return;
+        }
+
         if (this.isRunning) return;
         this.isRunning = true;
 
