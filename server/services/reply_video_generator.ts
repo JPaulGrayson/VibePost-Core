@@ -414,10 +414,8 @@ async function fetchNarration(text: string, outputPath: string): Promise<void> {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 text,
-                provider: 'elevenlabs',
-                voice: '21m00Tcm4TlvDq8ikWAM',  // Rachel
-                speed: 1.0,
-                volume: 0.8
+                voice: 'Ara',  // Use Grok TTS voice
+                speed: 1.0
             })
         });
 
