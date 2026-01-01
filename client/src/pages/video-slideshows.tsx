@@ -125,6 +125,7 @@ export default function VideoPosts() {
     // Caption state
     const [caption, setCaption] = useState("");
     const [isPublishing, setIsPublishing] = useState(false);
+    const [videoPosted, setVideoPosted] = useState(false);
 
     // Player state
     const [selectedVideo, setSelectedVideo] = useState<VideoInfo | null>(null);
@@ -250,6 +251,7 @@ export default function VideoPosts() {
     const generateMutation = useMutation({
         mutationFn: async () => {
             setIsGenerating(true);
+            setVideoPosted(false); // Reset for new video
             const res = await apiRequest("POST", "/api/video-post/generate", {
                 destination: effectiveDestination,
                 topic: topic || undefined,
@@ -321,10 +323,8 @@ export default function VideoPosts() {
                     title: "Posted to X! 🎉",
                     description: `Tweet ID: ${data.tweetId}`,
                 });
-                // Reset form
-                setGeneratedVideo(null);
-                setPreview(null);
-                setCaption("");
+                // Mark video as posted but keep preview for thread posting
+                setVideoPosted(true);
             } else {
                 toast({
                     variant: "destructive",
@@ -854,10 +854,13 @@ export default function VideoPosts() {
                             </a>
                             <Button
                                 onClick={() => publishMutation.mutate()}
-                                disabled={isPublishing || !caption.trim()}
+                                disabled={isPublishing || !caption.trim() || videoPosted}
+                                variant={videoPosted ? "outline" : "default"}
                             >
                                 {isPublishing ? (
                                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Posting...</>
+                                ) : videoPosted ? (
+                                    <><Check className="mr-2 h-4 w-4" />Posted</>
                                 ) : (
                                     <><Send className="mr-2 h-4 w-4" />Post to X</>
                                 )}
