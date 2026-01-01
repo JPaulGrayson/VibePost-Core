@@ -1054,3 +1054,141 @@ Write ONLY the caption:`;
     const emoji = topic?.includes('food') ? '🍽️' : topic?.includes('beach') ? '🏖️' : '✨';
     return `Discover ${destination}! ${emoji}\n\n${topic ? `${topic}\n\n` : ''}Plan your trip: turai.org 🗺️`;
 }
+
+/**
+ * Post a Twitter thread using the exact preview stops (same content as video)
+ */
+export async function postThreadWithPreviewStops(
+    destination: string,
+    stops: VideoPostStop[],
+    shareCode?: string
+): Promise<{ success: boolean; tweets?: any[]; error?: string }> {
+    try {
+        console.log(`🧵 Posting thread for ${destination} with ${stops.length} preview stops`);
+        
+        // Import Twitter client and storage
+        const { TwitterApi } = await import('twitter-api-v2');
+        const { storage } = await import('../storage');
+        
+        // Get Twitter credentials from DB or env
+        const twitterConnection = await storage.getPlatformConnection("twitter");
+        const dbCreds = twitterConnection?.credentials || {};
+        
+        const appKey = dbCreds.apiKey || process.env.TWITTER_API_KEY;
+        const appSecret = dbCreds.apiSecret || process.env.TWITTER_API_SECRET;
+        const accessToken = dbCreds.accessToken || process.env.TWITTER_ACCESS_TOKEN;
+        const accessSecret = dbCreds.accessTokenSecret || process.env.TWITTER_ACCESS_TOKEN_SECRET;
+        
+        if (!appKey || !appSecret || !accessToken || !accessSecret) {
+            return { success: false, error: "Twitter not connected - missing credentials" };
+        }
+        
+        const twitterClient = new TwitterApi({
+            appKey,
+            appSecret,
+            accessToken,
+            accessSecret,
+        });
+        
+        const tweets: any[] = [];
+        let previousTweetId: string | undefined;
+        
+        // Post intro tweet
+        const introText = `🗺️ ${destination} Tour\n\nDiscover ${stops.length} amazing stops with AI audio narration!\n\n🎧 Listen & explore: turai.org${shareCode ? `?s=${shareCode}` : ''}\n\n🧵 Thread below...`;
+        
+        try {
+            const introResult = await twitterClient.v2.tweet(introText);
+            previousTweetId = introResult.data.id;
+            tweets.push({ stopIndex: -1, status: 'posted', tweetId: previousTweetId, text: introText });
+            console.log(`   ✓ Intro tweet posted: ${previousTweetId}`);
+        } catch (e) {
+            console.error('Failed to post intro tweet:', e);
+            return { success: false, error: `Failed to post intro: ${e}` };
+        }
+        
+        // Post each stop as a reply in the thread
+        for (let i = 0; i < stops.length; i++) {
+            const stop = stops[i];
+            
+            // Use the rich description from preview (same as video narration)
+            const description = stop.description || stop.narrationText || `A beautiful stop in ${destination}`;
+            
+            // Format the tweet text
+            const stopText = `📍 Stop ${i + 1}: ${stop.name}\n\n${description.substring(0, 200)}${description.length > 200 ? '...' : ''}\n\n${i + 1}/${stops.length}`;
+            
+            try {
+                // Download images for this stop (up to 4 for Twitter)
+                const imageUrls = stop.imageUrls?.slice(0, 4) || (stop.imageUrl ? [stop.imageUrl] : []);
+                const mediaIds: string[] = [];
+                
+                for (const imageUrl of imageUrls) {
+                    try {
+                        const absoluteUrl = makeAbsoluteUrl(imageUrl);
+                        const tempPath = path.join(TEMP_DIR, `thread_img_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`);
+                        await downloadFile(absoluteUrl, tempPath);
+                        
+                        if (fs.existsSync(tempPath) && fs.statSync(tempPath).size > 1000) {
+                            const mediaId = await twitterClient.v1.uploadMedia(tempPath);
+                            mediaIds.push(mediaId);
+                            fs.unlinkSync(tempPath);
+                        }
+                    } catch (imgErr) {
+                        console.log(`   ⚠️ Failed to upload image: ${imgErr}`);
+                    }
+                }
+                
+                // Post the tweet with images
+                const tweetOptions: any = {
+                    reply: { in_reply_to_tweet_id: previousTweetId }
+                };
+                
+                if (mediaIds.length > 0) {
+                    tweetOptions.media = { media_ids: mediaIds };
+                }
+                
+                const tweetResult = await twitterClient.v2.tweet(stopText, tweetOptions);
+                previousTweetId = tweetResult.data.id;
+                tweets.push({ 
+                    stopIndex: i, 
+                    status: 'posted', 
+                    tweetId: previousTweetId, 
+                    text: stopText,
+                    imageCount: mediaIds.length
+                });
+                console.log(`   ✓ Stop ${i + 1} posted: ${previousTweetId} (${mediaIds.length} images)`);
+                
+                // Small delay between tweets to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+            } catch (tweetErr) {
+                console.error(`Failed to post stop ${i + 1}:`, tweetErr);
+                tweets.push({ stopIndex: i, status: 'failed', error: String(tweetErr) });
+            }
+        }
+        
+        // Post closing tweet
+        try {
+            const closingText = `✨ Enjoyed this tour?\n\nExplore more destinations with AI-guided audio tours at turai.org\n\n🎧 Free audio tours • 📍 100+ cities • 🗺️ Plan your trip`;
+            const closingResult = await twitterClient.v2.tweet(closingText, {
+                reply: { in_reply_to_tweet_id: previousTweetId }
+            });
+            tweets.push({ stopIndex: 999, status: 'posted', tweetId: closingResult.data.id, text: closingText });
+            console.log(`   ✓ Closing tweet posted: ${closingResult.data.id}`);
+        } catch (e) {
+            console.log(`   ⚠️ Failed to post closing tweet: ${e}`);
+        }
+        
+        const postedCount = tweets.filter(t => t.status === 'posted').length;
+        console.log(`🧵 Thread complete: ${postedCount}/${tweets.length} tweets posted`);
+        
+        return { 
+            success: postedCount > 0, 
+            tweets,
+            error: postedCount === 0 ? 'No tweets were posted' : undefined
+        };
+        
+    } catch (error) {
+        console.error('Thread posting failed:', error);
+        return { success: false, error: String(error) };
+    }
+}

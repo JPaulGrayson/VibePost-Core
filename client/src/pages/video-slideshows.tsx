@@ -765,10 +765,10 @@ export default function VideoPosts() {
                                     }
                                     setIsPostingThread(true);
                                     try {
-                                        const res = await apiRequest("POST", "/api/thread-tour/post", {
+                                        const res = await apiRequest("POST", "/api/video-post/thread", {
                                             destination: effectiveDestination,
                                             shareCode: preview.shareCode,
-                                            maxStops: preview.stops.length,
+                                            stops: preview.stops,
                                         });
                                         const data = await res.json();
                                         setIsPostingThread(false);

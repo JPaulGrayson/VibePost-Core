@@ -1750,6 +1750,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Post thread using preview stops (uses same content as video preview)
+  app.post("/api/video-post/thread", async (req, res) => {
+    try {
+      const { destination, shareCode, stops } = req.body;
+
+      if (!stops || !Array.isArray(stops) || stops.length === 0) {
+        return res.status(400).json({ error: "stops array required" });
+      }
+
+      console.log(`🧵 Posting thread for ${destination} with ${stops.length} stops from preview`);
+
+      const { postThreadWithPreviewStops } = await import("./services/video_post_generator");
+      const result = await postThreadWithPreviewStops(destination, stops, shareCode);
+
+      res.json(result);
+    } catch (error) {
+      console.error("Thread post failed:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   // List generated video posts
   app.get("/api/video-post/list", (req, res) => {
     try {
