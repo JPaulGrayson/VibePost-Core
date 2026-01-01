@@ -691,88 +691,85 @@ async function createSegmentWithAudio(
     outputPath: string,
     totalDuration: number
 ): Promise<void> {
-    return new Promise((resolve, reject) => {
-        // First create video from images
-        const tempVideoPath = outputPath.replace('.mp4', '_temp.mp4');
-        const tempVideos: string[] = [];
-        const tasks: Promise<void>[] = [];
+    const tempVideos: string[] = [];
 
-        // Create individual image clips
-        images.forEach((img, idx) => {
-            const clipPath = path.join(TEMP_DIR, `clip_${Date.now()}_${idx}.mp4`);
-            tempVideos.push(clipPath);
-
-            tasks.push(new Promise<void>((res, rej) => {
-                ffmpeg(img.path)
-                    .inputOptions(['-loop', '1'])
-                    .videoFilters([
-                        'scale=1080:1920:force_original_aspect_ratio=increase',
-                        'crop=1080:1920',
-                        `fade=t=in:st=0:d=0.3,fade=t=out:st=${img.duration - 0.3}:d=0.3`
-                    ])
-                    .outputOptions([
-                        '-c:v', 'libx264',
-                        '-preset', 'fast',
-                        '-crf', '20',
-                        '-t', String(img.duration),
-                        '-r', '30',
-                        '-pix_fmt', 'yuv420p',
-                        '-profile:v', 'main',
-                        '-level', '4.0'
-                    ])
-                    .output(clipPath)
-                    .on('end', () => res())
-                    .on('error', (err) => rej(err))
-                    .run();
-            }));
+    // Create individual image clips SEQUENTIALLY to avoid memory spikes
+    const createClip = (img: { path: string; duration: number }, idx: number): Promise<string> => {
+        const clipPath = path.join(TEMP_DIR, `clip_${Date.now()}_${idx}.mp4`);
+        
+        return new Promise<string>((res, rej) => {
+            ffmpeg(img.path)
+                .inputOptions(['-loop', '1'])
+                .videoFilters([
+                    'scale=720:1280:force_original_aspect_ratio=increase',
+                    'crop=720:1280',
+                    `fade=t=in:st=0:d=0.3,fade=t=out:st=${img.duration - 0.3}:d=0.3`
+                ])
+                .outputOptions([
+                    '-c:v', 'libx264',
+                    '-preset', 'ultrafast',
+                    '-crf', '28',
+                    '-t', String(img.duration),
+                    '-r', '24',
+                    '-pix_fmt', 'yuv420p',
+                    '-threads', '1'
+                ])
+                .output(clipPath)
+                .on('end', () => res(clipPath))
+                .on('error', (err) => rej(err))
+                .run();
         });
+    };
+    
+    // Process images one at a time to minimize memory usage
+    for (let idx = 0; idx < images.length; idx++) {
+        const clipPath = await createClip(images[idx], idx);
+        tempVideos.push(clipPath);
+    }
 
-        Promise.all(tasks)
-            .then(() => {
-                // Concatenate image clips
-                const concatFile = path.join(TEMP_DIR, `clips_${Date.now()}.txt`);
-                fs.writeFileSync(concatFile, tempVideos.map(v => `file '${v}'`).join('\n'));
+    // Concatenate image clips
+    const concatFile = path.join(TEMP_DIR, `clips_${Date.now()}.txt`);
+    fs.writeFileSync(concatFile, tempVideos.map(v => `file '${v}'`).join('\n'));
 
-                const cmd = ffmpeg()
-                    .input(concatFile)
-                    .inputOptions(['-f', 'concat', '-safe', '0']);
+    return new Promise((resolve, reject) => {
+        const cmd = ffmpeg()
+            .input(concatFile)
+            .inputOptions(['-f', 'concat', '-safe', '0']);
 
-                // Add audio if available
-                if (audioPath && fs.existsSync(audioPath)) {
-                    console.log(`      🔊 Adding audio track: ${audioPath}`);
-                    cmd.input(audioPath);
-                    cmd.outputOptions([
-                        '-c:v', 'copy',
-                        '-c:a', 'aac',
-                        '-b:a', '128k',
-                        '-map', '0:v',
-                        '-map', '1:a',
-                        '-shortest',
-                        '-movflags', '+faststart'
-                    ]);
-                } else {
-                    console.log(`      ⚠️ No audio track for this segment (audioPath: ${audioPath})`);
-                    cmd.outputOptions([
-                        '-c:v', 'copy',
-                        '-movflags', '+faststart'
-                    ]);
-                }
+        // Add audio if available
+        if (audioPath && fs.existsSync(audioPath)) {
+            console.log(`      🔊 Adding audio track: ${audioPath}`);
+            cmd.input(audioPath);
+            cmd.outputOptions([
+                '-c:v', 'copy',
+                '-c:a', 'aac',
+                '-b:a', '96k',
+                '-map', '0:v',
+                '-map', '1:a',
+                '-shortest',
+                '-movflags', '+faststart'
+            ]);
+        } else {
+            console.log(`      ⚠️ No audio track for this segment (audioPath: ${audioPath})`);
+            cmd.outputOptions([
+                '-c:v', 'copy',
+                '-movflags', '+faststart'
+            ]);
+        }
 
-                cmd.output(outputPath)
-                    .on('end', () => {
-                        // Cleanup temp clips
-                        tempVideos.forEach(v => { try { fs.unlinkSync(v); } catch (e) { } });
-                        try { fs.unlinkSync(concatFile); } catch (e) { }
-                        resolve();
-                    })
-                    .on('error', (err) => {
-                        tempVideos.forEach(v => { try { fs.unlinkSync(v); } catch (e) { } });
-                        try { fs.unlinkSync(concatFile); } catch (e) { }
-                        reject(err);
-                    })
-                    .run();
+        cmd.output(outputPath)
+            .on('end', () => {
+                // Cleanup temp clips
+                tempVideos.forEach(v => { try { fs.unlinkSync(v); } catch (e) { } });
+                try { fs.unlinkSync(concatFile); } catch (e) { }
+                resolve();
             })
-            .catch(reject);
+            .on('error', (err) => {
+                tempVideos.forEach(v => { try { fs.unlinkSync(v); } catch (e) { } });
+                try { fs.unlinkSync(concatFile); } catch (e) { }
+                reject(err);
+            })
+            .run();
     });
 }
 

@@ -4,31 +4,19 @@ import path from 'path';
 import https from 'https';
 import http from 'http';
 
-// Safely initialize FFmpeg paths
-try {
-    const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-    const ffprobeInstaller = require('@ffprobe-installer/ffprobe');
-    ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-    ffmpeg.setFfprobePath(ffprobeInstaller.path);
-    console.log(`📹 Stop Video Generator: FFmpeg initialized`);
-} catch (err) {
-    console.error('⚠️ FFmpeg initialization failed in stop_video_generator:', err);
-    try {
-        const localFfmpeg = path.join(process.cwd(), 'repl_bin', 'ffmpeg');
-        const localFfprobe = path.join(process.cwd(), 'repl_bin', 'ffprobe');
+// Initialize FFmpeg paths - prefer local static binary, then system ffmpeg
+const localFfmpeg = path.join(process.cwd(), 'repl_bin', 'ffmpeg');
+const localFfprobe = path.join(process.cwd(), 'repl_bin', 'ffprobe');
 
-        if (fs.existsSync(localFfmpeg)) {
-            console.log('🚀 Stop Video Generator: Using local static FFmpeg');
-            ffmpeg.setFfmpegPath(localFfmpeg);
-            ffmpeg.setFfprobePath(localFfprobe);
-        } else {
-            // Fallback to system path
-            ffmpeg.setFfmpegPath('ffmpeg');
-            ffmpeg.setFfprobePath('ffprobe');
-        }
-    } catch (e) {
-        console.error('Final FFmpeg fallback error:', e);
-    }
+if (fs.existsSync(localFfmpeg)) {
+    console.log('🚀 Stop Video Generator: Using local static FFmpeg');
+    ffmpeg.setFfmpegPath(localFfmpeg);
+    ffmpeg.setFfprobePath(localFfprobe);
+} else {
+    // Fallback to system path
+    ffmpeg.setFfmpegPath('ffmpeg');
+    ffmpeg.setFfprobePath('ffprobe');
+    console.log('📹 Stop Video Generator: Using system FFmpeg');
 }
 
 // Output directory for generated videos
