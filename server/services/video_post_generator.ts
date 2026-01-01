@@ -292,6 +292,7 @@ export async function previewVideoPost(options: VideoPostOptions): Promise<Video
                 narrationText: narration?.text
             };
 
+            console.log(`   Stop ${i + 1} (${stop.name}): ${allImageUrls.length} images, audio: ${stop.audioUrl ? 'YES' : 'NO'}`);
             result.stops.push(stop);
         }
 
@@ -530,32 +531,48 @@ export async function generateVideoPost(
 
             // Download audio and get ACTUAL duration
             if (stop.audioUrl) {
+                console.log(`   🔊 Audio URL for ${stop.name}: ${stop.audioUrl.substring(0, 100)}...`);
                 const audioPath = path.join(TEMP_DIR, `audio_${i}_${Date.now()}.mp3`);
 
                 try {
                     // Handle data URLs (base64)
                     if (stop.audioUrl.startsWith('data:audio/')) {
+                        console.log(`   📦 Decoding base64 audio for ${stop.name}`);
                         const matches = stop.audioUrl.match(/^data:audio\/[^;]+;base64,(.+)$/);
                         if (matches && matches[1]) {
                             const buffer = Buffer.from(matches[1], 'base64');
                             fs.writeFileSync(audioPath, buffer);
+                            console.log(`   💾 Wrote ${buffer.length} bytes to ${audioPath}`);
                             if (buffer.length > 1000) {
                                 assets.audioPath = audioPath;
                                 // Get ACTUAL audio duration
                                 assets.audioDuration = await getAudioDuration(audioPath);
+                                console.log(`   ⏱️ Audio duration: ${assets.audioDuration}s`);
+                            } else {
+                                console.log(`   ⚠️ Audio buffer too small: ${buffer.length} bytes`);
                             }
+                        } else {
+                            console.log(`   ❌ Failed to parse base64 audio`);
                         }
                     } else {
+                        console.log(`   📥 Downloading audio from URL for ${stop.name}`);
                         await downloadFile(stop.audioUrl, audioPath);
                         if (fs.existsSync(audioPath) && fs.statSync(audioPath).size > 1000) {
+                            const fileSize = fs.statSync(audioPath).size;
+                            console.log(`   💾 Downloaded ${fileSize} bytes to ${audioPath}`);
                             assets.audioPath = audioPath;
                             // Get ACTUAL audio duration
                             assets.audioDuration = await getAudioDuration(audioPath);
+                            console.log(`   ⏱️ Audio duration: ${assets.audioDuration}s`);
+                        } else {
+                            console.log(`   ⚠️ Audio file missing or too small`);
                         }
                     }
                 } catch (e) {
-                    console.log(`   ⚠️ Audio failed for ${stop.name}`);
+                    console.log(`   ❌ Audio failed for ${stop.name}: ${e}`);
                 }
+            } else {
+                console.log(`   ⚠️ No audio URL for ${stop.name}`);
             }
 
             // Default duration if no audio
@@ -722,6 +739,7 @@ async function createSegmentWithAudio(
 
                 // Add audio if available
                 if (audioPath && fs.existsSync(audioPath)) {
+                    console.log(`      🔊 Adding audio track: ${audioPath}`);
                     cmd.input(audioPath);
                     cmd.outputOptions([
                         '-c:v', 'copy',
@@ -733,6 +751,7 @@ async function createSegmentWithAudio(
                         '-movflags', '+faststart'
                     ]);
                 } else {
+                    console.log(`      ⚠️ No audio track for this segment (audioPath: ${audioPath})`);
                     cmd.outputOptions([
                         '-c:v', 'copy',
                         '-movflags', '+faststart'
@@ -765,6 +784,8 @@ async function concatenateVideos(videoPaths: string[], outputPath: string): Prom
         const concatFile = path.join(TEMP_DIR, `final_concat_${Date.now()}.txt`);
         fs.writeFileSync(concatFile, videoPaths.map(v => `file '${v}'`).join('\n'));
 
+        console.log(`🔗 Concatenating ${videoPaths.length} segments...`);
+
         ffmpeg()
             .input(concatFile)
             .inputOptions(['-f', 'concat', '-safe', '0'])
@@ -773,11 +794,16 @@ async function concatenateVideos(videoPaths: string[], outputPath: string): Prom
                 '-movflags', '+faststart'
             ])
             .output(outputPath)
+            .on('start', (commandLine) => {
+                console.log(`   FFmpeg command: ${commandLine}`);
+            })
             .on('end', () => {
+                console.log(`   ✅ Concatenation complete: ${outputPath}`);
                 try { fs.unlinkSync(concatFile); } catch (e) { }
                 resolve();
             })
             .on('error', (err) => {
+                console.log(`   ❌ Concatenation failed: ${err.message}`);
                 try { fs.unlinkSync(concatFile); } catch (e) { }
                 reject(err);
             })

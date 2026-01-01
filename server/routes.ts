@@ -1697,22 +1697,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Post video to X (using existing publish infrastructure)
   app.post("/api/video-post/publish", async (req, res) => {
     try {
-      const { videoPath, caption, destination } = req.body;
+      const { videoPath, caption, destination, shareCode } = req.body;
 
       if (!videoPath || !caption) {
         return res.status(400).json({ error: "videoPath and caption required" });
       }
 
+      console.log(`📤 Publishing video post: ${destination || 'Unknown'}`);
+
       // Use existing video publish function
       const { publishDraftWithVideo } = await import("./services/twitter_publisher");
       const result = await publishDraftWithVideo(videoPath, caption);
 
-      res.json({
-        success: true,
-        tweetId: result.tweetId,
-        destination,
-        message: "Video posted successfully!"
-      });
+      if (result.success && result.tweetId) {
+        // Save the post to database for tracking
+        await storage.createPost({
+          userId: "system",
+          content: caption,
+          platforms: ["twitter"],
+          status: "published",
+          publishedAt: new Date(),
+          platformData: {
+            twitter: {
+              url: `https://twitter.com/user/status/${result.tweetId}`,
+              tweetId: result.tweetId,
+              videoPost: true,
+              destination: destination,
+              shareCode: shareCode,
+              videoPath: videoPath
+            }
+          } as any
+        } as any);
+
+        console.log(`✅ Video post published and saved! Tweet ID: ${result.tweetId}`);
+
+        res.json({
+          success: true,
+          tweetId: result.tweetId,
+          destination,
+          tweetUrl: `https://twitter.com/user/status/${result.tweetId}`,
+          message: "Video posted successfully!"
+        });
+      } else {
+        throw new Error(result.error || "Failed to publish video");
+      }
     } catch (error) {
       console.error("Video publish failed:", error);
       res.status(500).json({

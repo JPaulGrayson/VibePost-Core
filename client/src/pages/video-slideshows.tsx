@@ -308,7 +308,8 @@ export default function VideoPosts() {
             const res = await apiRequest("POST", "/api/video-post/publish", {
                 videoPath: generatedVideo?.videoPath,
                 caption,
-                destination: effectiveDestination
+                destination: effectiveDestination,
+                shareCode: preview?.shareCode || generatedVideo?.shareCode
             });
             return res.json();
         },
@@ -736,55 +737,72 @@ export default function VideoPosts() {
                             Cancel
                         </Button>
 
-                        <Button
-                            onClick={async () => {
-                                if (!preview?.shareCode) {
-                                    toast({
-                                        variant: "destructive",
-                                        title: "Missing Share Code",
-                                        description: "Cannot post thread without a tour",
-                                    });
-                                    return;
-                                }
-                                setIsGenerating(true);
-                                try {
-                                    const res = await apiRequest("POST", "/api/thread-tour/post", {
-                                        destination: effectiveDestination,
-                                        shareCode: preview.shareCode,
-                                        maxStops: preview.stops.length,
-                                    });
-                                    const data = await res.json();
-                                    setIsGenerating(false);
-                                    if (data.success) {
+                        <div className="flex gap-2">
+                            {/* Generate Video Button */}
+                            <Button
+                                onClick={() => generateMutation.mutate()}
+                                disabled={isGenerating}
+                                variant="default"
+                            >
+                                {isGenerating ? (
+                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating Video...</>
+                                ) : (
+                                    <><Video className="mr-2 h-4 w-4" />Generate Video</>
+                                )}
+                            </Button>
+
+                            {/* Post Thread Button */}
+                            <Button
+                                onClick={async () => {
+                                    if (!preview?.shareCode) {
                                         toast({
-                                            title: "Thread Posted! 🧵",
-                                            description: `${data.tweets?.filter((t: any) => t.status === 'posted').length || 0} tweets posted to ${effectiveDestination}`,
+                                            variant: "destructive",
+                                            title: "Missing Share Code",
+                                            description: "Cannot post thread without a tour",
                                         });
-                                        setPreview(null);
-                                    } else {
+                                        return;
+                                    }
+                                    setIsGenerating(true);
+                                    try {
+                                        const res = await apiRequest("POST", "/api/thread-tour/post", {
+                                            destination: effectiveDestination,
+                                            shareCode: preview.shareCode,
+                                            maxStops: preview.stops.length,
+                                        });
+                                        const data = await res.json();
+                                        setIsGenerating(false);
+                                        if (data.success) {
+                                            toast({
+                                                title: "Thread Posted! 🧵",
+                                                description: `${data.tweets?.filter((t: any) => t.status === 'posted').length || 0} tweets posted to ${effectiveDestination}`,
+                                            });
+                                            setPreview(null);
+                                        } else {
+                                            toast({
+                                                variant: "destructive",
+                                                title: "Thread Failed",
+                                                description: data.error || "Unknown error",
+                                            });
+                                        }
+                                    } catch (error) {
+                                        setIsGenerating(false);
                                         toast({
                                             variant: "destructive",
                                             title: "Thread Failed",
-                                            description: data.error || "Unknown error",
+                                            description: String(error),
                                         });
                                     }
-                                } catch (error) {
-                                    setIsGenerating(false);
-                                    toast({
-                                        variant: "destructive",
-                                        title: "Thread Failed",
-                                        description: String(error),
-                                    });
-                                }
-                            }}
-                            disabled={isGenerating}
-                        >
-                            {isGenerating ? (
-                                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Posting Thread...</>
-                            ) : (
-                                <><ArrowRight className="mr-2 h-4 w-4" />Post Thread (7 tweets)</>
-                            )}
-                        </Button>
+                                }}
+                                disabled={isGenerating}
+                                variant="secondary"
+                            >
+                                {isGenerating ? (
+                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Posting Thread...</>
+                                ) : (
+                                    <><ArrowRight className="mr-2 h-4 w-4" />Post Thread ({preview.stops.length} tweets)</>
+                                )}
+                            </Button>
+                        </div>
                     </CardFooter>
                 </Card>
             )}
