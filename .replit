@@ -15,3 +15,6 @@ ignorePorts = false
 [[deployment.ports]]
 localPort = 5002
 externalPort = 80
+
+[nix]
+channel = "stable-25_05"
