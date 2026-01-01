@@ -120,6 +120,7 @@ export default function VideoPosts() {
     // Video state
     const [generatedVideo, setGeneratedVideo] = useState<VideoPostResult | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isPostingThread, setIsPostingThread] = useState(false);
 
     // Caption state
     const [caption, setCaption] = useState("");
@@ -741,7 +742,7 @@ export default function VideoPosts() {
                             {/* Generate Video Button */}
                             <Button
                                 onClick={() => generateMutation.mutate()}
-                                disabled={isGenerating}
+                                disabled={isGenerating || isPostingThread}
                                 variant="default"
                             >
                                 {isGenerating ? (
@@ -762,7 +763,7 @@ export default function VideoPosts() {
                                         });
                                         return;
                                     }
-                                    setIsGenerating(true);
+                                    setIsPostingThread(true);
                                     try {
                                         const res = await apiRequest("POST", "/api/thread-tour/post", {
                                             destination: effectiveDestination,
@@ -770,7 +771,7 @@ export default function VideoPosts() {
                                             maxStops: preview.stops.length,
                                         });
                                         const data = await res.json();
-                                        setIsGenerating(false);
+                                        setIsPostingThread(false);
                                         if (data.success) {
                                             toast({
                                                 title: "Thread Posted! 🧵",
@@ -785,7 +786,7 @@ export default function VideoPosts() {
                                             });
                                         }
                                     } catch (error) {
-                                        setIsGenerating(false);
+                                        setIsPostingThread(false);
                                         toast({
                                             variant: "destructive",
                                             title: "Thread Failed",
@@ -793,10 +794,10 @@ export default function VideoPosts() {
                                         });
                                     }
                                 }}
-                                disabled={isGenerating}
+                                disabled={isPostingThread || isGenerating}
                                 variant="secondary"
                             >
-                                {isGenerating ? (
+                                {isPostingThread ? (
                                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Posting Thread...</>
                                 ) : (
                                     <><ArrowRight className="mr-2 h-4 w-4" />Post Thread ({preview.stops.length} tweets)</>
