@@ -1056,7 +1056,118 @@ Write ONLY the caption:`;
 }
 
 /**
- * Post a Twitter thread using the exact preview stops (same content as video)
+ * Generate a short video clip for a single stop (images + audio)
+ */
+async function generateStopVideo(
+    stop: VideoPostStop,
+    stopIndex: number,
+    destination: string
+): Promise<string | null> {
+    const stopAny = stop as any;
+    
+    // Get images for this stop
+    let imageUrls: string[] = [];
+    if (stopAny.imageUrls && Array.isArray(stopAny.imageUrls) && stopAny.imageUrls.length > 0) {
+        imageUrls = stopAny.imageUrls.slice(0, 4);
+    } else if (stopAny.images && Array.isArray(stopAny.images) && stopAny.images.length > 0) {
+        imageUrls = stopAny.images.slice(0, 4);
+    } else if (stopAny.imageUrl) {
+        imageUrls = [stopAny.imageUrl];
+    }
+    
+    if (imageUrls.length === 0) {
+        console.log(`   ⚠️ No images for stop ${stopIndex + 1}`);
+        return null;
+    }
+    
+    // Download images
+    const imagePaths: string[] = [];
+    for (let j = 0; j < imageUrls.length; j++) {
+        const url = imageUrls[j];
+        const localPath = path.join(TEMP_DIR, `thread_stop_${stopIndex}_img_${j}_${Date.now()}.jpg`);
+        try {
+            const absoluteUrl = makeAbsoluteUrl(url);
+            await downloadFile(absoluteUrl, localPath);
+            if (fs.existsSync(localPath) && fs.statSync(localPath).size > 1000) {
+                imagePaths.push(localPath);
+            }
+        } catch (e) {
+            console.log(`   ⚠️ Failed to download image ${j}: ${e}`);
+        }
+    }
+    
+    if (imagePaths.length === 0) {
+        console.log(`   ⚠️ No images downloaded for stop ${stopIndex + 1}`);
+        return null;
+    }
+    
+    // Download audio if available
+    let audioPath: string | null = null;
+    let audioDuration = 8; // Default 8 seconds if no audio
+    
+    if (stop.audioUrl) {
+        const tempAudioPath = path.join(TEMP_DIR, `thread_audio_${stopIndex}_${Date.now()}.mp3`);
+        try {
+            if (stop.audioUrl.startsWith('data:audio/')) {
+                const matches = stop.audioUrl.match(/^data:audio\/[^;]+;base64,(.+)$/);
+                if (matches && matches[1]) {
+                    const buffer = Buffer.from(matches[1], 'base64');
+                    fs.writeFileSync(tempAudioPath, buffer);
+                    if (buffer.length > 1000) {
+                        audioPath = tempAudioPath;
+                        audioDuration = await getAudioDuration(tempAudioPath);
+                    }
+                }
+            } else {
+                await downloadFile(stop.audioUrl, tempAudioPath);
+                if (fs.existsSync(tempAudioPath) && fs.statSync(tempAudioPath).size > 1000) {
+                    audioPath = tempAudioPath;
+                    audioDuration = await getAudioDuration(tempAudioPath);
+                }
+            }
+        } catch (e) {
+            console.log(`   ⚠️ Failed to get audio for stop ${stopIndex + 1}: ${e}`);
+        }
+    }
+    
+    console.log(`   🎬 Stop ${stopIndex + 1}: ${imagePaths.length} images, ${audioDuration}s audio`);
+    
+    // Generate video for this stop
+    const outputPath = path.join(TEMP_DIR, `thread_video_${stopIndex}_${Date.now()}.mp4`);
+    
+    try {
+        // Calculate seconds per image based on audio duration
+        const secondsPerImage = audioDuration / imagePaths.length;
+        
+        // Build image list with timing
+        const imageList: Array<{ path: string; duration: number }> = imagePaths.map(p => ({
+            path: p,
+            duration: secondsPerImage
+        }));
+        
+        // Use existing segment creation function
+        await createSegmentWithAudio(imageList, audioPath, outputPath, audioDuration);
+        
+        // Cleanup temp files
+        imagePaths.forEach(p => { try { fs.unlinkSync(p); } catch (e) {} });
+        if (audioPath) { try { fs.unlinkSync(audioPath); } catch (e) {} }
+        
+        if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 10000) {
+            console.log(`   ✓ Video generated: ${outputPath}`);
+            return outputPath;
+        }
+    } catch (e) {
+        console.error(`   ❌ Video generation failed for stop ${stopIndex + 1}:`, e);
+        // Cleanup on error
+        imagePaths.forEach(p => { try { fs.unlinkSync(p); } catch (e) {} });
+        if (audioPath) { try { fs.unlinkSync(audioPath); } catch (e) {} }
+    }
+    
+    return null;
+}
+
+/**
+ * Post a Twitter thread with VIDEO clips for each stop (with audio narration)
  */
 export async function postThreadWithPreviewStops(
     destination: string,
@@ -1064,7 +1175,7 @@ export async function postThreadWithPreviewStops(
     shareCode?: string
 ): Promise<{ success: boolean; tweets?: any[]; error?: string }> {
     try {
-        console.log(`🧵 Posting thread for ${destination} with ${stops.length} preview stops`);
+        console.log(`🧵 Posting VIDEO thread for ${destination} with ${stops.length} stops`);
         
         // Import Twitter client and storage
         const { TwitterApi } = await import('twitter-api-v2');
@@ -1094,7 +1205,7 @@ export async function postThreadWithPreviewStops(
         let previousTweetId: string | undefined;
         
         // Post intro tweet
-        const introText = `🗺️ ${destination} Tour\n\nDiscover ${stops.length} amazing stops with AI audio narration!\n\n🎧 Listen & explore: turai.org${shareCode ? `?s=${shareCode}` : ''}\n\n🧵 Thread below...`;
+        const introText = `🗺️ ${destination} Tour\n\nDiscover ${stops.length} amazing stops with AI audio narration!\n\n🎧 Watch & listen below 👇\n\n🌐 Full tour: turai.org${shareCode ? `?s=${shareCode}` : ''}`;
         
         try {
             const introResult = await twitterClient.v2.tweet(introText);
@@ -1106,56 +1217,79 @@ export async function postThreadWithPreviewStops(
             return { success: false, error: `Failed to post intro: ${e}` };
         }
         
-        // Post each stop as a reply in the thread
+        // Post each stop as a video reply in the thread
         for (let i = 0; i < stops.length; i++) {
             const stop = stops[i];
             
             // Use the rich description from preview (same as video narration)
             const description = stop.description || stop.narrationText || `A beautiful stop in ${destination}`;
             
-            // Format the tweet text
-            const stopText = `📍 Stop ${i + 1}: ${stop.name}\n\n${description.substring(0, 200)}${description.length > 200 ? '...' : ''}\n\n${i + 1}/${stops.length}`;
+            // Format the tweet text (shorter since video has audio)
+            const stopText = `📍 Stop ${i + 1}: ${stop.name}\n\n${description.substring(0, 150)}${description.length > 150 ? '...' : ''}\n\n🔊 Turn on sound!`;
             
             try {
-                // Download images for this stop (up to 4 for Twitter)
-                // Support multiple field names: imageUrls, images, imageUrl
-                const stopAny = stop as any;
-                let imageUrls: string[] = [];
+                // Generate video for this stop
+                console.log(`   🎬 Generating video for stop ${i + 1}...`);
+                const videoPath = await generateStopVideo(stop, i, destination);
                 
-                if (stopAny.imageUrls && Array.isArray(stopAny.imageUrls) && stopAny.imageUrls.length > 0) {
-                    imageUrls = stopAny.imageUrls.slice(0, 4);
-                } else if (stopAny.images && Array.isArray(stopAny.images) && stopAny.images.length > 0) {
-                    imageUrls = stopAny.images.slice(0, 4);
-                } else if (stopAny.imageUrl) {
-                    imageUrls = [stopAny.imageUrl];
-                }
+                let mediaId: string | null = null;
                 
-                console.log(`   📷 Stop ${i + 1} has ${imageUrls.length} images to upload`);
-                const mediaIds: string[] = [];
-                
-                for (const imageUrl of imageUrls) {
+                if (videoPath && fs.existsSync(videoPath)) {
                     try {
-                        const absoluteUrl = makeAbsoluteUrl(imageUrl);
-                        const tempPath = path.join(TEMP_DIR, `thread_img_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`);
-                        await downloadFile(absoluteUrl, tempPath);
+                        // Upload video to Twitter (this takes longer than images)
+                        console.log(`   📤 Uploading video for stop ${i + 1}...`);
+                        mediaId = await twitterClient.v1.uploadMedia(videoPath, {
+                            mimeType: 'video/mp4',
+                            target: 'tweet'
+                        });
+                        console.log(`   ✓ Video uploaded: ${mediaId}`);
                         
-                        if (fs.existsSync(tempPath) && fs.statSync(tempPath).size > 1000) {
-                            const mediaId = await twitterClient.v1.uploadMedia(tempPath);
-                            mediaIds.push(mediaId);
-                            fs.unlinkSync(tempPath);
-                        }
-                    } catch (imgErr) {
-                        console.log(`   ⚠️ Failed to upload image: ${imgErr}`);
+                        // Cleanup video file
+                        try { fs.unlinkSync(videoPath); } catch (e) {}
+                    } catch (uploadErr) {
+                        console.log(`   ⚠️ Video upload failed, falling back to images: ${uploadErr}`);
+                        try { fs.unlinkSync(videoPath); } catch (e) {}
                     }
                 }
                 
-                // Post the tweet with images
+                // If video failed, fall back to images
+                if (!mediaId) {
+                    console.log(`   📷 Falling back to images for stop ${i + 1}`);
+                    const stopAny = stop as any;
+                    let imageUrls: string[] = [];
+                    
+                    if (stopAny.imageUrls && Array.isArray(stopAny.imageUrls)) {
+                        imageUrls = stopAny.imageUrls.slice(0, 4);
+                    } else if (stopAny.images && Array.isArray(stopAny.images)) {
+                        imageUrls = stopAny.images.slice(0, 4);
+                    } else if (stopAny.imageUrl) {
+                        imageUrls = [stopAny.imageUrl];
+                    }
+                    
+                    for (const imageUrl of imageUrls) {
+                        try {
+                            const absoluteUrl = makeAbsoluteUrl(imageUrl);
+                            const tempPath = path.join(TEMP_DIR, `thread_img_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`);
+                            await downloadFile(absoluteUrl, tempPath);
+                            
+                            if (fs.existsSync(tempPath) && fs.statSync(tempPath).size > 1000) {
+                                mediaId = await twitterClient.v1.uploadMedia(tempPath);
+                                fs.unlinkSync(tempPath);
+                                break; // Just use first image as fallback
+                            }
+                        } catch (imgErr) {
+                            console.log(`   ⚠️ Image fallback failed: ${imgErr}`);
+                        }
+                    }
+                }
+                
+                // Post the tweet with video/image
                 const tweetOptions: any = {
                     reply: { in_reply_to_tweet_id: previousTweetId }
                 };
                 
-                if (mediaIds.length > 0) {
-                    tweetOptions.media = { media_ids: mediaIds };
+                if (mediaId) {
+                    tweetOptions.media = { media_ids: [mediaId] };
                 }
                 
                 const tweetResult = await twitterClient.v2.tweet(stopText, tweetOptions);
@@ -1165,12 +1299,12 @@ export async function postThreadWithPreviewStops(
                     status: 'posted', 
                     tweetId: previousTweetId, 
                     text: stopText,
-                    imageCount: mediaIds.length
+                    hasVideo: !!mediaId
                 });
-                console.log(`   ✓ Stop ${i + 1} posted: ${previousTweetId} (${mediaIds.length} images)`);
+                console.log(`   ✓ Stop ${i + 1} posted: ${previousTweetId}`);
                 
-                // Small delay between tweets to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // Longer delay between tweets (video processing)
+                await new Promise(resolve => setTimeout(resolve, 2000));
                 
             } catch (tweetErr) {
                 console.error(`Failed to post stop ${i + 1}:`, tweetErr);
@@ -1191,7 +1325,8 @@ export async function postThreadWithPreviewStops(
         }
         
         const postedCount = tweets.filter(t => t.status === 'posted').length;
-        console.log(`🧵 Thread complete: ${postedCount}/${tweets.length} tweets posted`);
+        const videoCount = tweets.filter(t => t.hasVideo).length;
+        console.log(`🧵 Thread complete: ${postedCount}/${tweets.length} tweets posted (${videoCount} with videos)`);
         
         return { 
             success: postedCount > 0, 
