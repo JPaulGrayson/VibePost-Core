@@ -1118,7 +1118,19 @@ export async function postThreadWithPreviewStops(
             
             try {
                 // Download images for this stop (up to 4 for Twitter)
-                const imageUrls = stop.imageUrls?.slice(0, 4) || (stop.imageUrl ? [stop.imageUrl] : []);
+                // Support multiple field names: imageUrls, images, imageUrl
+                const stopAny = stop as any;
+                let imageUrls: string[] = [];
+                
+                if (stopAny.imageUrls && Array.isArray(stopAny.imageUrls) && stopAny.imageUrls.length > 0) {
+                    imageUrls = stopAny.imageUrls.slice(0, 4);
+                } else if (stopAny.images && Array.isArray(stopAny.images) && stopAny.images.length > 0) {
+                    imageUrls = stopAny.images.slice(0, 4);
+                } else if (stopAny.imageUrl) {
+                    imageUrls = [stopAny.imageUrl];
+                }
+                
+                console.log(`   📷 Stop ${i + 1} has ${imageUrls.length} images to upload`);
                 const mediaIds: string[] = [];
                 
                 for (const imageUrl of imageUrls) {
