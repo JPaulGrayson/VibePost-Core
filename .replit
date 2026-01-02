@@ -9,7 +9,7 @@ externalPort = 80
 [deployment]
 build = "npm install && npm run build"
 run = "npm run start"
-deploymentTarget = "cloudrun"
+deploymentTarget = "gce"
 ignorePorts = false
 
 [[deployment.ports]]
