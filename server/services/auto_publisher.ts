@@ -1,6 +1,6 @@
 /**
  * Auto Publisher Service
- * Automatically publishes high-quality leads (score 85+) with rate limiting
+ * Automatically publishes high-quality leads (score 95+) with rate limiting
  */
 
 import { storage } from "../storage";
@@ -9,7 +9,7 @@ import { generateReplyVideo, generatePersonalizedReplyText } from "./reply_video
 import { dmFollowUpService } from "./dm_follow_up";
 
 // Configuration
-const AUTO_PUBLISH_THRESHOLD = 85; // Only auto-publish 85+ scored leads (increased aggressiveness)
+const AUTO_PUBLISH_THRESHOLD = 95; // Only auto-publish 95+ scored leads (~60% API cost savings)
 const MAX_DAILY_AUTO_POSTS = 200;   // Increased from 144 for more aggressive posting
 const MIN_INTERVAL_MINUTES = 7;     // Slightly faster posting
 

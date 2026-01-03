@@ -2520,11 +2520,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/postcard-drafts", async (req, res) => {
     try {
       const drafts = await storage.getPostcardDrafts();
-      // Filter for high-quality pending drafts (score >= 80)
+      // Filter for high-quality pending drafts (score >= 95)
       // Lower quality leads are auto-discarded, premium leads are shown or auto-published
       const pendingDrafts = drafts.filter(d =>
         (d.status === "pending_review" || d.status === "pending_retry") &&
-        (d.score || 0) >= 80
+        (d.score || 0) >= 95
       );
       res.json(pendingDrafts);
     } catch (error) {
