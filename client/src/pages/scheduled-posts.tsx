@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Clock, Edit2, Trash2, Play, Pause } from "lucide-react";
+import { Calendar, Clock, Edit2, Trash2, Play, Pause, Plane, Code2 } from "lucide-react";
 import { Twitter, MessageSquare } from "lucide-react";
 import { SiDiscord, SiReddit } from "react-icons/si";
 import type { Post } from "@shared/schema";
@@ -13,11 +13,40 @@ import { format, isAfter, isBefore, addDays } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+// Helper to detect campaign type from post content/data
+function getCampaignType(post: Post): 'turai' | 'logigo' | 'unknown' {
+  const platformData = post.platformData as Record<string, any> | null | undefined;
+  
+  if (platformData) {
+    for (const platform of Object.keys(platformData)) {
+      const campaignValue = platformData[platform]?.campaign;
+      if (campaignValue) {
+        const normalized = String(campaignValue).toLowerCase();
+        if (normalized === 'turai') return 'turai';
+        if (normalized === 'logigo') return 'logigo';
+      }
+    }
+  }
+  
+  const content = (post.content || '').toLowerCase();
+  const turaiKeywords = ['travel', 'destination', 'tour', 'mystical', 'crystal ball', 'paris', 'london', 'tokyo', 'rome', 'barcelona', 'spirit', 'magic', 'wander', 'postcard'];
+  const logigoKeywords = ['code', 'debugging', 'vibe coding', 'logigo', 'flowchart', 'founder account', 'visualiz', 'diagram', 'agent', 'cursor', 'claude'];
+  
+  const hasTuraiKeyword = turaiKeywords.some(kw => content.includes(kw));
+  const hasLogigoKeyword = logigoKeywords.some(kw => content.includes(kw));
+  
+  if (hasLogigoKeyword && !hasTuraiKeyword) return 'logigo';
+  if (hasTuraiKeyword) return 'turai';
+  
+  return 'turai';
+}
+
 export default function ScheduledPosts() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [timeFilter, setTimeFilter] = useState("all");
+  const [campaignFilter, setCampaignFilter] = useState("all");
 
   const { data: allPosts = [], isLoading } = useQuery<Post[]>({
     queryKey: ["/api/posts"],
@@ -88,9 +117,18 @@ export default function ScheduledPosts() {
     return `${minutes}m`;
   };
 
+  // Campaign counts
+  const turaiCount = scheduledPosts.filter(p => getCampaignType(p) === 'turai').length;
+  const logigoCount = scheduledPosts.filter(p => getCampaignType(p) === 'logigo').length;
+
   const filteredPosts = scheduledPosts.filter(post => {
     const matchesSearch = post.content.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Campaign filter
+    const campaign = getCampaignType(post);
+    const matchesCampaign = campaignFilter === "all" || campaign === campaignFilter;
 
+    if (!matchesCampaign) return false;
     if (timeFilter === "all") return matchesSearch;
 
     if (!post.scheduledAt) return false;
@@ -158,7 +196,19 @@ export default function ScheduledPosts() {
                   />
                 </div>
                 <div className="sm:w-48">
-                  <Select value={timeFilter} onValueChange={setTimeFilter}>
+                  <Select value={campaignFilter} onValueChange={setCampaignFilter} data-testid="select-campaign-filter">
+                    <SelectTrigger>
+                      <SelectValue placeholder="Filter by campaign" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Campaigns ({scheduledPosts.length})</SelectItem>
+                      <SelectItem value="turai">Turai ({turaiCount})</SelectItem>
+                      <SelectItem value="logigo">LogiGo ({logigoCount})</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="sm:w-48">
+                  <Select value={timeFilter} onValueChange={setTimeFilter} data-testid="select-time-filter">
                     <SelectTrigger>
                       <SelectValue placeholder="Filter by time" />
                     </SelectTrigger>
@@ -191,13 +241,25 @@ export default function ScheduledPosts() {
             ) : (
               filteredPosts.map((post) => {
                 const isOverdue = post.scheduledAt && isBefore(new Date(post.scheduledAt), new Date());
+                const campaign = getCampaignType(post);
+                const campaignStyles = {
+                  turai: { border: 'border-l-4 border-l-blue-500', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300', icon: Plane },
+                  logigo: { border: 'border-l-4 border-l-purple-500', badge: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300', icon: Code2 },
+                  unknown: { border: 'border-l-4 border-l-gray-400', badge: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300', icon: null }
+                };
+                const style = campaignStyles[campaign];
+                const CampaignIcon = style.icon;
 
                 return (
-                  <Card key={post.id} className={isOverdue ? "border-red-200 bg-red-50" : ""}>
+                  <Card key={post.id} className={`${style.border} ${isOverdue ? "border-red-200 bg-red-50 dark:bg-red-950" : ""}`} data-testid={`card-scheduled-${post.id}`}>
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-2">
+                            <Badge className={style.badge} data-testid={`badge-campaign-${post.id}`}>
+                              {CampaignIcon && <CampaignIcon className="h-3 w-3 mr-1" />}
+                              {campaign === 'turai' ? 'Turai' : campaign === 'logigo' ? 'LogiGo' : 'Other'}
+                            </Badge>
                             <Badge className={isOverdue ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}>
                               {isOverdue ? "Overdue" : "Scheduled"}
                             </Badge>

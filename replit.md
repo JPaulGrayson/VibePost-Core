@@ -181,6 +181,7 @@ Changelog:
 - January 3, 2026. ENHANCED: Post History now has campaign filter (All/Turai/LogiGo) with counts
 - January 3, 2026. VISUAL: Post cards show campaign badges with icons and colored left borders
 - January 3, 2026. DATA: Auto-publisher now stores campaign type in platformData for future posts
+- January 3, 2026. ENHANCED: Scheduled Posts page now has campaign filter (All/Turai/LogiGo) with visual badges
 ```
 
 ## User Preferences
