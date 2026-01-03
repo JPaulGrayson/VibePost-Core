@@ -178,6 +178,9 @@ Changelog:
 - January 3, 2026. FIXED: LogiGo image generation now uses simpler abstract prompts (no complex diagrams)
 - January 3, 2026. IMPROVED: Added exponential backoff for Pollinations rate limits (1 req/15s for anon users)
 - January 3, 2026. IMPROVED: LogiGo fallback now uses Unsplash tech image instead of text placeholder
+- January 3, 2026. ENHANCED: Post History now has campaign filter (All/Turai/LogiGo) with counts
+- January 3, 2026. VISUAL: Post cards show campaign badges with icons and colored left borders
+- January 3, 2026. DATA: Auto-publisher now stores campaign type in platformData for future posts
 ```
 
 ## User Preferences
