@@ -187,6 +187,7 @@ Changelog:
 - January 3, 2026. FIXED: Thread tour narration matching now sorts by poiIndex and falls back to sequential (fixes missing stops)
 - January 3, 2026. FIXED: Thread tour intro/CTA tweets now include required campaignType and replyTweetId fields
 - January 3, 2026. OPTIMIZED: Raised minimum score threshold from 80/85 to 95 - filters ~60% of leads to save Gemini API costs
+- January 3, 2026. FIXED: Video preview timeout for large tours - capped wait to 35s to stay under HTTP limits
 ```
 
 ## User Preferences

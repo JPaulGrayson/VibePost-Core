@@ -148,7 +148,7 @@ async function generateTour(options: VideoPostOptions): Promise<{ success: boole
                 focus: topic,
                 email: 'vibepost@turai.app'
             })
-        }, 60000); // 60 second timeout for tour generation
+        }, 20000); // 20 second timeout - tour creation is usually fast, narrations take longer
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -172,24 +172,28 @@ async function generateTour(options: VideoPostOptions): Promise<{ success: boole
 
 /**
  * Wait for tour narrations to be ready
- * For larger tours (7+ stops), uses a longer timeout and returns partial results faster
+ * Returns partial results quickly for deployed apps (HTTP timeout ~60s)
+ * For preview: returns as soon as we have 1+ narrations
+ * For generate: caller can specify higher minNarrations
  */
 async function waitForNarrations(shareCode: string, minNarrations: number = 3, timeoutMs?: number): Promise<any | null> {
-    // Dynamic timeout: 30 seconds per narration, minimum 60s, max 300s (5 min)
-    const calculatedTimeout = Math.max(60000, Math.min(300000, minNarrations * 30000));
-    const actualTimeout = timeoutMs ?? calculatedTimeout;
+    // Cap timeout at 35s to stay under HTTP request limits (60s) with room for tour generation
+    // This ensures preview always returns before HTTP timeout
+    const maxSafeTimeout = 35000;
+    const calculatedTimeout = timeoutMs ?? maxSafeTimeout;
+    const actualTimeout = Math.min(calculatedTimeout, maxSafeTimeout);
     
     const startTime = Date.now();
-    const pollInterval = 5000;
+    const pollInterval = 4000; // Faster polling (4s instead of 5s)
     let lastCount = 0;
     let stableCount = 0;
     let bestData: any = null;
 
-    console.log(`⏳ Waiting for ${minNarrations}+ narrations (timeout: ${actualTimeout/1000}s)...`);
+    console.log(`⏳ Waiting for narrations (timeout: ${actualTimeout/1000}s, target: ${minNarrations})...`);
 
     while (Date.now() - startTime < actualTimeout) {
         try {
-            const response = await fetchWithTimeout(`${TURAI_API_URL}/api/slideshows/${shareCode}`, {}, 15000);
+            const response = await fetchWithTimeout(`${TURAI_API_URL}/api/slideshows/${shareCode}`, {}, 10000);
 
             if (response.ok) {
                 const data = await response.json();
@@ -201,17 +205,19 @@ async function waitForNarrations(shareCode: string, minNarrations: number = 3, t
                     bestData = slideshowData;
                 }
 
+                // Got all requested narrations - return immediately
                 if (narrations.length >= minNarrations) {
                     console.log(`   ✅ ${narrations.length} narrations ready`);
                     return slideshowData;
                 }
 
+                // Check for stability (no new narrations)
                 if (narrations.length === lastCount && narrations.length > 0) {
                     stableCount++;
-                    // Only return partial if stable for 8 polls (40 seconds) AND we have at least 3 narrations
-                    // This ensures we wait longer for videos to reach target length
-                    if (stableCount >= 8 && narrations.length >= 3) {
-                        console.log(`   ⚠️ ${narrations.length} narrations (stable after 40s - returning partial)`);
+                    // Return partial if stable for 3 polls (12 seconds) AND we have at least 1 narration
+                    // This ensures preview returns quickly with whatever is ready
+                    if (stableCount >= 3 && narrations.length >= 1) {
+                        console.log(`   ⚠️ ${narrations.length} narrations (stable - returning partial)`);
                         return slideshowData;
                     }
                 } else {
@@ -223,21 +229,14 @@ async function waitForNarrations(shareCode: string, minNarrations: number = 3, t
             }
         } catch (e: any) {
             console.log(`   ⚠️ Poll error: ${e.message || 'Unknown'}`);
-            // Continue waiting but don't lose bestData
         }
 
         await new Promise(r => setTimeout(r, pollInterval));
     }
 
-    // Timeout reached - return best data if we have at least 3 narrations for a usable video
-    if (bestData && (bestData.narrations?.length || 0) >= 3) {
-        console.log(`   ⏰ Timeout - returning ${bestData.narrations.length} narrations (partial but usable)`);
-        return bestData;
-    }
-    
-    // Return even with fewer narrations if that's all we have (better than nothing)
+    // Timeout reached - return whatever we have (even 1 narration is usable for preview)
     if (bestData && (bestData.narrations?.length || 0) >= 1) {
-        console.log(`   ⏰ Timeout - returning ${bestData.narrations.length} narrations (minimal)`);
+        console.log(`   ⏰ Timeout - returning ${bestData.narrations.length} narrations (partial)`);
         return bestData;
     }
 
