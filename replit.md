@@ -169,6 +169,10 @@ Changelog:
 - January 3, 2026. IMPROVED: Queue now lazy-loads on demand (instant page load)
 - January 3, 2026. ADDED: Campaign filter buttons in queue (All/Turai/LogiGo with counts)
 - January 3, 2026. VISUAL: Draft cards now show campaign badge and colored left border (blue=Turai, purple=LogiGo)
+- January 3, 2026. FIXED: Video preview generation timeouts - added dynamic timeout based on number of stops
+- January 3, 2026. IMPROVED: Added fetchWithTimeout utility to prevent hanging API requests
+- January 3, 2026. ENHANCED: Preview now returns partial data if timeout reached (instead of failing completely)
+- January 3, 2026. ADDED: Comment tracking system for published Twitter replies with "Published & Comments" view
 ```
 
 ## User Preferences
