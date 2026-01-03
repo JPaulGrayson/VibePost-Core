@@ -2516,6 +2516,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get published drafts (for viewing comments)
+  app.get("/api/postcard-drafts/published", async (req, res) => {
+    try {
+      const drafts = await storage.getPostcardDrafts();
+      const publishedDrafts = drafts.filter(d => d.status === "published");
+      // Sort by most recently published
+      publishedDrafts.sort((a, b) => {
+        const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+        const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+        return dateB - dateA;
+      });
+      res.json(publishedDrafts);
+    } catch (error) {
+      console.error("Error fetching published drafts:", error);
+      res.status(500).json({ message: "Failed to fetch published drafts" });
+    }
+  });
+
   app.post("/api/postcard-drafts/:id/approve", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -2543,6 +2561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updatePostcardDraft(id, {
           status: "published",
           publishedAt: new Date(),
+          replyTweetId: result.tweetId, // Store our reply tweet ID for comment tracking
         });
 
         // Create a record in the main posts table for history
@@ -2646,6 +2665,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error regenerating image:", error);
       res.status(500).json({ message: "Failed to regenerate image" });
+    }
+  });
+
+  // Comment Tracking Endpoints
+  app.get("/api/postcard-drafts/:id/comments", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { commentTracker } = await import("./services/comment_tracker");
+      const comments = await commentTracker.getCommentsForDraft(id);
+      res.json(comments);
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+      res.status(500).json({ message: "Failed to fetch comments" });
+    }
+  });
+
+  app.post("/api/comments/poll", async (req, res) => {
+    try {
+      const { commentTracker } = await import("./services/comment_tracker");
+      const result = await commentTracker.pollForComments();
+      res.json({ message: "Comment poll complete", ...result });
+    } catch (error) {
+      console.error("Error polling for comments:", error);
+      res.status(500).json({ message: "Failed to poll for comments" });
+    }
+  });
+
+  app.get("/api/postcard-drafts/:id/fetch-replies", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const draft = await storage.getPostcardDraft(id);
+      if (!draft) {
+        return res.status(404).json({ message: "Draft not found" });
+      }
+      if (!draft.originalTweetId) {
+        return res.status(400).json({ message: "Draft has no original tweet ID" });
+      }
+      
+      const { commentTracker } = await import("./services/comment_tracker");
+      const comments = await commentTracker.fetchRepliesForTweet(draft.originalTweetId);
+      res.json({ comments, count: comments.length });
+    } catch (error) {
+      console.error("Error fetching replies:", error);
+      res.status(500).json({ message: "Failed to fetch replies" });
     }
   });
 

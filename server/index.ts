@@ -101,6 +101,14 @@ import { twitterListener } from "./services/twitter_listener";
     console.error("Failed to start Auto-Publisher:", error);
   }
 
+  // Start Comment Tracker (Fetches replies to our posts)
+  try {
+    const { commentTracker } = await import("./services/comment_tracker");
+    commentTracker.startCommentTracker();
+  } catch (error) {
+    console.error("Failed to start Comment Tracker:", error);
+  }
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

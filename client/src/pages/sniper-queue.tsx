@@ -1,15 +1,17 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { PostcardDraft } from "@shared/schema";
-import { RefreshCw, Plane, Code2 } from "lucide-react";
+import type { PostcardDraft, PostComment } from "@shared/schema";
+import { RefreshCw, Plane, Code2, MessageCircle, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 interface CampaignConfig {
     id: string;
@@ -41,11 +43,18 @@ interface CampaignResponse {
 
 export default function SniperQueue() {
     const [queueEnabled, setQueueEnabled] = useState(false);
+    const [viewMode, setViewMode] = useState<"pending" | "published">("pending");
     
     const { data: drafts, isLoading, refetch: refetchDrafts } = useQuery<PostcardDraft[]>({
         queryKey: ["/api/postcard-drafts"],
         enabled: queueEnabled, // Only fetch when user enables it
         refetchInterval: queueEnabled ? 30000 : false // Poll only when enabled
+    });
+
+    // Fetch published drafts for the Published tab
+    const { data: publishedDrafts, isLoading: isLoadingPublished } = useQuery<PostcardDraft[]>({
+        queryKey: ["/api/postcard-drafts/published"],
+        enabled: viewMode === "published",
     });
 
     // Fetch current campaign state
@@ -237,8 +246,27 @@ export default function SniperQueue() {
                 )}
             </div>
 
-            {/* Queue Filter */}
-            {queueEnabled && (
+            {/* View Mode Toggle */}
+            <div className="mb-6 flex gap-2">
+                <Button
+                    variant={viewMode === "pending" ? "default" : "outline"}
+                    onClick={() => setViewMode("pending")}
+                    data-testid="view-pending"
+                >
+                    📋 Pending Queue
+                </Button>
+                <Button
+                    variant={viewMode === "published" ? "default" : "outline"}
+                    onClick={() => setViewMode("published")}
+                    data-testid="view-published"
+                >
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    Published & Comments
+                </Button>
+            </div>
+
+            {/* Queue Filter - Only show in pending view */}
+            {viewMode === "pending" && queueEnabled && (
                 <div className="mb-4 flex gap-2 items-center">
                     <span className="text-sm text-muted-foreground mr-2">Filter:</span>
                     <Button
@@ -267,68 +295,97 @@ export default function SniperQueue() {
                 </div>
             )}
 
-            <div className="mb-6 flex gap-4">
-                <Input
-                    placeholder="Search by username, text, or location..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="max-w-md"
-                />
-                <Button
-                    variant="outline"
-                    onClick={() => manualHunt.mutate()}
-                    disabled={manualHunt.isPending}
-                >
-                    {manualHunt.isPending ? (
-                        <>
-                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                            Hunting...
-                        </>
-                    ) : (
-                        <>
-                            <RefreshCw className="mr-2 h-4 w-4" />
-                            Manual Hunt ({activeCampaign === 'logigo' ? '🧠' : '✈️'})
-                        </>
-                    )}
-                </Button>
-                <Button
-                    variant="destructive"
-                    onClick={() => {
-                        if (confirm("Are you sure you want to wipe ALL drafts? This cannot be undone.")) {
-                            wipeDb.mutate();
-                        }
-                    }}
-                    disabled={wipeDb.isPending}
-                >
-                    {wipeDb.isPending ? "Wiping..." : "Wipe DB"}
-                </Button>
-            </div>
-
-            <div className="grid gap-6">
-                {!queueEnabled ? (
-                    <div className="text-center py-12 border border-dashed rounded-lg">
-                        <p className="text-muted-foreground mb-4">Queue not loaded. Click below to load drafts.</p>
-                        <Button 
-                            onClick={() => setQueueEnabled(true)}
-                            data-testid="load-queue-btn"
+            {/* Pending Queue View */}
+            {viewMode === "pending" && (
+                <>
+                    <div className="mb-6 flex gap-4">
+                        <Input
+                            placeholder="Search by username, text, or location..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="max-w-md"
+                        />
+                        <Button
+                            variant="outline"
+                            onClick={() => manualHunt.mutate()}
+                            disabled={manualHunt.isPending}
                         >
-                            Load Queue
+                            {manualHunt.isPending ? (
+                                <>
+                                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                    Hunting...
+                                </>
+                            ) : (
+                                <>
+                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                    Manual Hunt ({activeCampaign === 'logigo' ? '🧠' : '✈️'})
+                                </>
+                            )}
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => {
+                                if (confirm("Are you sure you want to wipe ALL drafts? This cannot be undone.")) {
+                                    wipeDb.mutate();
+                                }
+                            }}
+                            disabled={wipeDb.isPending}
+                        >
+                            {wipeDb.isPending ? "Wiping..." : "Wipe DB"}
                         </Button>
                     </div>
-                ) : isLoading ? (
-                    <div className="text-center py-12">
-                        <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-                        <p className="text-muted-foreground">Loading drafts...</p>
+
+                    <div className="grid gap-6">
+                        {!queueEnabled ? (
+                            <div className="text-center py-12 border border-dashed rounded-lg">
+                                <p className="text-muted-foreground mb-4">Queue not loaded. Click below to load drafts.</p>
+                                <Button 
+                                    onClick={() => setQueueEnabled(true)}
+                                    data-testid="load-queue-btn"
+                                >
+                                    Load Queue
+                                </Button>
+                            </div>
+                        ) : isLoading ? (
+                            <div className="text-center py-12">
+                                <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+                                <p className="text-muted-foreground">Loading drafts...</p>
+                            </div>
+                        ) : (
+                            <>
+                                {filteredDrafts?.map((draft) => (
+                                    <DraftCard key={draft.id} draft={draft} />
+                                ))}
+                                {filteredDrafts?.length === 0 && <p>No drafts found matching your search.</p>}
+                            </>
+                        )}
                     </div>
-                ) : (
-                    <>
-                        {filteredDrafts?.map((draft) => (
-                            <DraftCard key={draft.id} draft={draft} />
-                        ))}
-                        {filteredDrafts?.length === 0 && <p>No drafts found matching your search.</p>}
-                    </>
-                )}
-            </div>
+                </>
+            )}
+
+            {/* Published View with Comments */}
+            {viewMode === "published" && (
+                <div className="grid gap-6">
+                    {isLoadingPublished ? (
+                        <div className="text-center py-12">
+                            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+                            <p className="text-muted-foreground">Loading published posts...</p>
+                        </div>
+                    ) : publishedDrafts?.length === 0 ? (
+                        <Card>
+                            <CardContent className="p-8 text-center">
+                                <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                                <h3 className="text-lg font-medium mb-2">No Published Posts Yet</h3>
+                                <p className="text-muted-foreground">Posts you approve will appear here with their comments.</p>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        publishedDrafts?.map((draft) => (
+                            <PublishedDraftCard key={draft.id} draft={draft} />
+                        ))
+                    )}
+                </div>
+            )}
         </div>
     );
 }
@@ -468,6 +525,156 @@ function DraftCard({ draft }: { draft: PostcardDraft }) {
                     {approve.isPending ? "Publishing..." : "Approve & Send 🚀"}
                 </Button>
             </CardFooter>
+        </Card>
+    );
+}
+
+// Published draft card with comments display
+function PublishedDraftCard({ draft }: { draft: PostcardDraft }) {
+    const { toast } = useToast();
+    
+    // Fetch comments for this draft
+    const { data: comments = [], isLoading: isLoadingComments, refetch: refetchComments } = useQuery<PostComment[]>({
+        queryKey: ["/api/postcard-drafts", draft.id, "comments"],
+        queryFn: async () => {
+            const res = await fetch(`/api/postcard-drafts/${draft.id}/comments`);
+            if (!res.ok) throw new Error("Failed to fetch comments");
+            return res.json();
+        }
+    });
+
+    // Mutation to fetch fresh replies from Twitter
+    const fetchReplies = useMutation({
+        mutationFn: async () => {
+            const res = await fetch(`/api/postcard-drafts/${draft.id}/fetch-replies`);
+            if (!res.ok) throw new Error("Failed to fetch replies");
+            return res.json();
+        },
+        onSuccess: (data) => {
+            refetchComments();
+            toast({
+                title: "Comments Updated",
+                description: `Found ${data.count} replies on Twitter.`,
+            });
+        },
+        onError: () => {
+            toast({
+                variant: "destructive",
+                title: "Failed to fetch replies",
+                description: "Check the console for details.",
+            });
+        }
+    });
+
+    const campaignType = (draft as any).campaignType || "turai";
+    const isLogigo = campaignType === "logigo";
+    const cardBorderClass = isLogigo ? "border-l-4 border-l-purple-500" : "border-l-4 border-l-blue-500";
+    const campaignBadge = isLogigo 
+        ? { emoji: "🧠", label: "LogiGo", className: "bg-purple-500/20 text-purple-400 border-purple-500/50" }
+        : { emoji: "✈️", label: "Turai", className: "bg-blue-500/20 text-blue-400 border-blue-500/50" };
+
+    return (
+        <Card className={cardBorderClass}>
+            <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={campaignBadge.className}>
+                            {campaignBadge.emoji} {campaignBadge.label}
+                        </Badge>
+                        <Badge variant="secondary">Published</Badge>
+                        <Badge variant="outline">@{draft.originalAuthorHandle}</Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <a
+                            href={`https://twitter.com/${draft.originalAuthorHandle}/status/${draft.originalTweetId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-500 hover:underline flex items-center gap-1"
+                        >
+                            <ExternalLink className="h-3 w-3" />
+                            View on X
+                        </a>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => fetchReplies.mutate()}
+                            disabled={fetchReplies.isPending}
+                        >
+                            {fetchReplies.isPending ? (
+                                <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <>
+                                    <RefreshCw className="h-4 w-4 mr-1" />
+                                    Fetch Comments
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                </div>
+                {draft.publishedAt && (
+                    <p className="text-xs text-muted-foreground">
+                        Published {format(new Date(draft.publishedAt), "MMM d, yyyy 'at' h:mm a")}
+                    </p>
+                )}
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground mb-4 border-l-2 pl-2">
+                    Original: "{draft.originalTweetText}"
+                </p>
+                <p className="text-sm mb-4">
+                    <strong>Our Reply:</strong> {draft.draftReplyText}
+                </p>
+
+                {/* Comments Section */}
+                <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="comments">
+                        <AccordionTrigger className="text-sm">
+                            <div className="flex items-center gap-2">
+                                <MessageCircle className="h-4 w-4" />
+                                Comments ({comments.length})
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                            {isLoadingComments ? (
+                                <p className="text-sm text-muted-foreground">Loading comments...</p>
+                            ) : comments.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    No comments found yet. Click "Fetch Comments" to check for new replies.
+                                </p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {comments.map((comment) => (
+                                        <div key={comment.id} className="p-3 bg-muted/50 rounded-lg">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <a
+                                                    href={`https://twitter.com/${comment.authorHandle}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-sm font-medium text-blue-500 hover:underline"
+                                                >
+                                                    @{comment.authorHandle}
+                                                </a>
+                                                {comment.metrics && (
+                                                    <div className="flex gap-2 text-xs text-muted-foreground">
+                                                        <span>❤️ {comment.metrics.likes || 0}</span>
+                                                        <span>💬 {comment.metrics.replies || 0}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p className="text-sm">{comment.content}</p>
+                                            {comment.createdAt && (
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    {format(new Date(comment.createdAt), "MMM d, h:mm a")}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+            </CardContent>
         </Card>
     );
 }
