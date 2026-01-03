@@ -116,6 +116,7 @@ export default function VideoPosts() {
     // Preview state
     const [preview, setPreview] = useState<VideoPostPreview | null>(null);
     const [isPreviewing, setIsPreviewing] = useState(false);
+    const [isRefreshingPreview, setIsRefreshingPreview] = useState(false);
 
     // Video state
     const [generatedVideo, setGeneratedVideo] = useState<VideoPostResult | null>(null);
@@ -391,6 +392,40 @@ export default function VideoPosts() {
         };
     };
 
+    // Manual refresh for preview data
+    const refreshPreview = async () => {
+        if (!preview?.shareCode) return;
+        
+        setIsRefreshingPreview(true);
+        try {
+            const res = await apiRequest("GET", `/api/video-post/preview/${preview.shareCode}?maxStops=${maxStops}`);
+            const refreshedPreview = await res.json();
+            
+            if (refreshedPreview.success) {
+                setPreview(refreshedPreview);
+                const stopsWithAudio = refreshedPreview.stops.filter((s: VideoPostStop) => s.audioUrl).length;
+                toast({
+                    title: "Preview Refreshed! 🔄",
+                    description: `${stopsWithAudio}/${refreshedPreview.stops.length} stops have audio ready`,
+                });
+            } else {
+                toast({
+                    variant: "destructive",
+                    title: "Refresh Failed",
+                    description: refreshedPreview.error || "Could not refresh preview",
+                });
+            }
+        } catch (error) {
+            toast({
+                variant: "destructive",
+                title: "Refresh Failed",
+                description: String(error),
+            });
+        } finally {
+            setIsRefreshingPreview(false);
+        }
+    };
+
     return (
         <div className="p-6 max-w-5xl mx-auto">
             <h1 className="text-2xl font-bold mb-2">📹 Video Posts</h1>
@@ -658,8 +693,18 @@ export default function VideoPosts() {
                             <Eye className="h-5 w-5" />
                             Step 2: Preview ({preview.stops.length} Stops)
                         </CardTitle>
-                        <CardDescription>
-                            Review the tour before generating video • ~{preview.estimatedDuration}s
+                        <CardDescription className="flex items-center gap-2">
+                            <span>Review the tour before generating video • ~{preview.estimatedDuration}s</span>
+                            {(() => {
+                                const stopsWithAudio = preview.stops.filter(s => s.audioUrl).length;
+                                const allReady = stopsWithAudio === preview.stops.length;
+                                return (
+                                    <Badge variant={allReady ? "default" : "secondary"} className="text-xs">
+                                        <Volume2 className="h-3 w-3 mr-1" />
+                                        {stopsWithAudio}/{preview.stops.length} audio ready
+                                    </Badge>
+                                );
+                            })()}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -733,10 +778,26 @@ export default function VideoPosts() {
                         </div>
                     </CardContent>
                     <CardFooter className="flex justify-between">
-                        <Button variant="outline" onClick={() => setPreview(null)}>
-                            <X className="mr-2 h-4 w-4" />
-                            Cancel
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={() => setPreview(null)}>
+                                <X className="mr-2 h-4 w-4" />
+                                Cancel
+                            </Button>
+                            
+                            {/* Refresh button to check for more narrations */}
+                            <Button 
+                                variant="outline" 
+                                onClick={refreshPreview}
+                                disabled={isRefreshingPreview || !preview?.shareCode}
+                                data-testid="button-refresh-preview"
+                            >
+                                {isRefreshingPreview ? (
+                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Refreshing...</>
+                                ) : (
+                                    <><RefreshCw className="mr-2 h-4 w-4" />Refresh</>
+                                )}
+                            </Button>
+                        </div>
 
                         <div className="flex gap-2">
                             {/* Generate Video Button */}
