@@ -196,7 +196,8 @@ class AutoPublisher {
                             tweetId: result.tweetId,
                             replyingTo: draft.originalAuthorHandle,
                             autoPublished: true,
-                            videoReply: videoResult.success // Track if it was a video reply
+                            videoReply: videoResult.success, // Track if it was a video reply
+                            campaign: draft.campaignType || 'turai' // Track which campaign this post belongs to
                         }
                     } as any
                 } as any);
