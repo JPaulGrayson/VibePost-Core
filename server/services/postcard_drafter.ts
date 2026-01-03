@@ -392,32 +392,60 @@ Answer (1-4 words only):` }]
         }
     }
 
-    // Generate a LogiGo-themed image (flowchart visualization style)
+    // Generate a LogiGo-themed image (abstract code aesthetic)
     async generateLogiGoImage(context: string): Promise<string> {
-        try {
-            // Use Pollinations AI to generate a code visualization themed image
-            const imagePrompt = `clean modern code flowchart diagram visualization, ${context}, dark theme IDE aesthetic, abstract geometric shapes and lines, glowing nodes, technology concept art, no text, no letters, no words, minimalist design`;
-            const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true`;
+        // Use a simpler abstract prompt that won't generate complex diagrams with text
+        // Pollinations rate limit: 1 request per 15 seconds for anonymous users
+        const simplePrompts = [
+            "abstract glowing blue purple gradient, technology particles, dark background, minimalist digital art",
+            "dark gradient background with subtle blue green glow, abstract digital aesthetic, no text",
+            "abstract neon lines and dots on dark background, futuristic minimal design, no words",
+            "dark blue gradient with floating light particles, clean tech aesthetic, abstract"
+        ];
+        
+        // Pick a random prompt for variety, but consistent per context using hash
+        const promptIndex = Math.abs(context.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % simplePrompts.length;
+        const imagePrompt = simplePrompts[promptIndex];
+        
+        // Use seed for caching and consistency
+        const seed = Math.abs(context.split('').reduce((a, b) => a + b.charCodeAt(0), 0) % 10000);
+        const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true&seed=${seed}&width=800&height=800`;
 
-            console.log("Generating LogiGo image via Pollinations...");
-            const response = await fetch(pollinationsUrl, {
-                method: 'GET',
-                signal: AbortSignal.timeout(45000)
-            });
+        // Try with exponential backoff (handles 429 rate limit)
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                console.log(`Generating LogiGo image via Pollinations (attempt ${attempt + 1})...`);
+                const response = await fetch(pollinationsUrl, {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(45000)
+                });
 
-            if (response.ok) {
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.startsWith('image/')) {
-                    console.log("LogiGo image generated successfully");
-                    return pollinationsUrl;
+                if (response.status === 429) {
+                    // Rate limited - wait and retry
+                    const waitTime = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+                    console.log(`Pollinations rate limited. Waiting ${waitTime/1000}s before retry...`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                    continue;
+                }
+
+                if (response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.startsWith('image/')) {
+                        console.log("LogiGo image generated successfully");
+                        return pollinationsUrl;
+                    }
+                }
+            } catch (error) {
+                console.error(`Error generating LogiGo image (attempt ${attempt + 1}):`, error);
+                if (attempt < 2) {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
                 }
             }
-        } catch (error) {
-            console.error("Error generating LogiGo image:", error);
         }
 
-        // Fallback: Generic code visualization placeholder
-        return `https://placehold.co/800x800/1a1a2e/00ff88?text=LogiGo+Visualization`;
+        // Fallback: Use Unsplash abstract tech image (no text, always looks professional)
+        console.log("Using Unsplash fallback for LogiGo image");
+        return `https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&h=800&fit=crop`;
     }
 
     // Extract coding theme (for categorization)

@@ -173,6 +173,11 @@ Changelog:
 - January 3, 2026. IMPROVED: Added fetchWithTimeout utility to prevent hanging API requests
 - January 3, 2026. ENHANCED: Preview now returns partial data if timeout reached (instead of failing completely)
 - January 3, 2026. ADDED: Comment tracking system for published Twitter replies with "Published & Comments" view
+- January 3, 2026. PAUSED: Sniper now starts PAUSED by default - must call /api/sniper/resume to enable
+- January 3, 2026. DELETED: Removed 19 LogiGo drafts with rate limit error images and placeholder text
+- January 3, 2026. FIXED: LogiGo image generation now uses simpler abstract prompts (no complex diagrams)
+- January 3, 2026. IMPROVED: Added exponential backoff for Pollinations rate limits (1 req/15s for anon users)
+- January 3, 2026. IMPROVED: LogiGo fallback now uses Unsplash tech image instead of text placeholder
 ```
 
 ## User Preferences
