@@ -44,6 +44,8 @@ interface CampaignResponse {
 export default function SniperQueue() {
     const [queueEnabled, setQueueEnabled] = useState(false);
     const [viewMode, setViewMode] = useState<"pending" | "published">("pending");
+    const [publishedDateFilter, setPublishedDateFilter] = useState<"today" | "7days" | "30days">("today");
+    const [publishedCampaignFilter, setPublishedCampaignFilter] = useState<"all" | "turai" | "logigo">("all");
     
     const { data: drafts, isLoading, refetch: refetchDrafts } = useQuery<PostcardDraft[]>({
         queryKey: ["/api/postcard-drafts"],
@@ -51,9 +53,17 @@ export default function SniperQueue() {
         refetchInterval: queueEnabled ? 30000 : false // Poll only when enabled
     });
 
-    // Fetch published drafts for the Published tab
+    // Fetch published drafts for the Published tab with filters
     const { data: publishedDrafts, isLoading: isLoadingPublished } = useQuery<PostcardDraft[]>({
-        queryKey: ["/api/postcard-drafts/published"],
+        queryKey: ["/api/postcard-drafts/published", publishedDateFilter, publishedCampaignFilter],
+        queryFn: async () => {
+            const params = new URLSearchParams();
+            params.set("days", publishedDateFilter === "today" ? "1" : publishedDateFilter === "7days" ? "7" : "30");
+            if (publishedCampaignFilter !== "all") params.set("campaign", publishedCampaignFilter);
+            const res = await fetch(`/api/postcard-drafts/published?${params}`);
+            if (!res.ok) throw new Error("Failed to fetch");
+            return res.json();
+        },
         enabled: viewMode === "published",
     });
 
@@ -365,7 +375,65 @@ export default function SniperQueue() {
 
             {/* Published View with Comments */}
             {viewMode === "published" && (
-                <div className="grid gap-6">
+                <div className="space-y-6">
+                    {/* Filters for Published View */}
+                    <div className="flex flex-wrap gap-4 items-center">
+                        <div className="flex gap-2 items-center">
+                            <span className="text-sm text-muted-foreground">Date:</span>
+                            <Button
+                                variant={publishedDateFilter === "today" ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setPublishedDateFilter("today")}
+                                data-testid="filter-today"
+                            >
+                                Today
+                            </Button>
+                            <Button
+                                variant={publishedDateFilter === "7days" ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setPublishedDateFilter("7days")}
+                                data-testid="filter-7days"
+                            >
+                                Last 7 Days
+                            </Button>
+                            <Button
+                                variant={publishedDateFilter === "30days" ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setPublishedDateFilter("30days")}
+                                data-testid="filter-30days"
+                            >
+                                Last 30 Days
+                            </Button>
+                        </div>
+                        <div className="flex gap-2 items-center">
+                            <span className="text-sm text-muted-foreground">Campaign:</span>
+                            <Button
+                                variant={publishedCampaignFilter === "all" ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setPublishedCampaignFilter("all")}
+                            >
+                                All
+                            </Button>
+                            <Button
+                                variant={publishedCampaignFilter === "turai" ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setPublishedCampaignFilter("turai")}
+                                className={publishedCampaignFilter === "turai" ? "" : "border-blue-500/50 text-blue-400"}
+                            >
+                                ✈️ Turai
+                            </Button>
+                            <Button
+                                variant={publishedCampaignFilter === "logigo" ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setPublishedCampaignFilter("logigo")}
+                                className={publishedCampaignFilter === "logigo" ? "" : "border-purple-500/50 text-purple-400"}
+                            >
+                                🧠 LogiGo
+                            </Button>
+                        </div>
+                    </div>
+                    
+                    <div className="grid gap-6">
                     {isLoadingPublished ? (
                         <div className="text-center py-12">
                             <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
@@ -384,6 +452,7 @@ export default function SniperQueue() {
                             <PublishedDraftCard key={draft.id} draft={draft} />
                         ))
                     )}
+                    </div>
                 </div>
             )}
         </div>
