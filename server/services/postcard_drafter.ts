@@ -217,7 +217,7 @@ export async function generateDraft(
             turaiImageUrl: imageUrl,
             imageAttribution: imageAttribution,
             score: score,
-            // Campaign type stored in a metadata field or we'll add a column later
+            campaignType: campaignType, // Track which campaign generated this draft
         });
         console.log(`✅ ${config.emoji} Draft saved for ${contextInfo} (Score: ${score})`);
         return true;

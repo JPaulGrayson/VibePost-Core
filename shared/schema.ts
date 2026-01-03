@@ -156,6 +156,9 @@ export const postcardDrafts = pgTable("postcard_drafts", {
   // Targeting
   targetCommunityId: text("target_community_id"), // Null = Main Timeline
 
+  // Campaign Type
+  campaignType: text("campaign_type").default("turai"), // 'turai' or 'logigo'
+
   // Metadata
   status: draftStatusEnum("status").default("pending_review").notNull(),
   score: integer("score").default(0), // AI Relevance Score (0-100)

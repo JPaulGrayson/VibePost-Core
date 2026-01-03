@@ -55,16 +55,27 @@ export default function SniperQueue() {
 
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState("");
+    const [campaignFilter, setCampaignFilter] = useState<"all" | "turai" | "logigo">("all");
     
     // Derive state from server data - don't initialize with defaults that may conflict
     const activeCampaign = campaignData?.currentCampaign || "turai";
     const activeStrategy = campaignData?.activeStrategy || "vibe_scout";
 
-    const filteredDrafts = drafts?.filter(draft =>
-        draft.originalAuthorHandle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        draft.originalTweetText.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (draft.detectedLocation && draft.detectedLocation.toLowerCase().includes(searchQuery.toLowerCase()))
-    ).sort((a, b) => (b.score || 0) - (a.score || 0)); // Sort by Score DESC
+    const filteredDrafts = drafts?.filter(draft => {
+        // Campaign filter
+        if (campaignFilter !== "all") {
+            const draftCampaign = (draft as any).campaignType || "turai";
+            if (draftCampaign !== campaignFilter) return false;
+        }
+        // Text search filter
+        return draft.originalAuthorHandle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            draft.originalTweetText.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (draft.detectedLocation && draft.detectedLocation.toLowerCase().includes(searchQuery.toLowerCase()));
+    }).sort((a, b) => (b.score || 0) - (a.score || 0)); // Sort by Score DESC
+    
+    // Count drafts by campaign type
+    const turaiCount = drafts?.filter(d => ((d as any).campaignType || "turai") === "turai").length || 0;
+    const logigoCount = drafts?.filter(d => (d as any).campaignType === "logigo").length || 0;
 
     // Switch campaign mutation
     const switchCampaign = useMutation({
@@ -226,6 +237,36 @@ export default function SniperQueue() {
                 )}
             </div>
 
+            {/* Queue Filter */}
+            {queueEnabled && (
+                <div className="mb-4 flex gap-2 items-center">
+                    <span className="text-sm text-muted-foreground mr-2">Filter:</span>
+                    <Button
+                        variant={campaignFilter === "all" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCampaignFilter("all")}
+                    >
+                        All ({turaiCount + logigoCount})
+                    </Button>
+                    <Button
+                        variant={campaignFilter === "turai" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCampaignFilter("turai")}
+                        className={campaignFilter === "turai" ? "" : "border-blue-500/50 text-blue-400"}
+                    >
+                        ✈️ Turai ({turaiCount})
+                    </Button>
+                    <Button
+                        variant={campaignFilter === "logigo" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCampaignFilter("logigo")}
+                        className={campaignFilter === "logigo" ? "" : "border-purple-500/50 text-purple-400"}
+                    >
+                        🧠 LogiGo ({logigoCount})
+                    </Button>
+                </div>
+            )}
+
             <div className="mb-6 flex gap-4">
                 <Input
                     placeholder="Search by username, text, or location..."
@@ -282,7 +323,7 @@ export default function SniperQueue() {
                 ) : (
                     <>
                         {filteredDrafts?.map((draft) => (
-                            <DraftCard key={draft.id} draft={draft} campaignType={activeCampaign} />
+                            <DraftCard key={draft.id} draft={draft} />
                         ))}
                         {filteredDrafts?.length === 0 && <p>No drafts found matching your search.</p>}
                     </>
@@ -292,10 +333,14 @@ export default function SniperQueue() {
     );
 }
 
-function DraftCard({ draft, campaignType = 'turai' }: { draft: PostcardDraft; campaignType?: string }) {
+function DraftCard({ draft }: { draft: PostcardDraft }) {
     const [text, setText] = useState(draft.draftReplyText || "");
     const score = draft.score || 0;
     const { toast } = useToast();
+    
+    // Get campaign type from draft (default to turai for old drafts)
+    const campaignType = (draft as any).campaignType || "turai";
+    const isLogigo = campaignType === "logigo";
 
     // Score Color Logic
     let scoreColor = "bg-gray-500";
@@ -343,13 +388,24 @@ function DraftCard({ draft, campaignType = 'turai' }: { draft: PostcardDraft; ca
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] })
     });
 
+    // Campaign-specific styling
+    const cardBorderClass = isLogigo 
+        ? "border-l-4 border-l-purple-500" 
+        : "border-l-4 border-l-blue-500";
+    const campaignBadge = isLogigo 
+        ? { emoji: "🧠", label: "LogiGo", className: "bg-purple-500/20 text-purple-400 border-purple-500/50" }
+        : { emoji: "✈️", label: "Turai", className: "bg-blue-500/20 text-blue-400 border-blue-500/50" };
+
     return (
-        <Card>
+        <Card className={cardBorderClass}>
             <CardContent className="pt-6 grid md:grid-cols-2 gap-4">
                 {/* Left: Context */}
                 <div>
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
+                            <Badge variant="outline" className={campaignBadge.className}>
+                                {campaignBadge.emoji} {campaignBadge.label}
+                            </Badge>
                             <Badge variant="outline">@{draft.originalAuthorHandle}</Badge>
                             <Badge className={`${scoreColor} text-white hover:${scoreColor}`}>
                                 Score: {score}

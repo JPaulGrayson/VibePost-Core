@@ -166,6 +166,9 @@ Changelog:
 - January 3, 2026. ENHANCED: Each strategy has unique keywords, personas, and reply hooks (e.g., Founder Account offers)
 - January 3, 2026. FIXED: Strategy-specific keywords now properly passed to sniper hunts
 - January 3, 2026. UI: Strategy selector appears in Wizard's Tower when LogiGo campaign is active
+- January 3, 2026. IMPROVED: Queue now lazy-loads on demand (instant page load)
+- January 3, 2026. ADDED: Campaign filter buttons in queue (All/Turai/LogiGo with counts)
+- January 3, 2026. VISUAL: Draft cards now show campaign badge and colored left border (blue=Turai, purple=LogiGo)
 ```
 
 ## User Preferences
