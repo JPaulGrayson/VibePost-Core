@@ -895,6 +895,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Pause/Resume Sniper hunting
+  app.post("/api/sniper/pause", (req, res) => {
+    sniperManager.pause();
+    res.json({ success: true, paused: true, message: "Sniper hunting PAUSED - no new drafts will be generated" });
+  });
+
+  app.post("/api/sniper/resume", (req, res) => {
+    sniperManager.resume();
+    res.json({ success: true, paused: false, message: "Sniper hunting RESUMED - hunting enabled" });
+  });
+
+  app.get("/api/sniper/status", (req, res) => {
+    res.json({
+      paused: sniperManager.paused,
+      isRunning: sniperManager.isRunning,
+      draftsGeneratedToday: sniperManager.todaysDrafts,
+      dailyLimit: sniperManager.dailyDraftLimit
+    });
+  });
+
   // Get current campaign configuration
   app.get("/api/sniper/campaign", (req, res) => {
     const currentCampaign = (global as any).currentSniperCampaign || 'turai';
@@ -1102,7 +1122,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const postsWithEngagement = posts
         .filter(p => p.platformData?.twitter)
         .map(p => {
-          const twitter = p.platformData.twitter;
+          const twitter = p.platformData!.twitter;
           const engagement = (twitter.likes || 0) + (twitter.retweets || 0) + (twitter.replies || 0);
           return { ...p, engagement, twitter };
         })

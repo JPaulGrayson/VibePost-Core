@@ -8,6 +8,7 @@ import { getKeywordsForCampaign, CampaignType } from "../campaign-config";
 export class SniperManager {
     private isHunting = false;  // Tracks if a hunt is in progress
     private isStarted = false;  // Tracks if the auto-loop has been started
+    private isPaused = true;    // PAUSED BY DEFAULT - user must explicitly resume
     private checkIntervalMs = 3 * 60 * 1000; // 3 Minutes (increased from 5 for more aggressive hunting)
     private replyToRepliesEnabled = true;  // Enable reply-to-replies feature
     private minScoreForReplyChain = 90;    // Only fetch replies for high-quality tweets (≥90%, 97.3% publish rate)
@@ -59,6 +60,21 @@ export class SniperManager {
         };
     }
 
+    // Pause/Resume controls
+    pause() {
+        this.isPaused = true;
+        console.log("⏸️ Sniper Manager PAUSED - No new drafts will be generated");
+    }
+
+    resume() {
+        this.isPaused = false;
+        console.log("▶️ Sniper Manager RESUMED - Hunting enabled");
+    }
+
+    get paused(): boolean {
+        return this.isPaused;
+    }
+
     // Expose state for health checks
     get isRunning(): boolean {
         return this.isHunting;
@@ -96,6 +112,12 @@ export class SniperManager {
             errors: 0,
             lastError: "" as string | undefined
         };
+
+        // Check if paused first
+        if (this.isPaused) {
+            console.log("⏸️ Sniper is PAUSED - skipping hunt cycle");
+            return stats;
+        }
 
         if (this.isHunting) {
             console.log("⚠️ Hunt already in progress, skipping...");
