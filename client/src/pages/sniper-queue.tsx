@@ -40,9 +40,12 @@ interface CampaignResponse {
 }
 
 export default function SniperQueue() {
-    const { data: drafts, isLoading } = useQuery<PostcardDraft[]>({
+    const [queueEnabled, setQueueEnabled] = useState(false);
+    
+    const { data: drafts, isLoading, refetch: refetchDrafts } = useQuery<PostcardDraft[]>({
         queryKey: ["/api/postcard-drafts"],
-        refetchInterval: 30000 // Poll for new drafts every 30s
+        enabled: queueEnabled, // Only fetch when user enables it
+        refetchInterval: queueEnabled ? 30000 : false // Poll only when enabled
     });
 
     // Fetch current campaign state
@@ -261,10 +264,29 @@ export default function SniperQueue() {
             </div>
 
             <div className="grid gap-6">
-                {filteredDrafts?.map((draft) => (
-                    <DraftCard key={draft.id} draft={draft} campaignType={activeCampaign} />
-                ))}
-                {filteredDrafts?.length === 0 && <p>No drafts found matching your search.</p>}
+                {!queueEnabled ? (
+                    <div className="text-center py-12 border border-dashed rounded-lg">
+                        <p className="text-muted-foreground mb-4">Queue not loaded. Click below to load drafts.</p>
+                        <Button 
+                            onClick={() => setQueueEnabled(true)}
+                            data-testid="load-queue-btn"
+                        >
+                            Load Queue
+                        </Button>
+                    </div>
+                ) : isLoading ? (
+                    <div className="text-center py-12">
+                        <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+                        <p className="text-muted-foreground">Loading drafts...</p>
+                    </div>
+                ) : (
+                    <>
+                        {filteredDrafts?.map((draft) => (
+                            <DraftCard key={draft.id} draft={draft} campaignType={activeCampaign} />
+                        ))}
+                        {filteredDrafts?.length === 0 && <p>No drafts found matching your search.</p>}
+                    </>
+                )}
             </div>
         </div>
     );
