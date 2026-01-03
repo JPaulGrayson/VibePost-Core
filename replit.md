@@ -162,6 +162,10 @@ Changelog:
 - December 30, 2025. NEW: fetchTweetReplies method fetches replies to high-quality tweets (score >= 70)
 - December 30, 2025. FEATURE: Sniper now creates draft replies to engage with active conversation participants
 - December 30, 2025. PROTECTION: Bot/spam filtering and max 3 replies per tweet to avoid spam behavior
+- January 3, 2026. MULTI-STRATEGY: Added LogiGo campaign with 3 switchable strategies (Vibe Scout, Spaghetti Detective, Stack Visualizer)
+- January 3, 2026. ENHANCED: Each strategy has unique keywords, personas, and reply hooks (e.g., Founder Account offers)
+- January 3, 2026. FIXED: Strategy-specific keywords now properly passed to sniper hunts
+- January 3, 2026. UI: Strategy selector appears in Wizard's Tower when LogiGo campaign is active
 ```
 
 ## User Preferences
