@@ -2,7 +2,7 @@ import { db } from "../db";
 import { postcardDrafts } from "@shared/schema";
 import { GoogleGenAI } from "@google/genai";
 import { eq } from "drizzle-orm";
-import { CampaignType, CAMPAIGN_CONFIGS } from "../campaign-config";
+import { CampaignType, CAMPAIGN_CONFIGS, getActiveLogiGoStrategy, getActiveStrategyConfig } from "../campaign-config";
 
 // Initialize Gemini
 // Ensure API key is present
@@ -467,7 +467,6 @@ Answer (one word only):` }]
     async generateLogiGoReply(author: string, context: string, originalText: string): Promise<{ text: string; score: number }> {
         try {
             // Get active strategy to customize reply approach
-            const { getActiveLogiGoStrategy, getActiveStrategyConfig } = require('../campaign-config');
             const activeStrategy = getActiveLogiGoStrategy();
             const strategyConfig = getActiveStrategyConfig();
             

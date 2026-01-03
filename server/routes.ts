@@ -19,7 +19,13 @@ import { getThreadTourSchedulerStatus, setNextThreadDestination, clearNextThread
 import { autoPublisher } from "./services/auto_publisher";
 import { previewVideoPost, generateVideoPost, generateVideoCaption, refreshPreviewData } from "./services/video_post_generator";
 import { getDailyVideoSchedulerStatus, setNextVideoDestination, clearNextVideoDestination, triggerDailyVideoNow, getVideoDestinationQueue } from "./services/daily_video_scheduler";
-import { CAMPAIGN_CONFIGS } from "./campaign-config";
+import { 
+  CAMPAIGN_CONFIGS, 
+  LOGIGO_STRATEGIES,
+  getActiveLogiGoStrategy, 
+  setActiveLogiGoStrategy,
+  getActiveStrategyConfig 
+} from "./campaign-config";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Simple authentication middleware
   const isAuthenticated = (req: any, res: any, next: any) => {
@@ -891,7 +897,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get current campaign configuration
   app.get("/api/sniper/campaign", (req, res) => {
-    const { getActiveLogiGoStrategy, getActiveStrategyConfig, LOGIGO_STRATEGIES } = require('./campaign-config');
     const currentCampaign = (global as any).currentSniperCampaign || 'turai';
     const activeStrategy = getActiveLogiGoStrategy();
     
@@ -1224,7 +1229,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set sniper campaign type
   app.post("/api/sniper/campaign", (req, res) => {
     const { campaignType, strategy } = req.body;
-    const { setActiveLogiGoStrategy, getActiveLogiGoStrategy, getActiveStrategyConfig, LOGIGO_STRATEGIES } = require('./campaign-config');
     
     // Update campaign type if provided
     if (campaignType && ['turai', 'logigo'].includes(campaignType)) {
@@ -1250,7 +1254,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set LogiGo strategy
   app.post("/api/sniper/strategy", (req, res) => {
     const { strategy } = req.body;
-    const { setActiveLogiGoStrategy, getActiveLogiGoStrategy, getActiveStrategyConfig, LOGIGO_STRATEGIES } = require('./campaign-config');
     
     if (!strategy || !['vibe_scout', 'spaghetti_detective', 'stack_visualizer'].includes(strategy)) {
       return res.status(400).json({ error: 'Invalid strategy. Choose: vibe_scout, spaghetti_detective, or stack_visualizer' });
@@ -1267,7 +1270,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get all available campaign configs
   app.get("/api/sniper/campaigns", (req, res) => {
-    const { LOGIGO_STRATEGIES } = require('./campaign-config');
     const currentCampaign = (global as any).currentSniperCampaign || 'turai';
     
     res.json({

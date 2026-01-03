@@ -20,6 +20,7 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
 });
 
 console.log('🛡️ Global error handlers installed - server will not crash on errors');
+console.log('📦 ESM modules loaded successfully');
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
