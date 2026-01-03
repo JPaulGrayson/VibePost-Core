@@ -182,6 +182,7 @@ Changelog:
 - January 3, 2026. VISUAL: Post cards show campaign badges with icons and colored left borders
 - January 3, 2026. DATA: Auto-publisher now stores campaign type in platformData for future posts
 - January 3, 2026. ENHANCED: Scheduled Posts page now has campaign filter (All/Turai/LogiGo) with visual badges
+- January 3, 2026. FIXED: Video duration now waits longer for narrations (8 polls/40s stability + min 3 narrations = ~36-60s videos)
 ```
 
 ## User Preferences
