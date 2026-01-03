@@ -183,6 +183,9 @@ Changelog:
 - January 3, 2026. DATA: Auto-publisher now stores campaign type in platformData for future posts
 - January 3, 2026. ENHANCED: Scheduled Posts page now has campaign filter (All/Turai/LogiGo) with visual badges
 - January 3, 2026. FIXED: Video duration now waits longer for narrations (8 polls/40s stability + min 3 narrations = ~36-60s videos)
+- January 3, 2026. FIXED: Thread tour URL updated from turai.org to voyai.app/s/{shareCode} for working tour links
+- January 3, 2026. FIXED: Thread tour narration matching now sorts by poiIndex and falls back to sequential (fixes missing stops)
+- January 3, 2026. FIXED: Thread tour intro/CTA tweets now include required campaignType and replyTweetId fields
 ```
 
 ## User Preferences
