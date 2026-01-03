@@ -18,6 +18,27 @@ interface CampaignConfig {
     description: string;
 }
 
+interface StrategyConfig {
+    id: string;
+    name: string;
+    emoji: string;
+    description: string;
+    keywords: string[];
+    replyPersona: {
+        tone: string;
+        hook: string;
+        templateExample: string;
+    };
+}
+
+interface CampaignResponse {
+    currentCampaign: string;
+    config: CampaignConfig;
+    activeStrategy: string | null;
+    strategyConfig: StrategyConfig | null;
+    availableStrategies: StrategyConfig[];
+}
+
 export default function SniperQueue() {
     const { data: drafts, isLoading } = useQuery<PostcardDraft[]>({
         queryKey: ["/api/postcard-drafts"],
@@ -25,18 +46,16 @@ export default function SniperQueue() {
     });
 
     // Fetch current campaign state
-    const { data: campaignData } = useQuery<{ currentCampaign: string; config: CampaignConfig }>({
+    const { data: campaignData } = useQuery<CampaignResponse>({
         queryKey: ["/api/sniper/campaign"],
     });
 
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState("");
-    const [activeCampaign, setActiveCampaign] = useState<string>(campaignData?.currentCampaign || "turai");
-
-    // Update local state when campaign data loads
-    if (campaignData?.currentCampaign && campaignData.currentCampaign !== activeCampaign) {
-        setActiveCampaign(campaignData.currentCampaign);
-    }
+    
+    // Derive state from server data - don't initialize with defaults that may conflict
+    const activeCampaign = campaignData?.currentCampaign || "turai";
+    const activeStrategy = campaignData?.activeStrategy || "vibe_scout";
 
     const filteredDrafts = drafts?.filter(draft =>
         draft.originalAuthorHandle.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -51,7 +70,6 @@ export default function SniperQueue() {
             return res.json();
         },
         onSuccess: (data) => {
-            setActiveCampaign(data.config.id);
             queryClient.invalidateQueries({ queryKey: ["/api/sniper/campaign"] });
             toast({
                 title: `Campaign Switched! ${data.config.emoji}`,
@@ -62,6 +80,28 @@ export default function SniperQueue() {
             toast({
                 variant: "destructive",
                 title: "Failed to switch campaign",
+                description: String(error),
+            });
+        }
+    });
+
+    // Switch LogiGo strategy mutation
+    const switchStrategy = useMutation({
+        mutationFn: async (strategy: string) => {
+            const res = await apiRequest("POST", "/api/sniper/strategy", { strategy });
+            return res.json();
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ["/api/sniper/campaign"] });
+            toast({
+                title: `Strategy Changed! ${data.strategyConfig.emoji}`,
+                description: data.strategyConfig.description,
+            });
+        },
+        onError: (error) => {
+            toast({
+                variant: "destructive",
+                title: "Failed to switch strategy",
                 description: String(error),
             });
         }
@@ -150,6 +190,37 @@ export default function SniperQueue() {
                         : "Hunting for developers struggling with code - promoting code visualization"
                     }
                 </p>
+
+                {/* Strategy Selector (LogiGo only) */}
+                {activeCampaign === 'logigo' && campaignData?.availableStrategies && (
+                    <div className="mt-4 pt-4 border-t">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">Active Strategy</label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {campaignData.availableStrategies.map((strategy) => (
+                                <Button
+                                    key={strategy.id}
+                                    variant={activeStrategy === strategy.id ? "default" : "outline"}
+                                    size="sm"
+                                    className="flex flex-col items-start h-auto py-2 px-3"
+                                    onClick={() => switchStrategy.mutate(strategy.id)}
+                                    disabled={switchStrategy.isPending}
+                                    data-testid={`strategy-${strategy.id}`}
+                                >
+                                    <span className="font-medium">{strategy.emoji} {strategy.name}</span>
+                                    <span className="text-xs text-muted-foreground text-left line-clamp-2">{strategy.description}</span>
+                                </Button>
+                            ))}
+                        </div>
+                        {campaignData.strategyConfig && (
+                            <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+                                <p className="text-xs font-medium mb-1">Reply Hook:</p>
+                                <p className="text-xs text-muted-foreground italic">"{campaignData.strategyConfig.replyPersona.hook}"</p>
+                                <p className="text-xs font-medium mt-2 mb-1">Example Reply:</p>
+                                <p className="text-xs text-muted-foreground italic">"{campaignData.strategyConfig.replyPersona.templateExample}"</p>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             <div className="mb-6 flex gap-4">

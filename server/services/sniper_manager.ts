@@ -3,6 +3,7 @@ import { generateDraft } from "./postcard_drafter";
 import { storage } from "../storage";
 import { replyTimingOptimizer } from "./reply_timing_optimizer";
 import { dmFollowUpService } from "./dm_follow_up";
+import { getKeywordsForCampaign, CampaignType } from "../campaign-config";
 
 export class SniperManager {
     private isHunting = false;  // Tracks if a hunt is in progress
@@ -12,53 +13,16 @@ export class SniperManager {
     private minScoreForReplyChain = 90;    // Only fetch replies for high-quality tweets (≥90%, 97.3% publish rate)
     private dmFollowUpEnabled = true;      // Enable DM follow-ups after replies
 
-    // Travel-focused keywords - kept simple for broad matching
-    private keywords = [
-        // High-intent travel phrases (catch ANY destination)
-        "planning a trip to",
-        "traveling to",
-        "flying to",
-        "driving to",
-        "road trip to",
-        "visiting",
-        "headed to",
-        "going to",
-        "vacation in",
-        "holiday in",
+    // Get keywords dynamically based on active campaign
+    private getActiveKeywords(): string[] {
+        const campaignType = ((global as any).currentSniperCampaign || 'turai') as CampaignType;
+        return getKeywordsForCampaign(campaignType);
+    }
 
-        // Questions & recommendations (high engagement)
-        "travel recommendations",
-        "where should I stay",
-        "any tips for",
-        "first time visiting",
-        "itinerary help",
-        "food recommendations",
-        "restaurant suggestions",
-        "things to do in",
-        "what to see in",
-        "places to visit",
-
-        // US Destinations (balanced representation)
-        "New York",
-        "Las Vegas",
-        "Miami",
-        "Los Angeles",
-        "Chicago",
-        "Hawaii",
-        "San Francisco",
-        "Orlando",
-        "Nashville",
-        "Austin",
-
-        // International Destinations
-        "Paris",
-        "London",
-        "Tokyo",
-        "Rome",
-        "Barcelona",
-        "Bali",
-        "Thailand",
-    ];
+    // Get active campaign type
+    private getActiveCampaign(): CampaignType {
+        return ((global as any).currentSniperCampaign || 'turai') as CampaignType;
+    }
 
     private dailyLimit = 500;
     private draftsGeneratedToday = 0;
@@ -154,7 +118,11 @@ export class SniperManager {
                 return stats;
             }
 
-            for (const keyword of this.keywords) {
+            const activeKeywords = this.getActiveKeywords();
+            const activeCampaign = this.getActiveCampaign();
+            console.log(`   🎯 Campaign: ${activeCampaign} | Keywords: ${activeKeywords.length}`);
+            
+            for (const keyword of activeKeywords) {
                 stats.keywordsSearched++;
                 try {
                     // Search for keyword on Twitter
@@ -182,7 +150,7 @@ export class SniperManager {
                             author_id: "unknown"
                         };
 
-                        const created = await generateDraft(postObj, result.author);
+                        const created = await generateDraft(postObj, result.author, activeCampaign);
                         if (created) {
                             this.draftsGeneratedToday++;
                             stats.draftsCreated++;

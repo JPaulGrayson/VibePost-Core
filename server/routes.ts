@@ -889,11 +889,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get current campaign configuration (simplified - always turai)
+  // Get current campaign configuration
   app.get("/api/sniper/campaign", (req, res) => {
+    const { getActiveLogiGoStrategy, getActiveStrategyConfig, LOGIGO_STRATEGIES } = require('./campaign-config');
+    const currentCampaign = (global as any).currentSniperCampaign || 'turai';
+    const activeStrategy = getActiveLogiGoStrategy();
+    
     res.json({
-      currentCampaign: 'turai',
-      config: CAMPAIGN_CONFIGS['turai']
+      currentCampaign,
+      config: CAMPAIGN_CONFIGS[currentCampaign as keyof typeof CAMPAIGN_CONFIGS],
+      activeStrategy: currentCampaign === 'logigo' ? activeStrategy : null,
+      strategyConfig: currentCampaign === 'logigo' ? getActiveStrategyConfig() : null,
+      availableStrategies: currentCampaign === 'logigo' ? Object.values(LOGIGO_STRATEGIES) : []
     });
   });
 
@@ -1214,20 +1221,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Set sniper campaign type (no-op for simplified sniper)
+  // Set sniper campaign type
   app.post("/api/sniper/campaign", (req, res) => {
+    const { campaignType, strategy } = req.body;
+    const { setActiveLogiGoStrategy, getActiveLogiGoStrategy, getActiveStrategyConfig, LOGIGO_STRATEGIES } = require('./campaign-config');
+    
+    // Update campaign type if provided
+    if (campaignType && ['turai', 'logigo'].includes(campaignType)) {
+      (global as any).currentSniperCampaign = campaignType;
+      console.log(`🎯 Campaign switched to: ${campaignType}`);
+    }
+    
+    // Update strategy if switching to/within LogiGo
+    const currentCampaign = (global as any).currentSniperCampaign || 'turai';
+    if (currentCampaign === 'logigo' && strategy) {
+      setActiveLogiGoStrategy(strategy);
+    }
+    
     res.json({
       success: true,
-      message: `Campaign is fixed to turai (simplified sniper mode)`,
-      config: CAMPAIGN_CONFIGS['turai']
+      message: `Campaign set to ${currentCampaign}${currentCampaign === 'logigo' ? ` with strategy: ${getActiveLogiGoStrategy()}` : ''}`,
+      config: CAMPAIGN_CONFIGS[currentCampaign as keyof typeof CAMPAIGN_CONFIGS],
+      activeStrategy: currentCampaign === 'logigo' ? getActiveLogiGoStrategy() : null,
+      strategyConfig: currentCampaign === 'logigo' ? getActiveStrategyConfig() : null
+    });
+  });
+
+  // Set LogiGo strategy
+  app.post("/api/sniper/strategy", (req, res) => {
+    const { strategy } = req.body;
+    const { setActiveLogiGoStrategy, getActiveLogiGoStrategy, getActiveStrategyConfig, LOGIGO_STRATEGIES } = require('./campaign-config');
+    
+    if (!strategy || !['vibe_scout', 'spaghetti_detective', 'stack_visualizer'].includes(strategy)) {
+      return res.status(400).json({ error: 'Invalid strategy. Choose: vibe_scout, spaghetti_detective, or stack_visualizer' });
+    }
+    
+    setActiveLogiGoStrategy(strategy);
+    
+    res.json({
+      success: true,
+      activeStrategy: getActiveLogiGoStrategy(),
+      strategyConfig: getActiveStrategyConfig()
     });
   });
 
   // Get all available campaign configs
   app.get("/api/sniper/campaigns", (req, res) => {
+    const { LOGIGO_STRATEGIES } = require('./campaign-config');
+    const currentCampaign = (global as any).currentSniperCampaign || 'turai';
+    
     res.json({
       campaigns: Object.values(CAMPAIGN_CONFIGS),
-      currentCampaign: 'turai'
+      currentCampaign,
+      strategies: Object.values(LOGIGO_STRATEGIES)
     });
   });
 

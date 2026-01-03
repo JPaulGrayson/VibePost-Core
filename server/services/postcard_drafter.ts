@@ -463,41 +463,63 @@ Answer (one word only):` }]
         return this.generateReplyText(author, context, originalText);
     }
 
-    // LogiGo-specific reply generation
+    // LogiGo-specific reply generation (strategy-aware)
     async generateLogiGoReply(author: string, context: string, originalText: string): Promise<{ text: string; score: number }> {
         try {
+            // Get active strategy to customize reply approach
+            const { getActiveLogiGoStrategy, getActiveStrategyConfig } = require('../campaign-config');
+            const activeStrategy = getActiveLogiGoStrategy();
+            const strategyConfig = getActiveStrategyConfig();
+            
+            // Strategy-specific prompts
+            const strategyPrompts: Record<string, { persona: string; hook: string; example: string }> = {
+                vibe_scout: {
+                    persona: 'impressed fellow builder who wants to connect with early adopters',
+                    hook: 'Offer them a FREE FOUNDER ACCOUNT on LogiGo because they are building with AI',
+                    example: "This looks great! Since you're building with agents, I'd love to give you a Founder account on LogiGo. DM me for the invite! 🎯"
+                },
+                spaghetti_detective: {
+                    persona: 'empathetic senior developer who has been through the same pain',
+                    hook: 'Share the pain, then mention that visualizing the code flow helps tremendously',
+                    example: "I feel that pain. I usually have to map it out visually to make sense of it. Happy to share my flowchart tool if you want to try it."
+                },
+                stack_visualizer: {
+                    persona: 'helpful expert who offers to visualize their specific question',
+                    hook: 'Offer to generate a diagram for their specific architecture or flow question',
+                    example: "That's a tricky flow to understand in text. It helps to see it mapped out. I can generate a flowchart for that if you're interested?"
+                }
+            };
+            
+            const currentPrompt = strategyPrompts[activeStrategy] || strategyPrompts.spaghetti_detective;
+            
             const systemPrompt = `
-            You are "The Code Sage", a wise and friendly senior developer who helps fellow coders.
+            You are a ${currentPrompt.persona}.
+            
+            STRATEGY: ${strategyConfig.name} (${strategyConfig.description})
             
             Your Goal: 
-            1. Analyze the tweet for "Coding Lead Quality" and assign a Score (0-99).
-               - 80-99: Strong Lead. Genuine frustration, asking for help, struggling with specific code problem.
-               - 60-79: Moderate Lead. General coding discussion, might need tools.
+            1. Analyze the tweet for "Lead Quality" and assign a Score (0-99).
+               - 80-99: Strong Lead. ${activeStrategy === 'vibe_scout' ? 'They are showing off AI-built projects or sharing workflows' : 'Genuine frustration, asking for help, struggling with specific problem'}.
+               - 60-79: Moderate Lead. Relevant discussion, might engage.
                - 0-59: Weak Lead. Promotional, hiring, or not actually seeking help.
             
-            2. Write a short, helpful reply that subtly hints at visualization helping.
+            2. Write a reply using this approach: ${currentPrompt.hook}
             
             Rules:
-            1. Tone: Friendly senior developer, empathetic, NOT salesy. Use emojis sparingly: 🧠, 💡, ⚡, 🔍, 📊
-            2. Vocabulary:
-               - "I feel you, debugging [X] can be tricky..."
-               - "Have you tried visualizing the flow?"
-               - "Sometimes a flowchart really helps see what's happening"
-               - "That's a tough one! Breaking it down step by step helps"
-               - NEVER sound like a bot or advertisement
+            1. Tone: ${strategyConfig.replyPersona.tone}. Use emojis sparingly: 🧠, 💡, ⚡, 🎯, 📊
+            2. ${activeStrategy === 'vibe_scout' ? 
+                'FOUNDER OFFER: Always mention the FREE Founder Account offer. Make them feel special as an early adopter!' :
+                'Be genuinely helpful first, product mention is secondary'}
             3. **CRITICAL**: Do NOT include any URLs or links in the text.
-            4. **CRITICAL**: Be genuinely helpful first, product mention secondary.
+            4. **CRITICAL**: Sound human, NOT like a bot or advertisement.
             5. Length: Keep it under 200 characters.
             
-            Structure:
-            - Acknowledge their struggle (empathy first)
-            - Offer a helpful tip related to visualization/understanding code flow
-            - Optional: Very subtle mention that you use a tool for this
+            Example reply style: "${currentPrompt.example}"
 
             Output Format: JSON
             {
                 "score": 85,
-                "reply": "Debugging async can be wild! 🧠 Try mapping out the flow visually..."
+                "reply": "${currentPrompt.example.substring(0, 50)}..."
             }
             `;
 
