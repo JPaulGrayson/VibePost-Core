@@ -77,6 +77,11 @@ export class SniperManager {
 
     // Expose state for health checks
     get isRunning(): boolean {
+        // Return true if sniper service is started and not paused (actively hunting or ready to hunt)
+        return this.isStarted && !this.isPaused;
+    }
+    
+    get isActivelyHunting(): boolean {
         return this.isHunting;
     }
 
