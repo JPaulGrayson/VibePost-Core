@@ -15,29 +15,52 @@ const require = createRequire(import.meta.url);
 import { GoogleGenAI } from "@google/genai";
 import { analyzeForVoicePersonalization, generateGrokTTS, addLocalGreeting, enhanceNarrationForEmotion } from './grok_tts';
 
-// Safely initialize FFmpeg paths
+// Helper to check if a file is executable
+function isExecutable(filePath: string): boolean {
+    try {
+        fs.accessSync(filePath, fs.constants.X_OK);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+// Safely initialize FFmpeg paths with executability checks
 try {
     const { path: ffmpegPath } = require('@ffmpeg-installer/ffmpeg');
     const { path: ffprobePath } = require('@ffprobe-installer/ffprobe');
-    ffmpeg.setFfmpegPath(ffmpegPath);
-    ffmpeg.setFfprobePath(ffprobePath);
+    if (isExecutable(ffmpegPath)) {
+        ffmpeg.setFfmpegPath(ffmpegPath);
+        ffmpeg.setFfprobePath(ffprobePath);
+    } else {
+        throw new Error('Installed FFmpeg not executable');
+    }
 } catch (err) {
-    console.error('⚠️ FFmpeg initialization failed in reply_video_generator:', err);
+    // Fallback chain with executability checks
     try {
+        const envFfmpeg = process.env.FFMPEG_PATH;
+        const envFfprobe = process.env.FFPROBE_PATH;
         const localFfmpeg = path.join(process.cwd(), 'repl_bin', 'ffmpeg');
         const localFfprobe = path.join(process.cwd(), 'repl_bin', 'ffprobe');
 
-        if (fs.existsSync(localFfmpeg)) {
+        if (envFfmpeg && isExecutable(envFfmpeg)) {
+            console.log('🚀 Reply Video Generator: Using FFMPEG_PATH from environment');
+            ffmpeg.setFfmpegPath(envFfmpeg);
+            ffmpeg.setFfprobePath(envFfprobe || 'ffprobe');
+        } else if (isExecutable(localFfmpeg)) {
             console.log('🚀 Reply Video Generator: Using local static FFmpeg');
             ffmpeg.setFfmpegPath(localFfmpeg);
             ffmpeg.setFfprobePath(localFfprobe);
         } else {
+            console.log('📹 Reply Video Generator: Using system FFmpeg from PATH');
             ffmpeg.setFfmpegPath('ffmpeg');
             ffmpeg.setFfprobePath('ffprobe');
         }
     } catch (e) {
-        // Fallback to safely prevent crash
-        console.error('Final FFmpeg fallback error:', e);
+        // Final fallback to PATH
+        console.error('FFmpeg fallback error, using PATH:', e);
+        ffmpeg.setFfmpegPath('ffmpeg');
+        ffmpeg.setFfprobePath('ffprobe');
     }
 }
 

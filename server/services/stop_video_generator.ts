@@ -4,11 +4,27 @@ import path from 'path';
 import https from 'https';
 import http from 'http';
 
-// Initialize FFmpeg paths - prefer local static binary, then system ffmpeg
+// Helper to check if a file is executable
+function isExecutable(filePath: string): boolean {
+    try {
+        fs.accessSync(filePath, fs.constants.X_OK);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+// Initialize FFmpeg paths - prefer ENV, then executable local binary, then system ffmpeg
+const envFfmpeg = process.env.FFMPEG_PATH;
+const envFfprobe = process.env.FFPROBE_PATH;
 const localFfmpeg = path.join(process.cwd(), 'repl_bin', 'ffmpeg');
 const localFfprobe = path.join(process.cwd(), 'repl_bin', 'ffprobe');
 
-if (fs.existsSync(localFfmpeg)) {
+if (envFfmpeg && isExecutable(envFfmpeg)) {
+    console.log('🚀 Stop Video Generator: Using FFMPEG_PATH from environment');
+    ffmpeg.setFfmpegPath(envFfmpeg);
+    ffmpeg.setFfprobePath(envFfprobe || 'ffprobe');
+} else if (isExecutable(localFfmpeg)) {
     console.log('🚀 Stop Video Generator: Using local static FFmpeg');
     ffmpeg.setFfmpegPath(localFfmpeg);
     ffmpeg.setFfprobePath(localFfprobe);

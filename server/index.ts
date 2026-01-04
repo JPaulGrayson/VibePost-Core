@@ -58,60 +58,50 @@ app.use((req, res, next) => {
 
 import { twitterListener } from "./services/twitter_listener";
 
-// Background jobs can crash the server in GCE deployment due to FFmpeg permission issues
-// Enable with ENABLE_BACKGROUND_JOBS=true (defaults to true in dev, false in production)
-const enableBackgroundJobs = process.env.ENABLE_BACKGROUND_JOBS === "true" || 
-  (process.env.NODE_ENV === "development" && process.env.ENABLE_BACKGROUND_JOBS !== "false");
+// ...
 
 (async () => {
   const server = await registerRoutes(app);
 
-  // Only start background services if enabled
-  if (enableBackgroundJobs) {
-    console.log("🚀 Background jobs ENABLED");
-    
-    // Start Twitter Listener
-    try {
-      console.log("Starting Twitter Listener...");
-      console.log("Twitter Listener started (MANUAL MODE ONLY).");
-    } catch (error) {
-      console.error("Failed to start Twitter Listener:", error);
-    }
+  // Start Twitter Listener
+  try {
+    console.log("Starting Twitter Listener...");
+    console.log("Twitter Listener started (MANUAL MODE ONLY).");
+  } catch (error) {
+    console.error("Failed to start Twitter Listener:", error);
+  }
 
-    // Start Sniper Manager (Keyword Hunter)
-    try {
-      console.log("🔫 Initializing Sniper Manager...");
-      const { sniperManager } = await import("./services/sniper_manager");
-      sniperManager.startHunting().catch(err => console.error("Sniper Manager error:", err));
-    } catch (error) {
-      console.error("Failed to start Sniper Manager:", error);
-    }
+  // Start Sniper Manager (Keyword Hunter)
+  try {
+    console.log("🔫 Initializing Sniper Manager...");
+    const { sniperManager } = await import("./services/sniper_manager");
+    sniperManager.startHunting().catch(err => console.error("Sniper Manager error:", err));
+  } catch (error) {
+    console.error("Failed to start Sniper Manager:", error);
+  }
 
-    // Start Daily Video Scheduler (Auto-posts video slideshows at 9 AM daily)
-    try {
-      const { startDailyVideoScheduler } = await import("./services/daily_video_scheduler");
-      startDailyVideoScheduler();
-    } catch (error) {
-      console.error("Failed to start Daily Video Scheduler:", error);
-    }
+  // Start Daily Video Scheduler (Auto-posts video slideshows at 9 AM daily)
+  try {
+    const { startDailyVideoScheduler } = await import("./services/daily_video_scheduler");
+    startDailyVideoScheduler();
+  } catch (error) {
+    console.error("Failed to start Daily Video Scheduler:", error);
+  }
 
-    // Start Auto-Publisher (Auto-posts 80+ score leads with rate limiting)
-    try {
-      const { autoPublisher } = await import("./services/auto_publisher");
-      autoPublisher.start();
-    } catch (error) {
-      console.error("Failed to start Auto-Publisher:", error);
-    }
+  // Start Auto-Publisher (Auto-posts 80+ score leads with rate limiting)
+  try {
+    const { autoPublisher } = await import("./services/auto_publisher");
+    autoPublisher.start();
+  } catch (error) {
+    console.error("Failed to start Auto-Publisher:", error);
+  }
 
-    // Start Comment Tracker (Fetches replies to our posts)
-    try {
-      const { commentTracker } = await import("./services/comment_tracker");
-      commentTracker.startCommentTracker();
-    } catch (error) {
-      console.error("Failed to start Comment Tracker:", error);
-    }
-  } else {
-    console.log("⏸️ Background jobs DISABLED (set ENABLE_BACKGROUND_JOBS=true to enable)");
+  // Start Comment Tracker (Fetches replies to our posts)
+  try {
+    const { commentTracker } = await import("./services/comment_tracker");
+    commentTracker.startCommentTracker();
+  } catch (error) {
+    console.error("Failed to start Comment Tracker:", error);
   }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

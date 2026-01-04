@@ -11,27 +11,46 @@ import * as https from 'https';
 import * as http from 'http';
 import { GoogleGenAI } from "@google/genai";
 
-// Safely resolve FFmpeg paths with fallbacks
+// Helper to check if a file is executable
+function isExecutable(filePath: string): boolean {
+    try {
+        fs.accessSync(filePath, fs.constants.X_OK);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+// Safely resolve FFmpeg paths with fallbacks (checking executability, not just existence)
 let ffmpegPath = '';
 let ffprobePath = '';
 
 try {
-    // 1. Priority: Local static binary (for Replit deployment)
+    // 1. Priority: Environment variable (for deployment flexibility)
+    const envFfmpeg = process.env.FFMPEG_PATH;
+    const envFfprobe = process.env.FFPROBE_PATH;
     const localFfmpeg = path.join(process.cwd(), 'repl_bin', 'ffmpeg');
     const localFfprobe = path.join(process.cwd(), 'repl_bin', 'ffprobe');
 
-    if (fs.existsSync(localFfmpeg)) {
+    if (envFfmpeg && isExecutable(envFfmpeg)) {
+        console.log('🚀 Using FFMPEG_PATH from environment');
+        ffmpegPath = envFfmpeg;
+        ffprobePath = envFfprobe || 'ffprobe';
+    }
+    // 2. Local static binary (only if executable - may not be in GCE deployment)
+    else if (isExecutable(localFfmpeg)) {
         console.log('🚀 Using local static FFmpeg binary (Replit Mode)');
         ffmpegPath = localFfmpeg;
         ffprobePath = localFfprobe;
     }
-    // 2. System FFmpeg (Homebrew on Mac)
-    else if (fs.existsSync('/opt/homebrew/bin/ffmpeg')) {
+    // 3. System FFmpeg (Homebrew on Mac)
+    else if (isExecutable('/opt/homebrew/bin/ffmpeg')) {
         ffmpegPath = '/opt/homebrew/bin/ffmpeg';
         ffprobePath = '/opt/homebrew/bin/ffprobe';
     }
-    // 3. Last Resort: System PATH
+    // 4. Last Resort: System PATH
     else {
+        console.log('📹 Using system FFmpeg from PATH');
         ffmpegPath = 'ffmpeg';
         ffprobePath = 'ffprobe';
     }
