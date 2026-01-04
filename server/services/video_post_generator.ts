@@ -253,6 +253,9 @@ async function waitForNarrations(shareCode: string, minNarrations: number = 3, t
 /**
  * Generate a preview of the video post (without creating video)
  */
+// In-memory cache for pending tour generations
+const pendingTours: Map<string, { shareCode: string; startTime: number }> = new Map();
+
 export async function previewVideoPost(options: VideoPostOptions): Promise<VideoPostPreview> {
     const { destination, topic, maxStops = 5, secondsPerStop = 12 } = options;
 
@@ -267,26 +270,50 @@ export async function previewVideoPost(options: VideoPostOptions): Promise<Video
     };
 
     try {
-        // Step 1: Generate tour (this is fast - just API call to Turai)
-        const tourResult = await generateTour(options);
-        if (!tourResult.success || !tourResult.shareCode) {
-            result.error = tourResult.error || 'Failed to generate tour';
+        // Step 1: Generate tour - use fire-and-forget pattern to avoid HTTP timeout
+        // The Turai API starts tour generation and returns a shareCode quickly,
+        // but narrations take time to generate in the background
+        console.log(`🗺️ Calling Turai API for: ${destination}`);
+        
+        const response = await fetch(`${TURAI_API_URL}/api/tour-maker/wizard/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                location: destination,
+                theme: options.theme || 'hidden_gems',
+                focus: topic,
+                email: 'vibepost@turai.app'
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            result.error = `Turai API error: ${response.status} - ${errorText}`;
             return result;
         }
-        result.shareCode = tourResult.shareCode;
 
-        // Step 2: Quick check for any available data (3 second timeout max)
-        // Don't wait for all narrations - let user refresh manually
-        const quickTimeout = 3000; // 3 seconds max wait (leave room for HTTP response)
+        const data = await response.json();
+        const shareCode = data.data?.shareCode || data.shareCode;
+
+        if (!shareCode) {
+            result.error = 'No share code returned from Turai';
+            return result;
+        }
+
+        console.log(`✅ Tour created: ${shareCode}`);
+        result.shareCode = shareCode;
+
+        // Step 2: Quick check for available data (2 second max)
+        // The tour POIs should be available quickly, narrations take longer
+        const quickTimeout = 2000;
         const startTime = Date.now();
         let slideshowData = null;
         
         while (Date.now() - startTime < quickTimeout) {
             try {
-                const res = await fetch(`${TURAI_API_URL}/api/tours/slideshow/${tourResult.shareCode}`);
+                const res = await fetch(`${TURAI_API_URL}/api/tours/slideshow/${shareCode}`);
                 if (res.ok) {
                     slideshowData = await res.json();
-                    // If we have tour data, break immediately
                     if (slideshowData?.tour) {
                         console.log(`   ✅ Got tour data in ${Date.now() - startTime}ms`);
                         break;
@@ -295,11 +322,16 @@ export async function previewVideoPost(options: VideoPostOptions): Promise<Video
             } catch (e) {
                 // Ignore errors, keep trying
             }
-            await new Promise(r => setTimeout(r, 500));
+            await new Promise(r => setTimeout(r, 300));
         }
 
+        // If we don't have tour data yet, return success with shareCode only
+        // Client can use Refresh to get the data later
         if (!slideshowData?.tour) {
-            result.error = 'Tour data not available yet - try refreshing';
+            console.log(`   ⏳ Tour generating - returning shareCode for polling`);
+            result.success = true;
+            result.estimatedDuration = maxStops * secondsPerStop;
+            // Return empty stops - client will refresh to get them
             return result;
         }
 

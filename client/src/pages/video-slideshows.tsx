@@ -226,10 +226,18 @@ export default function VideoPosts() {
             setIsPreviewing(false);
             if (data.success) {
                 setPreview(data);
-                toast({
-                    title: "Preview Ready! 👁️",
-                    description: `${data.stops.length} stops • ~${data.estimatedDuration}s video`,
-                });
+                if (data.stops.length === 0) {
+                    // Tour is generating - show message to refresh
+                    toast({
+                        title: "Tour Generating... 🗺️",
+                        description: "Click Refresh in a few seconds to see the stops",
+                    });
+                } else {
+                    toast({
+                        title: "Preview Ready! 👁️",
+                        description: `${data.stops.length} stops • ~${data.estimatedDuration}s video`,
+                    });
+                }
             } else {
                 toast({
                     variant: "destructive",
@@ -708,6 +716,28 @@ export default function VideoPosts() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
+                        {/* Show loading state when stops are still generating */}
+                        {preview.stops.length === 0 && (
+                            <div className="text-center py-12">
+                                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+                                <h3 className="font-medium mb-2">Tour is generating...</h3>
+                                <p className="text-sm text-muted-foreground mb-4">
+                                    Turai is creating your tour. Click Refresh to check progress.
+                                </p>
+                                <Button 
+                                    variant="outline" 
+                                    onClick={refreshPreview}
+                                    disabled={isRefreshingPreview}
+                                >
+                                    {isRefreshingPreview ? (
+                                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Checking...</>
+                                    ) : (
+                                        <><RefreshCw className="mr-2 h-4 w-4" />Refresh</>
+                                    )}
+                                </Button>
+                            </div>
+                        )}
+                        
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {preview.stops.map((stop, idx) => (
                                 <div
