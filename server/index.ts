@@ -60,9 +60,8 @@ import { twitterListener } from "./services/twitter_listener";
 
 // ...
 
-(async () => {
-  const server = await registerRoutes(app);
-
+// Function to start background services (called AFTER server is listening)
+async function startBackgroundServices() {
   // Start Twitter Listener
   try {
     console.log("Starting Twitter Listener...");
@@ -103,6 +102,10 @@ import { twitterListener } from "./services/twitter_listener";
   } catch (error) {
     console.error("Failed to start Comment Tracker:", error);
   }
+}
+
+(async () => {
+  const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -111,20 +114,17 @@ import { twitterListener } from "./services/twitter_listener";
     // Log the error but DON'T re-throw (prevents crashes)
     console.error(`❌ Express error: ${message}`, err.stack);
     res.status(status).json({ message });
-    // Note: Removed 'throw err' which was crashing the server!
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Setup vite in development, static serving in production
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
-  // Use PORT environment variable (provided by Replit in production) or fallback to 5002 for development
-  // This serves both the API and the client on a single port
+  // CRITICAL: Start HTTP server FIRST before background services
+  // This ensures deployment health checks pass within timeout
   const port = parseInt(process.env.PORT || '5002', 10);
   server.listen({
     port,
@@ -132,5 +132,13 @@ import { twitterListener } from "./services/twitter_listener";
   }, () => {
     console.log(`🚀 Server listening on http://0.0.0.0:${port}`);
     log(`serving on port ${port}`);
+    
+    // Start background services AFTER server is listening
+    // This prevents blocking the event loop during startup
+    setImmediate(() => {
+      startBackgroundServices().catch(err => {
+        console.error("Error starting background services:", err);
+      });
+    });
   });
 })();
