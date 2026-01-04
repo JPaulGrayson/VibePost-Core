@@ -123,15 +123,14 @@ import { twitterListener } from "./services/twitter_listener";
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5002
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = process.env.PORT || 5002;
+  // Use PORT environment variable (provided by Replit in production) or fallback to 5002 for development
+  // This serves both the API and the client on a single port
+  const port = parseInt(process.env.PORT || '5002', 10);
   server.listen({
     port,
     host: "0.0.0.0",
-    // reusePort: true, // Not supported on macOS
   }, () => {
+    console.log(`🚀 Server listening on http://0.0.0.0:${port}`);
     log(`serving on port ${port}`);
   });
 })();
