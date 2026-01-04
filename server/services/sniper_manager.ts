@@ -8,7 +8,7 @@ import { getKeywordsForCampaign, CampaignType } from "../campaign-config";
 export class SniperManager {
     private isHunting = false;  // Tracks if a hunt is in progress
     private isStarted = false;  // Tracks if the auto-loop has been started
-    private isPaused = true;    // PAUSED BY DEFAULT - user must explicitly resume
+    private isPaused = false;   // AUTO-RESUME on startup - sniper runs automatically
     private checkIntervalMs = 3 * 60 * 1000; // 3 Minutes (increased from 5 for more aggressive hunting)
     private replyToRepliesEnabled = true;  // Enable reply-to-replies feature
     private minScoreForReplyChain = 90;    // Only fetch replies for high-quality tweets (≥90%, 97.3% publish rate)
