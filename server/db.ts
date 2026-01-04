@@ -12,13 +12,35 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Pool configuration
+// Pool configuration - longer idle timeout to prevent remote disconnects
 const poolConfig = {
   connectionString: process.env.DATABASE_URL,
-  connectionTimeoutMillis: 10000, // Increased timeout
-  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 60000, // 60 seconds idle timeout
   max: 10
 };
+
+// Keep-alive interval to prevent pool from being closed due to inactivity
+let keepAliveInterval: NodeJS.Timeout | null = null;
+
+function startKeepAlive() {
+  if (keepAliveInterval) return;
+  
+  // Ping database every 30 seconds to keep connection alive
+  keepAliveInterval = setInterval(async () => {
+    try {
+      const pool = getPool();
+      if (pool && !(pool as any).ended) {
+        await pool.query('SELECT 1');
+      }
+    } catch (err) {
+      console.log('🔌 Keep-alive ping failed, pool will be recreated on next query');
+      poolEnded = true;
+    }
+  }, 30000);
+  
+  console.log('💓 Database keep-alive started (30s interval)');
+}
 
 // Track pool state to prevent "Cannot use a pool after calling end" errors
 let poolEnded = false;
@@ -52,8 +74,11 @@ function getPool(): Pool {
 
     currentDb = drizzle({ client: currentPool, schema });
     console.log('✅ Database pool created successfully');
+    
+    // Start keep-alive to prevent idle disconnects
+    startKeepAlive();
   }
-  return currentPool;
+  return currentPool!;
 }
 
 // Get the drizzle instance (ensures pool is valid)
