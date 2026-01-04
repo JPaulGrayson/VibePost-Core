@@ -516,7 +516,6 @@ async function createTeaserVideo(
         const tempPath = path.join(TEMP_DIR, `temp_${Date.now()}_${idx}.mp4`);
         tempVideos.push(tempPath);
 
-        const { spawn } = require('child_process');
         const relativeImgPath = path.relative(process.cwd(), img.path);
         const relativeTempPath = path.relative(process.cwd(), tempPath);
 
