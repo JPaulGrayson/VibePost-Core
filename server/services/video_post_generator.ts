@@ -9,60 +9,63 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as https from 'https';
 import * as http from 'http';
+import { spawnSync } from 'child_process';
 import { GoogleGenAI } from "@google/genai";
 
-// Helper to check if a file is executable
-function isExecutable(filePath: string): boolean {
-    try {
-        fs.accessSync(filePath, fs.constants.X_OK);
-        return true;
-    } catch {
-        return false;
-    }
-}
+// Lazy FFmpeg initialization - finds executable at runtime without bundled packages
+let ffmpegInitialized = false;
 
-// Safely resolve FFmpeg paths with fallbacks (checking executability, not just existence)
-let ffmpegPath = '';
-let ffprobePath = '';
-
-try {
-    // 1. Priority: Environment variable (for deployment flexibility)
+function initFfmpeg(): void {
+    if (ffmpegInitialized) return;
+    ffmpegInitialized = true;
+    
+    const isExecutable = (p: string): boolean => {
+        try {
+            fs.accessSync(p, fs.constants.X_OK);
+            return true;
+        } catch { return false; }
+    };
+    
+    const findSystemBinary = (name: string): string | null => {
+        try {
+            const result = spawnSync('which', [name], { encoding: 'utf8' });
+            if (result.status === 0 && result.stdout.trim()) {
+                return result.stdout.trim();
+            }
+        } catch {}
+        return null;
+    };
+    
     const envFfmpeg = process.env.FFMPEG_PATH;
     const envFfprobe = process.env.FFPROBE_PATH;
     const localFfmpeg = path.join(process.cwd(), 'repl_bin', 'ffmpeg');
     const localFfprobe = path.join(process.cwd(), 'repl_bin', 'ffprobe');
-
+    
+    let ffmpegPath = 'ffmpeg';
+    let ffprobePath = 'ffprobe';
+    
     if (envFfmpeg && isExecutable(envFfmpeg)) {
-        console.log('🚀 Using FFMPEG_PATH from environment');
+        console.log('🚀 Video Post: Using FFMPEG_PATH from environment');
         ffmpegPath = envFfmpeg;
         ffprobePath = envFfprobe || 'ffprobe';
-    }
-    // 2. Local static binary (only if executable - may not be in GCE deployment)
-    else if (isExecutable(localFfmpeg)) {
-        console.log('🚀 Using local static FFmpeg binary (Replit Mode)');
+    } else if (isExecutable(localFfmpeg)) {
+        console.log('🚀 Video Post: Using local static FFmpeg');
         ffmpegPath = localFfmpeg;
         ffprobePath = localFfprobe;
+    } else {
+        const systemFfmpeg = findSystemBinary('ffmpeg');
+        const systemFfprobe = findSystemBinary('ffprobe');
+        if (systemFfmpeg) {
+            console.log('📹 Video Post: Using system FFmpeg:', systemFfmpeg);
+            ffmpegPath = systemFfmpeg;
+            ffprobePath = systemFfprobe || 'ffprobe';
+        } else {
+            console.log('📹 Video Post: Using FFmpeg from PATH');
+        }
     }
-    // 3. System FFmpeg (Homebrew on Mac)
-    else if (isExecutable('/opt/homebrew/bin/ffmpeg')) {
-        ffmpegPath = '/opt/homebrew/bin/ffmpeg';
-        ffprobePath = '/opt/homebrew/bin/ffprobe';
-    }
-    // 4. Last Resort: System PATH
-    else {
-        console.log('📹 Using system FFmpeg from PATH');
-        ffmpegPath = 'ffmpeg';
-        ffprobePath = 'ffprobe';
-    }
-
-    // Set paths
+    
     ffmpeg.setFfmpegPath(ffmpegPath);
     ffmpeg.setFfprobePath(ffprobePath);
-} catch (err) {
-    console.error('⚠️ FFmpeg initialization error:', err);
-    // Silent fallback to PATH
-    ffmpeg.setFfmpegPath('ffmpeg');
-    ffmpeg.setFfprobePath('ffprobe');
 }
 
 const TURAI_API_URL = process.env.TURAI_API_URL || "http://localhost:5002";
@@ -276,6 +279,7 @@ async function waitForNarrations(shareCode: string, minNarrations: number = 3, t
 const pendingTours: Map<string, { shareCode: string; startTime: number }> = new Map();
 
 export async function previewVideoPost(options: VideoPostOptions): Promise<VideoPostPreview> {
+    initFfmpeg();
     const { destination, topic, maxStops = 5, secondsPerStop = 12 } = options;
 
     console.log(`👁️ Creating preview for: ${destination}${topic ? ` (${topic})` : ''}`);
@@ -768,6 +772,7 @@ export async function generateVideoPost(
  * Get duration of audio file in seconds using ffprobe
  */
 async function getAudioDuration(audioPath: string): Promise<number> {
+    initFfmpeg();
     return new Promise((resolve, reject) => {
         ffmpeg.ffprobe(audioPath, (err, metadata) => {
             if (err) {

@@ -3,36 +3,62 @@ import fs from 'fs';
 import path from 'path';
 import https from 'https';
 import http from 'http';
+import { spawnSync } from 'child_process';
 
-// Helper to check if a file is executable
-function isExecutable(filePath: string): boolean {
-    try {
-        fs.accessSync(filePath, fs.constants.X_OK);
-        return true;
-    } catch {
-        return false;
+// Lazy FFmpeg initialization - finds executable at runtime without bundled packages
+let ffmpegInitialized = false;
+
+function initFfmpeg(): void {
+    if (ffmpegInitialized) return;
+    ffmpegInitialized = true;
+    
+    const isExecutable = (p: string): boolean => {
+        try {
+            fs.accessSync(p, fs.constants.X_OK);
+            return true;
+        } catch { return false; }
+    };
+    
+    const findSystemBinary = (name: string): string | null => {
+        try {
+            const result = spawnSync('which', [name], { encoding: 'utf8' });
+            if (result.status === 0 && result.stdout.trim()) {
+                return result.stdout.trim();
+            }
+        } catch {}
+        return null;
+    };
+    
+    const envFfmpeg = process.env.FFMPEG_PATH;
+    const envFfprobe = process.env.FFPROBE_PATH;
+    const localFfmpeg = path.join(process.cwd(), 'repl_bin', 'ffmpeg');
+    const localFfprobe = path.join(process.cwd(), 'repl_bin', 'ffprobe');
+    
+    let ffmpegPath = 'ffmpeg';
+    let ffprobePath = 'ffprobe';
+    
+    if (envFfmpeg && isExecutable(envFfmpeg)) {
+        console.log('🚀 Stop Video: Using FFMPEG_PATH from environment');
+        ffmpegPath = envFfmpeg;
+        ffprobePath = envFfprobe || 'ffprobe';
+    } else if (isExecutable(localFfmpeg)) {
+        console.log('🚀 Stop Video: Using local static FFmpeg');
+        ffmpegPath = localFfmpeg;
+        ffprobePath = localFfprobe;
+    } else {
+        const systemFfmpeg = findSystemBinary('ffmpeg');
+        const systemFfprobe = findSystemBinary('ffprobe');
+        if (systemFfmpeg) {
+            console.log('📹 Stop Video: Using system FFmpeg:', systemFfmpeg);
+            ffmpegPath = systemFfmpeg;
+            ffprobePath = systemFfprobe || 'ffprobe';
+        } else {
+            console.log('📹 Stop Video: Using FFmpeg from PATH');
+        }
     }
-}
-
-// Initialize FFmpeg paths - prefer ENV, then executable local binary, then system ffmpeg
-const envFfmpeg = process.env.FFMPEG_PATH;
-const envFfprobe = process.env.FFPROBE_PATH;
-const localFfmpeg = path.join(process.cwd(), 'repl_bin', 'ffmpeg');
-const localFfprobe = path.join(process.cwd(), 'repl_bin', 'ffprobe');
-
-if (envFfmpeg && isExecutable(envFfmpeg)) {
-    console.log('🚀 Stop Video Generator: Using FFMPEG_PATH from environment');
-    ffmpeg.setFfmpegPath(envFfmpeg);
-    ffmpeg.setFfprobePath(envFfprobe || 'ffprobe');
-} else if (isExecutable(localFfmpeg)) {
-    console.log('🚀 Stop Video Generator: Using local static FFmpeg');
-    ffmpeg.setFfmpegPath(localFfmpeg);
-    ffmpeg.setFfprobePath(localFfprobe);
-} else {
-    // Fallback to system path
-    ffmpeg.setFfmpegPath('ffmpeg');
-    ffmpeg.setFfprobePath('ffprobe');
-    console.log('📹 Stop Video Generator: Using system FFmpeg');
+    
+    ffmpeg.setFfmpegPath(ffmpegPath);
+    ffmpeg.setFfprobePath(ffprobePath);
 }
 
 // Output directory for generated videos
@@ -103,6 +129,7 @@ async function downloadFile(url: string, outputPath: string): Promise<void> {
  * Get audio duration in seconds
  */
 async function getAudioDuration(audioPath: string): Promise<number> {
+    initFfmpeg();
     return new Promise((resolve, reject) => {
         ffmpeg.ffprobe(audioPath, (err, metadata) => {
             if (err) {
@@ -129,6 +156,7 @@ export async function createStopVideo(
     outputName: string,
     destination: string = ''
 ): Promise<VideoGenerationResult> {
+    initFfmpeg();
     const timestamp = Date.now();
     const tempPrefix = path.join(TEMP_DIR, `${timestamp}_`);
     const outputPath = path.join(VIDEO_OUTPUT_DIR, `${outputName}_${timestamp}.mp4`);
@@ -405,6 +433,7 @@ export async function createSimpleStopVideo(
     audioUrl: string,
     outputName: string
 ): Promise<VideoGenerationResult> {
+    initFfmpeg();
     const timestamp = Date.now();
     const tempPrefix = path.join(TEMP_DIR, `${timestamp}_`);
     const outputPath = path.join(VIDEO_OUTPUT_DIR, `${outputName}_${timestamp}.mp4`);

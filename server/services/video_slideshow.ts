@@ -2,7 +2,45 @@ import puppeteer, { Browser, Page } from 'puppeteer';
 import { PuppeteerScreenRecorder } from 'puppeteer-screen-recorder';
 import path from 'path';
 import fs from 'fs';
+import { spawnSync } from 'child_process';
 import { storage } from '../storage';
+
+// Lazy FFmpeg path detection (no bundled installer packages)
+let cachedFfmpegPath: string | null = null;
+
+function getFfmpegPath(): string {
+    if (cachedFfmpegPath) return cachedFfmpegPath;
+    
+    const isExecutable = (p: string): boolean => {
+        try { fs.accessSync(p, fs.constants.X_OK); return true; } catch { return false; }
+    };
+    
+    // Check env variable first
+    if (process.env.FFMPEG_PATH && isExecutable(process.env.FFMPEG_PATH)) {
+        cachedFfmpegPath = process.env.FFMPEG_PATH;
+        return cachedFfmpegPath;
+    }
+    
+    // Check local binary
+    const localFfmpeg = path.join(process.cwd(), 'repl_bin', 'ffmpeg');
+    if (isExecutable(localFfmpeg)) {
+        cachedFfmpegPath = localFfmpeg;
+        return cachedFfmpegPath;
+    }
+    
+    // Use which command to find system FFmpeg
+    try {
+        const result = spawnSync('which', ['ffmpeg'], { encoding: 'utf8' });
+        if (result.status === 0 && result.stdout.trim()) {
+            cachedFfmpegPath = result.stdout.trim();
+            return cachedFfmpegPath;
+        }
+    } catch {}
+    
+    // Fallback to PATH
+    cachedFfmpegPath = 'ffmpeg';
+    return cachedFfmpegPath;
+}
 
 // Configuration
 // Turai API and frontend run on the same server
@@ -173,8 +211,7 @@ export async function generateVideoSlideshow(
 
         try {
             const ffmpeg = await import('fluent-ffmpeg').then(m => m.default);
-            const { path: ffmpegPath } = await import('@ffmpeg-installer/ffmpeg');
-            ffmpeg.setFfmpegPath(ffmpegPath);
+            ffmpeg.setFfmpegPath(getFfmpegPath());
 
             await new Promise<void>((resolve, reject) => {
                 ffmpeg(tempPath)
@@ -428,8 +465,7 @@ async function downloadAndMergeAudio(shareCode: string, outputPath: string): Pro
 
         // Concatenate audio files using FFmpeg
         const ffmpeg = await import('fluent-ffmpeg').then(m => m.default);
-        const { path: ffmpegPath } = await import('@ffmpeg-installer/ffmpeg');
-        ffmpeg.setFfmpegPath(ffmpegPath);
+        ffmpeg.setFfmpegPath(getFfmpegPath());
 
         // Create concat list file
         const concatListPath = path.join(tempDir, 'concat_list.txt');
@@ -478,8 +514,7 @@ async function mergeAudioWithVideo(videoPath: string, audioPath: string, outputP
         console.log('🎬 Merging audio with video...');
 
         const ffmpeg = await import('fluent-ffmpeg').then(m => m.default);
-        const { path: ffmpegPath } = await import('@ffmpeg-installer/ffmpeg');
-        ffmpeg.setFfmpegPath(ffmpegPath);
+        ffmpeg.setFfmpegPath(getFfmpegPath());
 
         await new Promise<void>((resolve, reject) => {
             ffmpeg()
