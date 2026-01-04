@@ -56,7 +56,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.redirect('/');
   });
 
-  // System Health Check
+  // Simple Health Check (for load balancer/deployment)
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // Detailed System Health Check
   app.get("/api/health/detailed", async (req, res) => {
     try {
       const turaiUrl = process.env.TURAI_API_URL || "http://localhost:5050";
