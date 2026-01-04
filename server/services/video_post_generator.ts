@@ -148,7 +148,7 @@ async function generateTour(options: VideoPostOptions): Promise<{ success: boole
                 focus: topic,
                 email: 'vibepost@turai.app'
             })
-        }, 20000); // 20 second timeout - tour creation is usually fast, narrations take longer
+        }, 12000); // 12 second timeout - must fit within 20s HTTP proxy limit
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -164,9 +164,13 @@ async function generateTour(options: VideoPostOptions): Promise<{ success: boole
         }
 
         return { success: false, error: 'No share code returned' };
-    } catch (error) {
+    } catch (error: any) {
         console.error('Tour generation failed:', error);
-        return { success: false, error: String(error) };
+        const errorMsg = error.message || String(error);
+        if (errorMsg.includes('timed out')) {
+            return { success: false, error: 'Tour generation is slow - please try again in a moment' };
+        }
+        return { success: false, error: errorMsg };
     }
 }
 
@@ -271,9 +275,9 @@ export async function previewVideoPost(options: VideoPostOptions): Promise<Video
         }
         result.shareCode = tourResult.shareCode;
 
-        // Step 2: Quick check for any available data (5 second timeout max)
+        // Step 2: Quick check for any available data (3 second timeout max)
         // Don't wait for all narrations - let user refresh manually
-        const quickTimeout = 5000; // 5 seconds max wait
+        const quickTimeout = 3000; // 3 seconds max wait (leave room for HTTP response)
         const startTime = Date.now();
         let slideshowData = null;
         
