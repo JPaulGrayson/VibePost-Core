@@ -16,7 +16,7 @@ const pool = new Pool({
   connectionString,
   connectionTimeoutMillis: 15000, // 15 second timeout for Neon compute wakeup
   idleTimeoutMillis: 30000, // Release idle connections after 30s
-  max: 5, // Reduced for pooler endpoint - stays within Neon limits
+  max: 8, // Balanced for multiple background services
   allowExitOnIdle: false,
   application_name: 'vibepost' // For observability in Neon dashboard
 });
@@ -29,17 +29,16 @@ pool.on('error', (err) => {
   console.error('⚠️ Pool error (connections will be recreated):', err.message);
 });
 
-// Keep-alive every 4 minutes to prevent Neon auto-suspend (5 min idle)
+// Keep-alive every 2 minutes to prevent Neon auto-suspend
+// Using pool.query() which auto-manages client acquisition/release
 const keepAliveInterval = setInterval(async () => {
   try {
-    const client = await pool.connect();
-    await client.query('SELECT 1');
-    client.release();
+    await pool.query('SELECT 1');
     console.log('💓 Keep-alive successful');
   } catch (err) {
     console.error('💔 Keep-alive failed:', (err as Error).message);
   }
-}, 240000);
+}, 120000);
 
 // Export drizzle instance
 export const db = drizzle(pool, { schema });
