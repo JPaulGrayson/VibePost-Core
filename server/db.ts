@@ -15,10 +15,10 @@ if (!connectionString.includes('sslmode=')) {
 const pool = new Pool({
   connectionString,
   connectionTimeoutMillis: 15000, // 15 second timeout for Neon compute wakeup
-  idleTimeoutMillis: 0, // Disable client-side idle timeout
-  max: 10,
-  // Important: Allow pool to create new connections after errors
-  allowExitOnIdle: false
+  idleTimeoutMillis: 30000, // Release idle connections after 30s
+  max: 5, // Reduced for pooler endpoint - stays within Neon limits
+  allowExitOnIdle: false,
+  application_name: 'vibepost' // For observability in Neon dashboard
 });
 
 // Log pool creation
