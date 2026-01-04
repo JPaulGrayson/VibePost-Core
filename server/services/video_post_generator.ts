@@ -263,7 +263,7 @@ export async function previewVideoPost(options: VideoPostOptions): Promise<Video
     };
 
     try {
-        // Step 1: Generate tour
+        // Step 1: Generate tour (this is fast - just API call to Turai)
         const tourResult = await generateTour(options);
         if (!tourResult.success || !tourResult.shareCode) {
             result.error = tourResult.error || 'Failed to generate tour';
@@ -271,10 +271,31 @@ export async function previewVideoPost(options: VideoPostOptions): Promise<Video
         }
         result.shareCode = tourResult.shareCode;
 
-        // Step 2: Wait for narrations - wait for ALL stops to be ready
-        const slideshowData = await waitForNarrations(tourResult.shareCode, maxStops);
-        if (!slideshowData) {
-            result.error = 'Narrations did not generate in time';
+        // Step 2: Quick check for any available data (5 second timeout max)
+        // Don't wait for all narrations - let user refresh manually
+        const quickTimeout = 5000; // 5 seconds max wait
+        const startTime = Date.now();
+        let slideshowData = null;
+        
+        while (Date.now() - startTime < quickTimeout) {
+            try {
+                const res = await fetch(`${TURAI_API_URL}/api/tours/slideshow/${tourResult.shareCode}`);
+                if (res.ok) {
+                    slideshowData = await res.json();
+                    // If we have tour data, break immediately
+                    if (slideshowData?.tour) {
+                        console.log(`   ✅ Got tour data in ${Date.now() - startTime}ms`);
+                        break;
+                    }
+                }
+            } catch (e) {
+                // Ignore errors, keep trying
+            }
+            await new Promise(r => setTimeout(r, 500));
+        }
+
+        if (!slideshowData?.tour) {
+            result.error = 'Tour data not available yet - try refreshing';
             return result;
         }
 
@@ -287,18 +308,10 @@ export async function previewVideoPost(options: VideoPostOptions): Promise<Video
             result.introImageUrl = makeAbsoluteUrl(tour.aiImageUrl);
         }
 
-        // Build stops
+        // Build stops with whatever narrations are available
         for (let i = 0; i < pois.length; i++) {
             const poi = pois[i];
             const narration = narrations[i];
-
-            // Debug: log what photo data we have
-            console.log(`📷 Stop ${i + 1} (${poi.name}) photo sources:`);
-            console.log(`   - narration.photoUrls: ${narration?.photoUrls?.length || 0}`);
-            console.log(`   - poi.photoUrls: ${poi.photoUrls?.length || 0}`);
-            console.log(`   - poi.photos: ${poi.photos?.length || 0}`);
-            console.log(`   - poi.heroImageUrl: ${poi.heroImageUrl ? 'yes' : 'no'}`);
-            console.log(`   - narration.thumbnailUrl: ${narration?.thumbnailUrl ? 'yes' : 'no'}`);
 
             // Collect ALL available image URLs for this stop
             const allImageUrls: string[] = [];
@@ -343,14 +356,15 @@ export async function previewVideoPost(options: VideoPostOptions): Promise<Video
                 narrationText: narration?.text
             };
 
-            console.log(`   Stop ${i + 1} (${stop.name}): ${allImageUrls.length} images, audio: ${stop.audioUrl ? 'YES' : 'NO'}`);
             result.stops.push(stop);
         }
+
+        const stopsWithAudio = result.stops.filter(s => s.audioUrl).length;
+        console.log(`✅ Preview ready: ${result.stops.length} stops, ${stopsWithAudio} with audio (use Refresh for more)`);
 
         result.estimatedDuration = result.stops.length * secondsPerStop;
         result.success = result.stops.length > 0;
 
-        console.log(`✅ Preview ready: ${result.stops.length} stops, ~${result.estimatedDuration}s`);
         return result;
 
     } catch (error) {

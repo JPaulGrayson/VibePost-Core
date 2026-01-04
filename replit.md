@@ -33,7 +33,7 @@ VibePost utilizes a modern full-stack architecture.
 - **Topic Search**: Functionality to find and reply to relevant discussions, with campaign message templates and bulk reply options for automation.
 - **Sniper System**: Automates draft replies to engage with active conversations, including bot/spam filtering and strategic reply hooks based on campaign strategies.
 - **Auto-publisher**: Stores campaign type in platformData for future posts.
-- **Video Generation**: Dynamic timeouts and partial data returns for video previews, with exponential backoff for rate limits.
+- **Video Generation**: Fast preview returns (5s max) with partial data, manual Refresh button for narration updates, exponential backoff for rate limits.
 
 **System Design Choices:**
 - **Modular Backend**: Ensures maintainability and scalability with clear separation of concerns.
