@@ -1,6 +1,5 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 // ============================================
@@ -56,12 +55,10 @@ app.use((req, res, next) => {
   next();
 });
 
-import { twitterListener } from "./services/twitter_listener";
-
-// ...
-
-// Function to start background services (called AFTER server is listening)
+// Function to start background services (called AFTER server is listening with delay)
 async function startBackgroundServices() {
+  console.log("🔄 Starting background services...");
+  
   // Start Twitter Listener
   try {
     console.log("Starting Twitter Listener...");
@@ -104,41 +101,55 @@ async function startBackgroundServices() {
   }
 }
 
+// CRITICAL: Add lightweight health check BEFORE heavy routes load
+// This ensures deployment health checks pass immediately
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
 (async () => {
-  const server = await registerRoutes(app);
-
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    // Log the error but DON'T re-throw (prevents crashes)
-    console.error(`❌ Express error: ${message}`, err.stack);
-    res.status(status).json({ message });
-  });
-
-  // Setup vite in development, static serving in production
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
-
-  // CRITICAL: Start HTTP server FIRST before background services
-  // This ensures deployment health checks pass within timeout
+  // Create HTTP server FIRST with just the health check
+  const { createServer } = await import("http");
+  const server = createServer(app);
+  
   const port = parseInt(process.env.PORT || '5002', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-  }, () => {
+  
+  // Start listening IMMEDIATELY so health checks pass
+  server.listen({ port, host: "0.0.0.0" }, async () => {
     console.log(`🚀 Server listening on http://0.0.0.0:${port}`);
+    console.log(`✅ Health check ready - server accepting requests`);
     log(`serving on port ${port}`);
     
-    // Start background services AFTER server is listening
-    // This prevents blocking the event loop during startup
-    setImmediate(() => {
+    // Now load heavy routes AFTER server is listening
+    try {
+      console.log("📦 Loading application routes...");
+      const { registerRoutes } = await import("./routes");
+      await registerRoutes(app);
+      console.log("✅ Routes loaded successfully");
+    } catch (error) {
+      console.error("❌ Failed to load routes:", error);
+    }
+    
+    // Setup vite in development, static serving in production
+    if (app.get("env") === "development") {
+      await setupVite(app, server);
+    } else {
+      serveStatic(app);
+    }
+    
+    // Error handler
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      console.error(`❌ Express error: ${message}`, err.stack);
+      res.status(status).json({ message });
+    });
+    
+    // Start background services with delay
+    setTimeout(() => {
       startBackgroundServices().catch(err => {
         console.error("Error starting background services:", err);
       });
-    });
+    }, 3000);
   });
 })();
