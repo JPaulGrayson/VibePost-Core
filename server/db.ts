@@ -6,30 +6,48 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
 }
 
+// Neon requires SSL - add to connection string if not present
+let connectionString = process.env.DATABASE_URL;
+if (!connectionString.includes('sslmode=')) {
+  connectionString += connectionString.includes('?') ? '&sslmode=require' : '?sslmode=require';
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  connectionTimeoutMillis: 10000,
-  idleTimeoutMillis: 0,
-  max: 10
+  connectionString,
+  connectionTimeoutMillis: 15000, // 15 second timeout for Neon compute wakeup
+  idleTimeoutMillis: 0, // Disable client-side idle timeout
+  max: 10,
+  // Important: Allow pool to create new connections after errors
+  allowExitOnIdle: false
 });
 
+// Log pool creation
+console.log('🔌 Database pool created with TCP connection');
+
+// Handle pool-level errors (e.g., from Neon auto-suspend)
 pool.on('error', (err) => {
-  console.error('⚠️ Idle client error (pool will recreate on next query):', err.message);
+  console.error('⚠️ Pool error (connections will be recreated):', err.message);
 });
 
+// Keep-alive every 4 minutes to prevent Neon auto-suspend (5 min idle)
 const keepAliveInterval = setInterval(async () => {
   try {
-    await pool.query('SELECT 1');
-    console.log('💓 Keep-alive ping successful');
+    const client = await pool.connect();
+    await client.query('SELECT 1');
+    client.release();
+    console.log('💓 Keep-alive successful');
   } catch (err) {
-    console.error('💔 Keep-alive ping failed:', (err as Error).message);
+    console.error('💔 Keep-alive failed:', (err as Error).message);
   }
 }, 240000);
 
+// Export drizzle instance
 export const db = drizzle(pool, { schema });
 
+// Export pool for direct access
 export { pool };
 
+// Graceful shutdown
 let isShuttingDown = false;
 
 process.on('SIGINT', async () => {
