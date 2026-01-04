@@ -27,8 +27,19 @@ let currentDb: NeonDatabase<typeof schema> | null = null;
 
 // Create or get the pool
 function getPool(): Pool {
-  if (!currentPool || poolEnded) {
-    console.log('🔌 Creating new database pool...');
+  // Check if pool needs recreation:
+  // 1. No pool exists
+  // 2. Pool was marked as ended by our code
+  // 3. Pool was ended remotely/by idle timeout (check .ended property)
+  const needsNewPool = !currentPool || poolEnded || (currentPool as any).ended;
+  
+  if (needsNewPool) {
+    if (currentPool && !poolEnded) {
+      console.log('🔌 Pool was closed remotely, recreating...');
+    } else {
+      console.log('🔌 Creating new database pool...');
+    }
+    
     poolEnded = false;
     currentPool = new Pool(poolConfig);
 
