@@ -419,6 +419,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Fetch replies to a specific tweet
+  app.get("/api/tweets/:tweetId/replies", async (req, res) => {
+    try {
+      const { tweetId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      const replies = await keywordSearchEngine.fetchTweetReplies(tweetId, limit);
+      
+      res.json({
+        tweetId,
+        replies: replies.map(r => ({
+          id: r.id,
+          author: r.author,
+          authorId: r.authorId,
+          text: r.text,
+          createdAt: r.createdAt,
+          likes: r.likes || 0,
+          retweets: r.retweets || 0,
+          replies: r.replies || 0,
+          url: `https://twitter.com/${r.author}/status/${r.id}`
+        }))
+      });
+    } catch (error) {
+      console.error("Error fetching tweet replies:", error);
+      res.status(500).json({ message: "Failed to fetch replies", error: String(error) });
+    }
+  });
+
+  // Fetch all comments/replies for posts with comments (bulk endpoint for analytics)
+  app.get("/api/analytics/comments", async (req, res) => {
+    try {
+      // Get recent posts with comments
+      const posts = await storage.getPosts();
+      const postsWithReplies = posts
+        .filter(p => {
+          const data = p.platformData as any;
+          return (data?.twitter?.replies || 0) > 0 && (data?.twitter?.tweetId || data?.twitter?.id);
+        })
+        .sort((a, b) => {
+          const aReplies = (a.platformData as any)?.twitter?.replies || 0;
+          const bReplies = (b.platformData as any)?.twitter?.replies || 0;
+          return bReplies - aReplies;
+        })
+        .slice(0, 10); // Top 10 posts with most comments
+
+      // Fetch actual replies for each post
+      const results = [];
+      
+      for (const post of postsWithReplies) {
+        const data = post.platformData as any;
+        const tweetId = data?.twitter?.tweetId || data?.twitter?.id;
+        
+        if (!tweetId) continue;
+        
+        try {
+          const replies = await keywordSearchEngine.fetchTweetReplies(tweetId, 5);
+          
+          results.push({
+            postId: post.id,
+            tweetId,
+            postContent: post.content.substring(0, 100) + (post.content.length > 100 ? '...' : ''),
+            postUrl: `https://twitter.com/MaxTruth_Seeker/status/${tweetId}`,
+            publishedAt: post.publishedAt,
+            totalReplies: data?.twitter?.replies || 0,
+            replies: replies.map(r => ({
+              id: r.id,
+              author: r.author,
+              text: r.text,
+              createdAt: r.createdAt,
+              likes: r.likes || 0,
+              url: `https://twitter.com/${r.author}/status/${r.id}`
+            }))
+          });
+        } catch (e) {
+          // Skip posts where we can't fetch replies
+          console.log(`Could not fetch replies for tweet ${tweetId}:`, e);
+        }
+      }
+      
+      res.json({ posts: results });
+    } catch (error) {
+      console.error("Error fetching analytics comments:", error);
+      res.status(500).json({ message: "Failed to fetch comments", error: String(error) });
+    }
+  });
+
   // Publish post to platforms
   app.post("/api/posts/:id/publish", async (req, res) => {
     try {
