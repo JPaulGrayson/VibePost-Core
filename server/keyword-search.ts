@@ -406,13 +406,33 @@ export class KeywordSearchEngine {
     try {
       console.log(`🔍 Fetching replies to tweet ${tweetId}...`);
 
-      const query = `conversation_id:${tweetId} is:reply -is:retweet`;
+      // First, get our tweet to find the conversation_id (since our tweets are often replies)
+      let conversationId = tweetId;
+      let ourTweetCreatedAt: Date | null = null;
+      
+      try {
+        const tweetLookup = await twitterClient.v2.singleTweet(tweetId, {
+          'tweet.fields': ['conversation_id', 'created_at', 'in_reply_to_user_id']
+        });
+        if (tweetLookup.data?.conversation_id) {
+          conversationId = tweetLookup.data.conversation_id;
+          console.log(`   Tweet ${tweetId} is part of conversation ${conversationId}`);
+        }
+        if (tweetLookup.data?.created_at) {
+          ourTweetCreatedAt = new Date(tweetLookup.data.created_at);
+        }
+      } catch (lookupError) {
+        console.log(`   Could not lookup tweet details, using tweet ID as conversation ID`);
+      }
+
+      // Search the conversation for all replies
+      const query = `conversation_id:${conversationId} is:reply -is:retweet`;
 
       const searchResults = await twitterClient.v2.search(query, {
         max_results: Math.max(10, Math.min(maxResults, 100)),
-        'tweet.fields': ['created_at', 'author_id', 'public_metrics', 'in_reply_to_user_id'],
+        'tweet.fields': ['created_at', 'author_id', 'public_metrics', 'in_reply_to_user_id', 'referenced_tweets'],
         'user.fields': ['username', 'public_metrics', 'description'],
-        expansions: ['author_id']
+        expansions: ['author_id', 'referenced_tweets.id']
       });
 
       const results: SearchResult[] = [];
@@ -433,11 +453,30 @@ export class KeywordSearchEngine {
         users = searchResults.includes.users;
       }
 
-      console.log(`   Found ${tweets.length} replies to tweet ${tweetId}`);
+      console.log(`   Found ${tweets.length} total replies in conversation ${conversationId}`);
 
       const BOT_INDICATORS = ['bot', 'auto', 'spam', 'promo', 'deals', 'crypto', 'nft'];
 
       for (const tweet of tweets) {
+        // Check if this tweet is a direct reply to our specific tweet
+        const referencedTweets = tweet.referenced_tweets || [];
+        const isReplyToOurTweet = referencedTweets.some(
+          (ref: any) => ref.type === 'replied_to' && ref.id === tweetId
+        );
+        
+        // If we know it's not a direct reply to our tweet, skip it
+        // (unless we couldn't verify - then include tweets posted after ours)
+        if (!isReplyToOurTweet) {
+          // If we have our tweet's timestamp, filter to tweets posted after
+          if (ourTweetCreatedAt) {
+            const tweetCreatedAt = new Date(tweet.created_at || 0);
+            // If this tweet was posted before our tweet, it can't be a reply to us
+            if (tweetCreatedAt < ourTweetCreatedAt) {
+              continue;
+            }
+          }
+        }
+        
         const author = users.find((user: any) => user.id === tweet.author_id);
         const authorUsername = (author?.username || '').toLowerCase();
         const authorDescription = (author?.description || '').toLowerCase();
