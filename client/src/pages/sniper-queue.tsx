@@ -125,30 +125,26 @@ export default function SniperQueue() {
         <div className="p-6 max-w-4xl mx-auto">
             <h1 className="text-2xl font-bold mb-4">🧙‍♂️ Wizard's Tower (Lead Review Queue)</h1>
 
-            {/* Campaign Selector Tabs */}
+            {/* Campaign Selector - LogiGo temporarily disabled */}
             <div className="mb-6 p-4 bg-card rounded-lg border">
                 <label className="text-sm font-medium text-muted-foreground mb-2 block">Active Campaign</label>
                 <Tabs
-                    value={activeCampaign}
-                    onValueChange={(value) => switchCampaign.mutate(value)}
+                    value="turai"
                     className="w-full"
                 >
                     <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="turai" className="flex items-center gap-2" disabled={switchCampaign.isPending}>
+                        <TabsTrigger value="turai" className="flex items-center gap-2">
                             <Plane className="h-4 w-4" />
                             <span>✈️ Turai Travel</span>
                         </TabsTrigger>
-                        <TabsTrigger value="logigo" className="flex items-center gap-2" disabled={switchCampaign.isPending}>
+                        <TabsTrigger value="logigo" className="flex items-center gap-2 opacity-50" disabled>
                             <Code2 className="h-4 w-4" />
-                            <span>🧠 LogiGo Vibe Coding</span>
+                            <span>🧠 LogiGo Vibe Coding (Disabled)</span>
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>
                 <p className="text-xs text-muted-foreground mt-2">
-                    {activeCampaign === 'turai'
-                        ? "Hunting for travelers planning trips - promoting AI Tour Guide"
-                        : "Hunting for developers struggling with code - promoting code visualization"
-                    }
+                    Hunting for travelers planning trips - promoting AI Tour Guide
                 </p>
             </div>
 
@@ -172,7 +168,7 @@ export default function SniperQueue() {
                     ) : (
                         <>
                             <RefreshCw className="mr-2 h-4 w-4" />
-                            Manual Hunt ({activeCampaign === 'logigo' ? '🧠' : '✈️'})
+                            Manual Hunt ✈️
                         </>
                     )}
                 </Button>

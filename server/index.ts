@@ -72,16 +72,15 @@ import { twitterListener } from "./services/twitter_listener";
     console.error("Failed to start Twitter Listener:", error);
   }
 
-  // Start Sniper Manager (Keyword Hunter) - TEMPORARILY DISABLED
-  // try {
-  //   // Start the Sniper Manager (Background Tweet Hunter)
-  //   console.log("🔫 Initializing Sniper Manager...");
-  //   const { sniperManager } = await import("./services/sniper_manager");
-  //   sniperManager.startHunting().catch(err => console.error("Sniper Manager error:", err));
-  // } catch (error) {
-  //   console.error("Failed to start Sniper Manager:", error);
-  // }
-  console.log("🔫 Sniper Manager: DISABLED (uncomment in index.ts to re-enable)");
+  // Start Sniper Manager (Keyword Hunter)
+  try {
+    // Start the Sniper Manager (Background Tweet Hunter)
+    console.log("🔫 Initializing Sniper Manager...");
+    const { sniperManager } = await import("./services/sniper_manager");
+    sniperManager.startHunting().catch(err => console.error("Sniper Manager error:", err));
+  } catch (error) {
+    console.error("Failed to start Sniper Manager:", error);
+  }
 
   // Start Daily Video Scheduler (Auto-posts video slideshows at 9 AM daily)
   // Replaces both Daily Postcard and Thread Tour schedulers
