@@ -208,10 +208,8 @@ async function waitForNarrations(shareCode: string, minNarrations: number = 3, t
 
                 if (narrations.length === lastCount && narrations.length > 0) {
                     stableCount++;
-                    // Only return partial if stable for 8 polls (40 seconds) AND we have at least 3 narrations
-                    // This ensures we wait longer for videos to reach target length
-                    if (stableCount >= 8 && narrations.length >= 3) {
-                        console.log(`   ⚠️ ${narrations.length} narrations (stable after 40s - returning partial)`);
+                    if (stableCount >= 3) {
+                        console.log(`   ⚠️ ${narrations.length} narrations (stable - returning partial)`);
                         return slideshowData;
                     }
                 } else {
@@ -229,15 +227,9 @@ async function waitForNarrations(shareCode: string, minNarrations: number = 3, t
         await new Promise(r => setTimeout(r, pollInterval));
     }
 
-    // Timeout reached - return best data if we have at least 3 narrations for a usable video
-    if (bestData && (bestData.narrations?.length || 0) >= 3) {
-        console.log(`   ⏰ Timeout - returning ${bestData.narrations.length} narrations (partial but usable)`);
-        return bestData;
-    }
-    
-    // Return even with fewer narrations if that's all we have (better than nothing)
+    // Timeout reached - return best data if we have at least 1 narration
     if (bestData && (bestData.narrations?.length || 0) >= 1) {
-        console.log(`   ⏰ Timeout - returning ${bestData.narrations.length} narrations (minimal)`);
+        console.log(`   ⏰ Timeout - returning ${bestData.narrations.length} narrations (partial)`);
         return bestData;
     }
 

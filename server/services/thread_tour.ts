@@ -4,8 +4,8 @@ import { createStopVideo, createSimpleStopVideo } from "./stop_video_generator";
 // Configuration
 // Use production Turai API so tours exist on turai.org and links work
 const TURAI_API_URL = process.env.TURAI_API_URL || "https://turai.org";
-// Public URL for tour links (voyai.app is the user-facing domain)
-const VOYAI_PUBLIC_URL = process.env.VOYAI_PUBLIC_URL || "https://voyai.app";
+// Public URL for tour links
+const TURAI_PUBLIC_URL = process.env.TURAI_PUBLIC_URL || "turai.org";
 const MAX_STOPS = 5;
 const USE_VIDEO_MODE = true; // Enable video generation for stops
 
@@ -521,12 +521,10 @@ export async function postThreadTour(
         }
 
         const tour = tourReadyResult.tour;
-        // Sort narrations by poiIndex for consistent matching
-        const rawNarrations = tourReadyResult.narrations || [];
-        const sortedNarrations = [...rawNarrations].sort((a, b) => a.poiIndex - b.poiIndex);
+        const narrations = tourReadyResult.narrations || [];
         const pois = tour.pointsOfInterest.slice(0, maxStops);
 
-        console.log(`📍 Found ${pois.length} stops, ${sortedNarrations.length} narrations ready`);
+        console.log(`📍 Found ${pois.length} stops, ${narrations.length} narrations ready`);
 
         // Step 3: Post Intro Tweet
         // Use tour cover image, or first POI's image as fallback (avoid LoremFlickr placeholders)
@@ -540,9 +538,7 @@ export async function postThreadTour(
         if (!introImageUrl) {
             introImageUrl = getDestinationFallbackImage(destination);
         }
-        // Build tour link for voyai.app
-        const tourLink = `${VOYAI_PUBLIC_URL}/s/${shareCode}`;
-        const introText = `🗺️ Wizard's Guide to ${destination} Tour\n\nDiscover ${pois.length} amazing stops with AI audio narration!\n\n🎧 Watch & listen below 👇\n\n🌐 Full tour: ${tourLink}`;
+        const introText = `🗺️ Explore ${destination}! 🧵\n\nA ${pois.length}-stop AI-guided tour... 👇`;
 
         console.log('📤 Posting intro tweet...');
 
@@ -561,9 +557,7 @@ export async function postThreadTour(
             createdAt: new Date(),
             publishedAt: null,
             publishAttempts: 0,
-            lastError: null,
-            campaignType: "turai" as const,
-            replyTweetId: null
+            lastError: null
         };
 
         const introResult = await publishDraft(introDraft);
@@ -595,8 +589,7 @@ export async function postThreadTour(
 
         for (let i = 0; i < pois.length; i++) {
             const poi = pois[i];
-            // Try to find narration by exact poiIndex first, fallback to sequential if not found
-            const narration = sortedNarrations.find(n => n.poiIndex === i) || sortedNarrations[i];
+            const narration = narrations.find(n => n.poiIndex === i);
 
             // Get image for this stop - fallback uses POI name for relevance
             const poiFallback = getDestinationFallbackImage(poi.name);
@@ -661,9 +654,7 @@ export async function postThreadTour(
                         createdAt: new Date(),
                         publishedAt: null,
                         publishAttempts: 0,
-                        lastError: null,
-                        campaignType: "turai" as const,
-                        replyTweetId: null
+                        lastError: null
                     };
                     stopResult = await publishDraft(stopDraft);
                 }
@@ -684,9 +675,7 @@ export async function postThreadTour(
                     createdAt: new Date(),
                     publishedAt: null,
                     publishAttempts: 0,
-                    lastError: null,
-                    campaignType: "turai" as const,
-                    replyTweetId: null
+                    lastError: null
                 };
                 stopResult = await publishDraft(stopDraft);
             }
@@ -719,7 +708,7 @@ export async function postThreadTour(
         await new Promise(resolve => setTimeout(resolve, 2000));
 
         // Updated CTA - they already got audio, so offer more exploration
-        const ctaText = `✨ Enjoyed this tour?\n\nExplore more destinations with AI audio guides:\n${VOYAI_PUBLIC_URL}\n\n#${destination.split(',')[0].replace(/\s+/g, '')} #TravelThread #AITravel`;
+        const ctaText = `✨ Enjoyed this tour?\n\nExplore more destinations with AI audio guides:\n${TURAI_PUBLIC_URL}\n\n#${destination.split(',')[0].replace(/\s+/g, '')} #TravelThread #AITravel`;
 
         const ctaDraft = {
             id: -1,
@@ -736,9 +725,7 @@ export async function postThreadTour(
             createdAt: new Date(),
             publishedAt: null,
             publishAttempts: 0,
-            lastError: null,
-            campaignType: "turai" as const,
-            replyTweetId: null
+            lastError: null
         };
 
         const ctaResult = await publishDraft(ctaDraft);
@@ -877,9 +864,7 @@ export async function previewThreadTour(
         }
 
         const tour = tourReadyResult.tour;
-        // Sort narrations by poiIndex for consistent matching
-        const rawNarrations = tourReadyResult.narrations || [];
-        const sortedNarrations = [...rawNarrations].sort((a, b) => a.poiIndex - b.poiIndex);
+        const narrations = tourReadyResult.narrations || [];
         const pois = tour.pointsOfInterest.slice(0, maxStops);
 
         // Set intro image
@@ -888,13 +873,14 @@ export async function previewThreadTour(
             ?? toAbsoluteUrl(pois[0]?.photoUrls?.[0]);
         result.introImageUrl = introImg ?? undefined;
 
+
+
         // Step 3: Generate videos for each stop (but don't post)
         console.log(`📍 Processing ${pois.length} stops...`);
 
         for (let i = 0; i < pois.length; i++) {
             const poi = pois[i];
-            // Try to find narration by exact poiIndex first, fallback to sequential if not found
-            const narration = sortedNarrations.find(n => n.poiIndex === i) || sortedNarrations[i];
+            const narration = narrations.find(n => n.poiIndex === i);
 
             // Get photos
             const photos = await getAllPOIPhotosWithFallback(poi, narration);
