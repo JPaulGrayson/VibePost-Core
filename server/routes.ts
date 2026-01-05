@@ -74,6 +74,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const sniperStatus = {
         isRunning: sniperManager.isRunning,
+        paused: sniperManager.paused,
         draftsGeneratedToday: sniperManager.todaysDrafts,
         dailyLimit: sniperManager.dailyDraftLimit
       };
