@@ -134,17 +134,14 @@ export async function generateDraft(
 
     const drafter = new PostcardDrafter();
 
-    // NOTE: Intent verification disabled to increase draft throughput
-    // The keyword search already filters for travel-related content
-    // Location extraction below provides secondary validation
-    // Comment back in if spam becomes an issue:
-    // console.log(`Verifying ${config.name} intent...`);
-    // const hasIntent = await verifyIntent(tweet.text, campaignType);
-    // if (!hasIntent) {
-    //     console.log(`❌ No ${config.name} intent detected. Skipping.`);
-    //     return false;
-    // }
-    // console.log(`✅ ${config.name} intent verified.`);
+    // Intent verification RE-ENABLED for quality filtering
+    console.log(`Verifying ${config.name} intent...`);
+    const hasIntent = await verifyIntent(tweet.text, campaignType);
+    if (!hasIntent) {
+        console.log(`❌ No ${config.name} intent detected. Skipping.`);
+        return false;
+    }
+    console.log(`✅ ${config.name} intent verified.`);
 
     // 1. Extract context based on campaign type
     let contextInfo: string | null = null;
@@ -193,14 +190,14 @@ export async function generateDraft(
     );
     console.log(`Generated reply text: ${draftReplyText.substring(0, 20)}... (Score: ${score})`);
 
-    // Skip low-quality leads (won't be auto-published anyway)
+    // Skip low-quality leads (tightened threshold to 90)
     // UNLESS it's a manual draft (force=true)
-    if (score < 80 && !force) {
-        console.log(`⏭️ Skipping low-quality lead (Score: ${score} < 80)`);
+    if (score < 90 && !force) {
+        console.log(`⏭️ Skipping low-quality lead (Score: ${score} < 90)`);
         return false;
     }
 
-    if (force && score < 80) {
+    if (force && score < 90) {
         console.log(`⚠️ Manual draft bypass: Saving lead with Score ${score}`);
     }
 

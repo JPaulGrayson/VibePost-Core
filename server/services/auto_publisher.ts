@@ -9,7 +9,7 @@ import { generateReplyVideo, generatePersonalizedReplyText } from "./reply_video
 import { dmFollowUpService } from "./dm_follow_up";
 
 // Configuration
-const AUTO_PUBLISH_THRESHOLD = 85; // Only auto-publish 85+ scored leads (increased aggressiveness)
+const AUTO_PUBLISH_THRESHOLD = 95; // Only auto-publish 95+ scored leads (tightened for quality)
 const MAX_DAILY_AUTO_POSTS = 200;   // Increased from 144 for more aggressive posting
 const MIN_INTERVAL_MINUTES = 7;     // Slightly faster posting
 
