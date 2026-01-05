@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, RefreshCw, User, ExternalLink } from "lucide-react";
 import {
   BarChart3,
   TrendingUp,
@@ -36,6 +37,25 @@ import {
   Legend
 } from "recharts";
 
+interface Comment {
+  id: string;
+  author: string;
+  text: string;
+  createdAt: string;
+  likes: number;
+  url: string;
+}
+
+interface PostWithComments {
+  postId: number;
+  tweetId: string;
+  postContent: string;
+  postUrl: string;
+  publishedAt: string;
+  totalReplies: number;
+  replies: Comment[];
+}
+
 export default function Analytics() {
   const [timeRange, setTimeRange] = useState("7days");
   const [selectedPlatform, setSelectedPlatform] = useState("all");
@@ -44,6 +64,11 @@ export default function Analytics() {
   const { data: posts = [] } = useQuery<Post[]>({
     queryKey: ["/api/posts"],
     select: (data) => data.filter(post => post.status === "published"),
+  });
+
+  // Fetch actual comments from Twitter
+  const { data: commentsData, isLoading: commentsLoading, refetch: refetchComments } = useQuery<{ posts: PostWithComments[] }>({
+    queryKey: ["/api/analytics/comments"],
   });
 
   // Mutation to sync metrics for all posts
@@ -634,93 +659,118 @@ export default function Analytics() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
-                    <span>Posts with Comments</span>
-                    <Badge variant="outline" className="text-lg">
-                      {publishedPosts.filter(p => {
-                        const pData = p.platformData as any;
-                        return (pData?.twitter?.replies || 0) > 0;
-                      }).length} posts
-                    </Badge>
+                    <span>Comments Received</span>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => refetchComments()}
+                        disabled={commentsLoading}
+                        data-testid="button-refresh-comments"
+                      >
+                        {commentsLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                        ) : (
+                          <RefreshCw className="w-4 h-4 mr-1" />
+                        )}
+                        Refresh
+                      </Button>
+                      <Badge variant="outline" className="text-lg">
+                        {commentsData?.posts?.reduce((sum, p) => sum + p.replies.length, 0) || 0} comments
+                      </Badge>
+                    </div>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {publishedPosts
-                      .filter(p => {
-                        const pData = p.platformData as any;
-                        return (pData?.twitter?.replies || 0) > 0;
-                      })
-                      .sort((a, b) => {
-                        const aData = a.platformData as any;
-                        const bData = b.platformData as any;
-                        return (bData?.twitter?.replies || 0) - (aData?.twitter?.replies || 0);
-                      })
-                      .slice(0, 20)
-                      .map((post) => {
-                        const platformData = post.platformData as any;
-                        const tweetId = platformData?.twitter?.tweetId || platformData?.twitter?.id;
-                        const twitterUrl = tweetId ? `https://twitter.com/MaxTruth_Seeker/status/${tweetId}` : null;
-                        const replies = platformData?.twitter?.replies || 0;
-                        const likes = platformData?.twitter?.likes || 0;
-                        const retweets = platformData?.twitter?.retweets || 0;
-
-                        return (
-                          <div key={post.id} className="flex items-start space-x-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                            <div className="flex-shrink-0">
-                              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                                <MessageCircle className="w-6 h-6 text-blue-600" />
+                  {commentsLoading ? (
+                    <div className="text-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-4" />
+                      <p className="text-muted-foreground">Loading comments from Twitter...</p>
+                    </div>
+                  ) : commentsData?.posts && commentsData.posts.length > 0 ? (
+                    <div className="space-y-6">
+                      {commentsData.posts.map((postData) => (
+                        <div key={postData.tweetId} className="border rounded-lg overflow-hidden">
+                          <div className="bg-muted/30 p-4 border-b">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-foreground mb-1">
+                                  {postData.postContent}
+                                </p>
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                  <span>{postData.publishedAt && format(new Date(postData.publishedAt), "MMM d, yyyy")}</span>
+                                  <Badge variant="secondary" className="text-xs">
+                                    <MessageCircle className="w-3 h-3 mr-1" />
+                                    {postData.totalReplies} total
+                                  </Badge>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-foreground mb-2">
-                                {post.content.length > 150
-                                  ? `${post.content.substring(0, 150)}...`
-                                  : post.content}
-                              </p>
-                              <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
-                                <span className="flex items-center gap-1">
-                                  <MessageCircle className="w-4 h-4 text-blue-500" />
-                                  <span className="font-semibold text-blue-500">{replies}</span> comments
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Heart className="w-4 h-4 text-red-500" />
-                                  {likes}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Repeat2 className="w-4 h-4 text-green-500" />
-                                  {retweets}
-                                </span>
-                              </div>
-                              <div className="flex items-center space-x-4">
-                                <span className="text-xs text-muted-foreground">
-                                  {post.publishedAt && format(new Date(post.publishedAt), "MMM d, h:mm a")}
-                                </span>
-                                {twitterUrl && (
-                                  <a 
-                                    href={twitterUrl} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    className="text-xs text-blue-500 hover:underline font-medium"
-                                  >
-                                    View Comments on Twitter ↗
-                                  </a>
-                                )}
-                              </div>
+                              <a 
+                                href={postData.postUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-500 hover:text-blue-600 flex-shrink-0 ml-2"
+                                data-testid={`link-view-post-${postData.tweetId}`}
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
                             </div>
                           </div>
-                        );
-                      })}
-                    {publishedPosts.filter(p => {
-                      const pData = p.platformData as any;
-                      return (pData?.twitter?.replies || 0) > 0;
-                    }).length === 0 && (
-                      <div className="text-center py-8">
-                        <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-muted-foreground">No comments yet</p>
-                        <p className="text-sm text-muted-foreground">Keep posting and engaging with your audience!</p>
-                      </div>
-                    )}
-                  </div>
+                          
+                          <div className="divide-y">
+                            {postData.replies.length > 0 ? (
+                              postData.replies.map((comment) => (
+                                <div key={comment.id} className="p-4 hover:bg-muted/20 transition-colors">
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                      <User className="w-4 h-4 text-white" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="font-medium text-sm text-foreground">@{comment.author}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {comment.createdAt && format(new Date(comment.createdAt), "MMM d, h:mm a")}
+                                        </span>
+                                      </div>
+                                      <p className="text-sm text-foreground/90 mb-2">{comment.text}</p>
+                                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                        <span className="flex items-center gap-1">
+                                          <Heart className="w-3 h-3 text-red-400" />
+                                          {comment.likes}
+                                        </span>
+                                        <a 
+                                          href={comment.url} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-blue-500 hover:underline flex items-center gap-1"
+                                          data-testid={`link-comment-${comment.id}`}
+                                        >
+                                          <ExternalLink className="w-3 h-3" />
+                                          View
+                                        </a>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="p-4 text-center text-sm text-muted-foreground">
+                                No comments loaded for this post
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-muted-foreground font-medium">No comments yet</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Comments will appear here when people reply to your tweets
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
