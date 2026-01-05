@@ -9,62 +9,36 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as https from 'https';
 import * as http from 'http';
-import { spawn, spawnSync } from 'child_process';
+import { spawn } from 'child_process';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 import { GoogleGenAI } from "@google/genai";
 import { analyzeForVoicePersonalization, generateGrokTTS, addLocalGreeting, enhanceNarrationForEmotion } from './grok_tts';
 
-// Lazy FFmpeg initialization - finds executable at runtime without bundled packages
-let ffmpegInitialized = false;
-let resolvedFfmpegPath = 'ffmpeg';
-
-function initFfmpeg(): string {
-    if (ffmpegInitialized) return resolvedFfmpegPath;
-    ffmpegInitialized = true;
-    
-    const isExecutable = (p: string): boolean => {
-        try { fs.accessSync(p, fs.constants.X_OK); return true; } catch { return false; }
-    };
-    
-    const findSystemBinary = (name: string): string | null => {
-        try {
-            const result = spawnSync('which', [name], { encoding: 'utf8' });
-            if (result.status === 0 && result.stdout.trim()) return result.stdout.trim();
-        } catch {}
-        return null;
-    };
-    
-    const envFfmpeg = process.env.FFMPEG_PATH;
-    const envFfprobe = process.env.FFPROBE_PATH;
-    const localFfmpeg = path.join(process.cwd(), 'repl_bin', 'ffmpeg');
-    const localFfprobe = path.join(process.cwd(), 'repl_bin', 'ffprobe');
-    
-    let ffmpegPath = 'ffmpeg';
-    let ffprobePath = 'ffprobe';
-    
-    if (envFfmpeg && isExecutable(envFfmpeg)) {
-        console.log('🚀 Reply Video: Using FFMPEG_PATH from environment');
-        ffmpegPath = envFfmpeg;
-        ffprobePath = envFfprobe || 'ffprobe';
-    } else if (isExecutable(localFfmpeg)) {
-        console.log('🚀 Reply Video: Using local static FFmpeg');
-        ffmpegPath = localFfmpeg;
-        ffprobePath = localFfprobe;
-    } else {
-        const systemFfmpeg = findSystemBinary('ffmpeg');
-        const systemFfprobe = findSystemBinary('ffprobe');
-        if (systemFfmpeg) {
-            console.log('📹 Reply Video: Using system FFmpeg:', systemFfmpeg);
-            ffmpegPath = systemFfmpeg;
-            ffprobePath = systemFfprobe || 'ffprobe';
-        } else {
-            console.log('📹 Reply Video: Using FFmpeg from PATH');
-        }
-    }
-    
-    resolvedFfmpegPath = ffmpegPath;
+// Safely initialize FFmpeg paths
+try {
+    const { path: ffmpegPath } = require('@ffmpeg-installer/ffmpeg');
+    const { path: ffprobePath } = require('@ffprobe-installer/ffprobe');
     ffmpeg.setFfmpegPath(ffmpegPath);
     ffmpeg.setFfprobePath(ffprobePath);
-    return resolvedFfmpegPath;
+} catch (err) {
+    console.error('⚠️ FFmpeg initialization failed in reply_video_generator:', err);
+    try {
+        const localFfmpeg = path.join(process.cwd(), 'repl_bin', 'ffmpeg');
+        const localFfprobe = path.join(process.cwd(), 'repl_bin', 'ffprobe');
+
+        if (fs.existsSync(localFfmpeg)) {
+            console.log('🚀 Reply Video Generator: Using local static FFmpeg');
+            ffmpeg.setFfmpegPath(localFfmpeg);
+            ffmpeg.setFfprobePath(localFfprobe);
+        } else {
+            ffmpeg.setFfmpegPath('ffmpeg');
+            ffmpeg.setFfprobePath('ffprobe');
+        }
+    } catch (e) {
+        // Fallback to safely prevent crash
+        console.error('Final FFmpeg fallback error:', e);
+    }
 }
 
 const TURAI_API_URL = process.env.TURAI_API_URL || "https://turai.org";
@@ -516,6 +490,7 @@ async function createTeaserVideo(
         const tempPath = path.join(TEMP_DIR, `temp_${Date.now()}_${idx}.mp4`);
         tempVideos.push(tempPath);
 
+        const { spawn } = require('child_process');
         const relativeImgPath = path.relative(process.cwd(), img.path);
         const relativeTempPath = path.relative(process.cwd(), tempPath);
 
@@ -537,8 +512,15 @@ async function createTeaserVideo(
                 relativeTempPath
             ];
 
-            // Use resolved FFmpeg path from lazy initialization
-            const ffmpegBinary = initFfmpeg();
+            let ffmpegBinary = 'ffmpeg';
+            try {
+                const { path: resolvedPath } = require('@ffmpeg-installer/ffmpeg');
+                ffmpegBinary = resolvedPath;
+            } catch (e) {
+                if (fs.existsSync(path.join(process.cwd(), 'repl_bin', 'ffmpeg'))) {
+                    ffmpegBinary = path.join(process.cwd(), 'repl_bin', 'ffmpeg');
+                }
+            }
 
             const ff = spawn(ffmpegBinary, args);
 
@@ -564,8 +546,11 @@ async function createTeaserVideo(
         const concatContent = tempVideos.map(v => `file '${path.resolve(v)}'`).join('\n');
         fs.writeFileSync(concatFile, concatContent);
 
-        // Use resolved FFmpeg path from lazy initialization
-        const ffmpegPath = initFfmpeg();
+        // Find FFmpeg binary
+        let ffmpegPath = process.env.FFMPEG_PATH || 'ffmpeg';
+        if (ffmpegPath === 'ffmpeg' && fs.existsSync('/opt/homebrew/bin/ffmpeg')) {
+            ffmpegPath = '/opt/homebrew/bin/ffmpeg';
+        }
 
         const args = [
             '-y',
@@ -660,7 +645,6 @@ export async function generateReplyVideo(
     authorHandle?: string,
     authorName?: string
 ): Promise<ReplyVideoResult> {
-    initFfmpeg();
     const log = (msg: string) => {
         fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen] ${msg}\n`);
     };

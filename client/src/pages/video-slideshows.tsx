@@ -116,7 +116,6 @@ export default function VideoPosts() {
     // Preview state
     const [preview, setPreview] = useState<VideoPostPreview | null>(null);
     const [isPreviewing, setIsPreviewing] = useState(false);
-    const [isRefreshingPreview, setIsRefreshingPreview] = useState(false);
 
     // Video state
     const [generatedVideo, setGeneratedVideo] = useState<VideoPostResult | null>(null);
@@ -226,18 +225,10 @@ export default function VideoPosts() {
             setIsPreviewing(false);
             if (data.success) {
                 setPreview(data);
-                if (data.stops.length === 0) {
-                    // Tour is generating - show message to refresh
-                    toast({
-                        title: "Tour Generating... 🗺️",
-                        description: "Click Refresh in a few seconds to see the stops",
-                    });
-                } else {
-                    toast({
-                        title: "Preview Ready! 👁️",
-                        description: `${data.stops.length} stops • ~${data.estimatedDuration}s video`,
-                    });
-                }
+                toast({
+                    title: "Preview Ready! 👁️",
+                    description: `${data.stops.length} stops • ~${data.estimatedDuration}s video`,
+                });
             } else {
                 toast({
                     variant: "destructive",
@@ -398,40 +389,6 @@ export default function VideoPosts() {
         audio.onended = () => {
             setPlayingStopIndex(null);
         };
-    };
-
-    // Manual refresh for preview data
-    const refreshPreview = async () => {
-        if (!preview?.shareCode) return;
-        
-        setIsRefreshingPreview(true);
-        try {
-            const res = await apiRequest("GET", `/api/video-post/preview/${preview.shareCode}?maxStops=${maxStops}`);
-            const refreshedPreview = await res.json();
-            
-            if (refreshedPreview.success) {
-                setPreview(refreshedPreview);
-                const stopsWithAudio = refreshedPreview.stops.filter((s: VideoPostStop) => s.audioUrl).length;
-                toast({
-                    title: "Preview Refreshed! 🔄",
-                    description: `${stopsWithAudio}/${refreshedPreview.stops.length} stops have audio ready`,
-                });
-            } else {
-                toast({
-                    variant: "destructive",
-                    title: "Refresh Failed",
-                    description: refreshedPreview.error || "Could not refresh preview",
-                });
-            }
-        } catch (error) {
-            toast({
-                variant: "destructive",
-                title: "Refresh Failed",
-                description: String(error),
-            });
-        } finally {
-            setIsRefreshingPreview(false);
-        }
     };
 
     return (
@@ -701,43 +658,11 @@ export default function VideoPosts() {
                             <Eye className="h-5 w-5" />
                             Step 2: Preview ({preview.stops.length} Stops)
                         </CardTitle>
-                        <CardDescription className="flex items-center gap-2">
-                            <span>Review the tour before generating video • ~{preview.estimatedDuration}s</span>
-                            {(() => {
-                                const stopsWithAudio = preview.stops.filter(s => s.audioUrl).length;
-                                const allReady = stopsWithAudio === preview.stops.length;
-                                return (
-                                    <Badge variant={allReady ? "default" : "secondary"} className="text-xs">
-                                        <Volume2 className="h-3 w-3 mr-1" />
-                                        {stopsWithAudio}/{preview.stops.length} audio ready
-                                    </Badge>
-                                );
-                            })()}
+                        <CardDescription>
+                            Review the tour before generating video • ~{preview.estimatedDuration}s
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {/* Show loading state when stops are still generating */}
-                        {preview.stops.length === 0 && (
-                            <div className="text-center py-12">
-                                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-                                <h3 className="font-medium mb-2">Tour is generating...</h3>
-                                <p className="text-sm text-muted-foreground mb-4">
-                                    Turai is creating your tour. Click Refresh to check progress.
-                                </p>
-                                <Button 
-                                    variant="outline" 
-                                    onClick={refreshPreview}
-                                    disabled={isRefreshingPreview}
-                                >
-                                    {isRefreshingPreview ? (
-                                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Checking...</>
-                                    ) : (
-                                        <><RefreshCw className="mr-2 h-4 w-4" />Refresh</>
-                                    )}
-                                </Button>
-                            </div>
-                        )}
-                        
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {preview.stops.map((stop, idx) => (
                                 <div
@@ -808,26 +733,10 @@ export default function VideoPosts() {
                         </div>
                     </CardContent>
                     <CardFooter className="flex justify-between">
-                        <div className="flex gap-2">
-                            <Button variant="outline" onClick={() => setPreview(null)}>
-                                <X className="mr-2 h-4 w-4" />
-                                Cancel
-                            </Button>
-                            
-                            {/* Refresh button to check for more narrations */}
-                            <Button 
-                                variant="outline" 
-                                onClick={refreshPreview}
-                                disabled={isRefreshingPreview || !preview?.shareCode}
-                                data-testid="button-refresh-preview"
-                            >
-                                {isRefreshingPreview ? (
-                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Refreshing...</>
-                                ) : (
-                                    <><RefreshCw className="mr-2 h-4 w-4" />Refresh</>
-                                )}
-                            </Button>
-                        </div>
+                        <Button variant="outline" onClick={() => setPreview(null)}>
+                            <X className="mr-2 h-4 w-4" />
+                            Cancel
+                        </Button>
 
                         <div className="flex gap-2">
                             {/* Generate Video Button */}

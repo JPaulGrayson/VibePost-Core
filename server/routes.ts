@@ -56,12 +56,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.redirect('/');
   });
 
-  // Simple Health Check (for load balancer/deployment)
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
-  });
-
-  // Detailed System Health Check
+  // System Health Check
   app.get("/api/health/detailed", async (req, res) => {
     try {
       const turaiUrl = process.env.TURAI_API_URL || "http://localhost:5050";
@@ -2525,11 +2520,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/postcard-drafts", async (req, res) => {
     try {
       const drafts = await storage.getPostcardDrafts();
-      // Filter for high-quality pending drafts (score >= 95)
+      // Filter for high-quality pending drafts (score >= 80)
       // Lower quality leads are auto-discarded, premium leads are shown or auto-published
       const pendingDrafts = drafts.filter(d =>
         (d.status === "pending_review" || d.status === "pending_retry") &&
-        (d.score || 0) >= 95
+        (d.score || 0) >= 80
       );
       res.json(pendingDrafts);
     } catch (error) {

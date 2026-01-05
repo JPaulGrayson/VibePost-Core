@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
+import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 // ============================================
@@ -55,13 +56,18 @@ app.use((req, res, next) => {
   next();
 });
 
-// Function to start background services (called AFTER server is listening with delay)
-async function startBackgroundServices() {
-  console.log("🔄 Starting background services...");
-  
+import { twitterListener } from "./services/twitter_listener";
+
+// ...
+
+(async () => {
+  const server = await registerRoutes(app);
+
   // Start Twitter Listener
   try {
     console.log("Starting Twitter Listener...");
+    // Don't await this, let it run in background
+    // twitterListener.startPolling().catch(err => console.error("Twitter Listener error:", err));
     console.log("Twitter Listener started (MANUAL MODE ONLY).");
   } catch (error) {
     console.error("Failed to start Twitter Listener:", error);
@@ -69,6 +75,8 @@ async function startBackgroundServices() {
 
   // Start Sniper Manager (Keyword Hunter)
   try {
+    // Start the Sniper Manager (Background Tweet Hunter)
+    // Start the Sniper Manager (Background Tweet Hunter)
     console.log("🔫 Initializing Sniper Manager...");
     const { sniperManager } = await import("./services/sniper_manager");
     sniperManager.startHunting().catch(err => console.error("Sniper Manager error:", err));
@@ -77,6 +85,7 @@ async function startBackgroundServices() {
   }
 
   // Start Daily Video Scheduler (Auto-posts video slideshows at 9 AM daily)
+  // Replaces both Daily Postcard and Thread Tour schedulers
   try {
     const { startDailyVideoScheduler } = await import("./services/daily_video_scheduler");
     startDailyVideoScheduler();
@@ -99,42 +108,35 @@ async function startBackgroundServices() {
   } catch (error) {
     console.error("Failed to start Comment Tracker:", error);
   }
-}
 
-(async () => {
-  // Load routes synchronously - this ensures all API endpoints are registered
-  // If routes fail to load, the server should crash so we see the real error
-  console.log("📦 Loading application routes...");
-  const { registerRoutes } = await import("./routes");
-  const server = await registerRoutes(app);
-  console.log("✅ Routes loaded successfully");
-  
-  // Error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
+
+    // Log the error but DON'T re-throw (prevents crashes)
     console.error(`❌ Express error: ${message}`, err.stack);
     res.status(status).json({ message });
+    // Note: Removed 'throw err' which was crashing the server!
   });
-  
-  // Setup vite in development, static serving in production
+
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
-  
-  // Start HTTP server
-  const port = parseInt(process.env.PORT || '5002', 10);
-  server.listen({ port, host: "0.0.0.0" }, () => {
-    console.log(`🚀 Server listening on http://0.0.0.0:${port}`);
+
+  // ALWAYS serve the app on port 5002
+  // this serves both the API and the client.
+  // It is the only port that is not firewalled.
+  const port = process.env.PORT || 5002;
+  server.listen({
+    port,
+    host: "0.0.0.0",
+    // reusePort: true, // Not supported on macOS
+  }, () => {
     log(`serving on port ${port}`);
-    
-    // Start background services with delay after server is listening
-    setTimeout(() => {
-      startBackgroundServices().catch(err => {
-        console.error("Error starting background services:", err);
-      });
-    }, 3000);
   });
 })();

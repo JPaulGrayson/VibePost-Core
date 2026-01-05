@@ -9,63 +9,41 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as https from 'https';
 import * as http from 'http';
-import { spawnSync } from 'child_process';
 import { GoogleGenAI } from "@google/genai";
 
-// Lazy FFmpeg initialization - finds executable at runtime without bundled packages
-let ffmpegInitialized = false;
+// Safely resolve FFmpeg paths with fallbacks
+let ffmpegPath = '';
+let ffprobePath = '';
 
-function initFfmpeg(): void {
-    if (ffmpegInitialized) return;
-    ffmpegInitialized = true;
-    
-    const isExecutable = (p: string): boolean => {
-        try {
-            fs.accessSync(p, fs.constants.X_OK);
-            return true;
-        } catch { return false; }
-    };
-    
-    const findSystemBinary = (name: string): string | null => {
-        try {
-            const result = spawnSync('which', [name], { encoding: 'utf8' });
-            if (result.status === 0 && result.stdout.trim()) {
-                return result.stdout.trim();
-            }
-        } catch {}
-        return null;
-    };
-    
-    const envFfmpeg = process.env.FFMPEG_PATH;
-    const envFfprobe = process.env.FFPROBE_PATH;
+try {
+    // 1. Priority: Local static binary (for Replit deployment)
     const localFfmpeg = path.join(process.cwd(), 'repl_bin', 'ffmpeg');
     const localFfprobe = path.join(process.cwd(), 'repl_bin', 'ffprobe');
-    
-    let ffmpegPath = 'ffmpeg';
-    let ffprobePath = 'ffprobe';
-    
-    if (envFfmpeg && isExecutable(envFfmpeg)) {
-        console.log('🚀 Video Post: Using FFMPEG_PATH from environment');
-        ffmpegPath = envFfmpeg;
-        ffprobePath = envFfprobe || 'ffprobe';
-    } else if (isExecutable(localFfmpeg)) {
-        console.log('🚀 Video Post: Using local static FFmpeg');
+
+    if (fs.existsSync(localFfmpeg)) {
+        console.log('🚀 Using local static FFmpeg binary (Replit Mode)');
         ffmpegPath = localFfmpeg;
         ffprobePath = localFfprobe;
-    } else {
-        const systemFfmpeg = findSystemBinary('ffmpeg');
-        const systemFfprobe = findSystemBinary('ffprobe');
-        if (systemFfmpeg) {
-            console.log('📹 Video Post: Using system FFmpeg:', systemFfmpeg);
-            ffmpegPath = systemFfmpeg;
-            ffprobePath = systemFfprobe || 'ffprobe';
-        } else {
-            console.log('📹 Video Post: Using FFmpeg from PATH');
-        }
     }
-    
+    // 2. System FFmpeg (Homebrew on Mac)
+    else if (fs.existsSync('/opt/homebrew/bin/ffmpeg')) {
+        ffmpegPath = '/opt/homebrew/bin/ffmpeg';
+        ffprobePath = '/opt/homebrew/bin/ffprobe';
+    }
+    // 3. Last Resort: System PATH
+    else {
+        ffmpegPath = 'ffmpeg';
+        ffprobePath = 'ffprobe';
+    }
+
+    // Set paths
     ffmpeg.setFfmpegPath(ffmpegPath);
     ffmpeg.setFfprobePath(ffprobePath);
+} catch (err) {
+    console.error('⚠️ FFmpeg initialization error:', err);
+    // Silent fallback to PATH
+    ffmpeg.setFfmpegPath('ffmpeg');
+    ffmpeg.setFfprobePath('ffprobe');
 }
 
 const TURAI_API_URL = process.env.TURAI_API_URL || "http://localhost:5002";
@@ -170,7 +148,7 @@ async function generateTour(options: VideoPostOptions): Promise<{ success: boole
                 focus: topic,
                 email: 'vibepost@turai.app'
             })
-        }, 12000); // 12 second timeout - must fit within 20s HTTP proxy limit
+        }, 60000); // 60 second timeout for tour generation
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -186,40 +164,32 @@ async function generateTour(options: VideoPostOptions): Promise<{ success: boole
         }
 
         return { success: false, error: 'No share code returned' };
-    } catch (error: any) {
+    } catch (error) {
         console.error('Tour generation failed:', error);
-        const errorMsg = error.message || String(error);
-        if (errorMsg.includes('timed out')) {
-            return { success: false, error: 'Tour generation is slow - please try again in a moment' };
-        }
-        return { success: false, error: errorMsg };
+        return { success: false, error: String(error) };
     }
 }
 
 /**
  * Wait for tour narrations to be ready
- * Returns partial results quickly for deployed apps (HTTP timeout ~60s)
- * For preview: returns as soon as we have 1+ narrations
- * For generate: caller can specify higher minNarrations
+ * For larger tours (7+ stops), uses a longer timeout and returns partial results faster
  */
 async function waitForNarrations(shareCode: string, minNarrations: number = 3, timeoutMs?: number): Promise<any | null> {
-    // Cap timeout at 35s to stay under HTTP request limits (60s) with room for tour generation
-    // This ensures preview always returns before HTTP timeout
-    const maxSafeTimeout = 35000;
-    const calculatedTimeout = timeoutMs ?? maxSafeTimeout;
-    const actualTimeout = Math.min(calculatedTimeout, maxSafeTimeout);
+    // Dynamic timeout: 30 seconds per narration, minimum 60s, max 300s (5 min)
+    const calculatedTimeout = Math.max(60000, Math.min(300000, minNarrations * 30000));
+    const actualTimeout = timeoutMs ?? calculatedTimeout;
     
     const startTime = Date.now();
-    const pollInterval = 4000; // Faster polling (4s instead of 5s)
+    const pollInterval = 5000;
     let lastCount = 0;
     let stableCount = 0;
     let bestData: any = null;
 
-    console.log(`⏳ Waiting for narrations (timeout: ${actualTimeout/1000}s, target: ${minNarrations})...`);
+    console.log(`⏳ Waiting for ${minNarrations}+ narrations (timeout: ${actualTimeout/1000}s)...`);
 
     while (Date.now() - startTime < actualTimeout) {
         try {
-            const response = await fetchWithTimeout(`${TURAI_API_URL}/api/slideshows/${shareCode}`, {}, 10000);
+            const response = await fetchWithTimeout(`${TURAI_API_URL}/api/slideshows/${shareCode}`, {}, 15000);
 
             if (response.ok) {
                 const data = await response.json();
@@ -231,19 +201,17 @@ async function waitForNarrations(shareCode: string, minNarrations: number = 3, t
                     bestData = slideshowData;
                 }
 
-                // Got all requested narrations - return immediately
                 if (narrations.length >= minNarrations) {
                     console.log(`   ✅ ${narrations.length} narrations ready`);
                     return slideshowData;
                 }
 
-                // Check for stability (no new narrations)
                 if (narrations.length === lastCount && narrations.length > 0) {
                     stableCount++;
-                    // Return partial if stable for 3 polls (12 seconds) AND we have at least 1 narration
-                    // This ensures preview returns quickly with whatever is ready
-                    if (stableCount >= 3 && narrations.length >= 1) {
-                        console.log(`   ⚠️ ${narrations.length} narrations (stable - returning partial)`);
+                    // Only return partial if stable for 8 polls (40 seconds) AND we have at least 3 narrations
+                    // This ensures we wait longer for videos to reach target length
+                    if (stableCount >= 8 && narrations.length >= 3) {
+                        console.log(`   ⚠️ ${narrations.length} narrations (stable after 40s - returning partial)`);
                         return slideshowData;
                     }
                 } else {
@@ -255,14 +223,21 @@ async function waitForNarrations(shareCode: string, minNarrations: number = 3, t
             }
         } catch (e: any) {
             console.log(`   ⚠️ Poll error: ${e.message || 'Unknown'}`);
+            // Continue waiting but don't lose bestData
         }
 
         await new Promise(r => setTimeout(r, pollInterval));
     }
 
-    // Timeout reached - return whatever we have (even 1 narration is usable for preview)
+    // Timeout reached - return best data if we have at least 3 narrations for a usable video
+    if (bestData && (bestData.narrations?.length || 0) >= 3) {
+        console.log(`   ⏰ Timeout - returning ${bestData.narrations.length} narrations (partial but usable)`);
+        return bestData;
+    }
+    
+    // Return even with fewer narrations if that's all we have (better than nothing)
     if (bestData && (bestData.narrations?.length || 0) >= 1) {
-        console.log(`   ⏰ Timeout - returning ${bestData.narrations.length} narrations (partial)`);
+        console.log(`   ⏰ Timeout - returning ${bestData.narrations.length} narrations (minimal)`);
         return bestData;
     }
 
@@ -275,11 +250,7 @@ async function waitForNarrations(shareCode: string, minNarrations: number = 3, t
 /**
  * Generate a preview of the video post (without creating video)
  */
-// In-memory cache for pending tour generations
-const pendingTours: Map<string, { shareCode: string; startTime: number }> = new Map();
-
 export async function previewVideoPost(options: VideoPostOptions): Promise<VideoPostPreview> {
-    initFfmpeg();
     const { destination, topic, maxStops = 5, secondsPerStop = 12 } = options;
 
     console.log(`👁️ Creating preview for: ${destination}${topic ? ` (${topic})` : ''}`);
@@ -293,68 +264,18 @@ export async function previewVideoPost(options: VideoPostOptions): Promise<Video
     };
 
     try {
-        // Step 1: Generate tour - use fire-and-forget pattern to avoid HTTP timeout
-        // The Turai API starts tour generation and returns a shareCode quickly,
-        // but narrations take time to generate in the background
-        console.log(`🗺️ Calling Turai API for: ${destination}`);
-        
-        const response = await fetch(`${TURAI_API_URL}/api/tour-maker/wizard/generate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                location: destination,
-                theme: options.theme || 'hidden_gems',
-                focus: topic,
-                email: 'vibepost@turai.app'
-            })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            result.error = `Turai API error: ${response.status} - ${errorText}`;
+        // Step 1: Generate tour
+        const tourResult = await generateTour(options);
+        if (!tourResult.success || !tourResult.shareCode) {
+            result.error = tourResult.error || 'Failed to generate tour';
             return result;
         }
+        result.shareCode = tourResult.shareCode;
 
-        const data = await response.json();
-        const shareCode = data.data?.shareCode || data.shareCode;
-
-        if (!shareCode) {
-            result.error = 'No share code returned from Turai';
-            return result;
-        }
-
-        console.log(`✅ Tour created: ${shareCode}`);
-        result.shareCode = shareCode;
-
-        // Step 2: Quick check for available data (2 second max)
-        // The tour POIs should be available quickly, narrations take longer
-        const quickTimeout = 2000;
-        const startTime = Date.now();
-        let slideshowData = null;
-        
-        while (Date.now() - startTime < quickTimeout) {
-            try {
-                const res = await fetch(`${TURAI_API_URL}/api/tours/slideshow/${shareCode}`);
-                if (res.ok) {
-                    slideshowData = await res.json();
-                    if (slideshowData?.tour) {
-                        console.log(`   ✅ Got tour data in ${Date.now() - startTime}ms`);
-                        break;
-                    }
-                }
-            } catch (e) {
-                // Ignore errors, keep trying
-            }
-            await new Promise(r => setTimeout(r, 300));
-        }
-
-        // If we don't have tour data yet, return success with shareCode only
-        // Client can use Refresh to get the data later
-        if (!slideshowData?.tour) {
-            console.log(`   ⏳ Tour generating - returning shareCode for polling`);
-            result.success = true;
-            result.estimatedDuration = maxStops * secondsPerStop;
-            // Return empty stops - client will refresh to get them
+        // Step 2: Wait for narrations - wait for ALL stops to be ready
+        const slideshowData = await waitForNarrations(tourResult.shareCode, maxStops);
+        if (!slideshowData) {
+            result.error = 'Narrations did not generate in time';
             return result;
         }
 
@@ -367,10 +288,18 @@ export async function previewVideoPost(options: VideoPostOptions): Promise<Video
             result.introImageUrl = makeAbsoluteUrl(tour.aiImageUrl);
         }
 
-        // Build stops with whatever narrations are available
+        // Build stops
         for (let i = 0; i < pois.length; i++) {
             const poi = pois[i];
             const narration = narrations[i];
+
+            // Debug: log what photo data we have
+            console.log(`📷 Stop ${i + 1} (${poi.name}) photo sources:`);
+            console.log(`   - narration.photoUrls: ${narration?.photoUrls?.length || 0}`);
+            console.log(`   - poi.photoUrls: ${poi.photoUrls?.length || 0}`);
+            console.log(`   - poi.photos: ${poi.photos?.length || 0}`);
+            console.log(`   - poi.heroImageUrl: ${poi.heroImageUrl ? 'yes' : 'no'}`);
+            console.log(`   - narration.thumbnailUrl: ${narration?.thumbnailUrl ? 'yes' : 'no'}`);
 
             // Collect ALL available image URLs for this stop
             const allImageUrls: string[] = [];
@@ -415,15 +344,14 @@ export async function previewVideoPost(options: VideoPostOptions): Promise<Video
                 narrationText: narration?.text
             };
 
+            console.log(`   Stop ${i + 1} (${stop.name}): ${allImageUrls.length} images, audio: ${stop.audioUrl ? 'YES' : 'NO'}`);
             result.stops.push(stop);
         }
-
-        const stopsWithAudio = result.stops.filter(s => s.audioUrl).length;
-        console.log(`✅ Preview ready: ${result.stops.length} stops, ${stopsWithAudio} with audio (use Refresh for more)`);
 
         result.estimatedDuration = result.stops.length * secondsPerStop;
         result.success = result.stops.length > 0;
 
+        console.log(`✅ Preview ready: ${result.stops.length} stops, ~${result.estimatedDuration}s`);
         return result;
 
     } catch (error) {
@@ -772,7 +700,6 @@ export async function generateVideoPost(
  * Get duration of audio file in seconds using ffprobe
  */
 async function getAudioDuration(audioPath: string): Promise<number> {
-    initFfmpeg();
     return new Promise((resolve, reject) => {
         ffmpeg.ffprobe(audioPath, (err, metadata) => {
             if (err) {
