@@ -181,6 +181,7 @@ class AutoPublisher {
                 await storage.updatePostcardDraft(draft.id, {
                     status: "published",
                     publishedAt: new Date(),
+                    tweetId: result.tweetId, // Store for analytics tracking
                 });
 
                 // Create a record in posts table

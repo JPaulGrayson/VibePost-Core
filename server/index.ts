@@ -100,6 +100,15 @@ import { twitterListener } from "./services/twitter_listener";
     console.error("Failed to start Auto-Publisher:", error);
   }
 
+  // Start Analytics Sync Service (Updates metrics every 2 hours)
+  try {
+    const { analyticsSync } = await import("./services/analytics_sync");
+    analyticsSync.start();
+    console.log("📊 Analytics Sync Service started (every 2 hours)");
+  } catch (error) {
+    console.error("Failed to start Analytics Sync:", error);
+  }
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

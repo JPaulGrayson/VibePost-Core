@@ -162,6 +162,15 @@ export const postcardDrafts = pgTable("postcard_drafts", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   publishedAt: timestamp("published_at"),
 
+  // Published tweet data (our reply)
+  tweetId: text("tweet_id"), // ID of our published reply tweet
+  
+  // Analytics (synced from Twitter API)
+  likes: integer("likes").default(0),
+  retweets: integer("retweets").default(0),
+  replies: integer("replies").default(0),
+  impressions: integer("impressions").default(0),
+
   // Retry mechanism for failed posts
   publishAttempts: integer("publish_attempts").default(0),
   lastError: text("last_error"),

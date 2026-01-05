@@ -1,19 +1,21 @@
 import { TwitterApi } from 'twitter-api-v2';
 import { storage } from '../storage';
 import { db } from '../db';
-import { postAnalytics, posts } from '@shared/schema';
+import { postAnalytics, posts, postcardDrafts } from '@shared/schema';
 import { eq, gte, and, inArray } from 'drizzle-orm';
 import * as fs from 'fs';
 
 export class AnalyticsSyncService {
     private isSyncing = false;
-    private checkIntervalMs = 2 * 60 * 60 * 1000; // 2 Hours (optimized for quota conservation)
+    private checkIntervalMs = 30 * 60 * 1000; // 30 minutes for fresher data
 
     async start() {
-        console.log("📈 Analytics Sync Service Started (Syncing every 2 hours)");
+        console.log("📈 Analytics Sync Service Started (Syncing every 30 minutes)");
 
-        // Initial sync
-        this.sync().catch(err => console.error("Initial Analytics Sync failed:", err));
+        // Initial sync after 10 seconds (let server settle)
+        setTimeout(() => {
+            this.sync().catch(err => console.error("Initial Analytics Sync failed:", err));
+        }, 10000);
 
         // Loop
         setInterval(() => this.sync(), this.checkIntervalMs);
@@ -24,10 +26,10 @@ export class AnalyticsSyncService {
             const twitterConnection = await storage.getPlatformConnection("twitter");
             const credentials = twitterConnection?.credentials;
 
-            const apiKey = process.env.TWITTER_API_KEY || credentials?.apiKey;
-            const apiSecret = process.env.TWITTER_API_SECRET || credentials?.apiSecret;
-            const accessToken = process.env.TWITTER_ACCESS_TOKEN || credentials?.accessToken;
-            const accessSecret = process.env.TWITTER_ACCESS_TOKEN_SECRET || credentials?.accessTokenSecret;
+            const apiKey = credentials?.apiKey || process.env.TWITTER_API_KEY;
+            const apiSecret = credentials?.apiSecret || process.env.TWITTER_API_SECRET;
+            const accessToken = credentials?.accessToken || process.env.TWITTER_ACCESS_TOKEN;
+            const accessSecret = credentials?.accessTokenSecret || process.env.TWITTER_ACCESS_TOKEN_SECRET;
 
             if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
                 return null;
@@ -50,7 +52,7 @@ export class AnalyticsSyncService {
         this.isSyncing = true;
 
         const log = (msg: string) => {
-            fs.appendFileSync('analytics_sync.log', `[${new Date().toISOString()}] ${msg}\n`);
+            console.log(`[Analytics] ${msg}`);
         };
 
         try {
@@ -62,10 +64,11 @@ export class AnalyticsSyncService {
                 return;
             }
 
-            // 1. Fetch recently published posts (last 7 days)
+            // Collect all tweet IDs from both posts AND postcard_drafts
             const sevenDaysAgo = new Date();
             sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+            // 1. Get published posts from main posts table
             const publishedPosts = await db.select()
                 .from(posts)
                 .where(
@@ -75,90 +78,146 @@ export class AnalyticsSyncService {
                     )
                 );
 
-            log(`Found ${publishedPosts.length} published posts to check.`);
+            // 2. Get published drafts from postcard_drafts table (sniper posts)
+            const publishedDrafts = await db.select()
+                .from(postcardDrafts)
+                .where(
+                    and(
+                        eq(postcardDrafts.status, 'published'),
+                        gte(postcardDrafts.publishedAt, sevenDaysAgo)
+                    )
+                );
 
-            const twitterPosts = publishedPosts.filter(p => {
-                const data = p.platformData as any;
-                return data?.twitter?.tweetId;
-            });
+            log(`Found ${publishedPosts.length} posts + ${publishedDrafts.length} sniper drafts`);
 
-            log(`Filtering to ${twitterPosts.length} Twitter posts.`);
+            // Build a unified list of tweet IDs with their source
+            interface TweetSource {
+                tweetId: string;
+                type: 'post' | 'draft';
+                id: number;
+                platformData: any;
+            }
 
-            if (twitterPosts.length === 0) {
+            const tweetSources: TweetSource[] = [];
+
+            // Add posts with twitter tweetId
+            for (const post of publishedPosts) {
+                const data = post.platformData as any;
+                const tweetId = data?.twitter?.tweetId || data?.twitter?.id;
+                if (tweetId && /^\d+$/.test(tweetId)) {
+                    tweetSources.push({
+                        tweetId,
+                        type: 'post',
+                        id: post.id,
+                        platformData: data
+                    });
+                }
+            }
+
+            // Add drafts with tweetId
+            for (const draft of publishedDrafts) {
+                const tweetId = draft.tweetId;
+                if (tweetId && /^\d+$/.test(tweetId)) {
+                    tweetSources.push({
+                        tweetId,
+                        type: 'draft',
+                        id: draft.id,
+                        platformData: {}
+                    });
+                }
+            }
+
+            log(`Syncing metrics for ${tweetSources.length} tweets`);
+
+            if (tweetSources.length === 0) {
+                log("No tweets to sync.");
                 this.isSyncing = false;
                 return;
             }
 
-            // 2. Fetch metrics from Twitter in batches (max 100 per request)
-            const tweetIds = twitterPosts.map(p => (p.platformData as any).twitter.tweetId);
-
-            // Batch by 100 as per Twitter API limits
+            // Batch fetch metrics from Twitter (max 100 per request)
             const BATCH_SIZE = 100;
-            for (let i = 0; i < tweetIds.length; i += BATCH_SIZE) {
-                const batch = tweetIds.slice(i, i + BATCH_SIZE);
-                log(`Fetching batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(tweetIds.length / BATCH_SIZE)} (${batch.length} IDs)...`);
+            let updatedCount = 0;
+            let totalLikes = 0;
+            let totalViews = 0;
+
+            for (let i = 0; i < tweetSources.length; i += BATCH_SIZE) {
+                const batch = tweetSources.slice(i, i + BATCH_SIZE);
+                const batchIds = batch.map(t => t.tweetId);
 
                 try {
-                    const tweetData = await twitterClient.v2.tweets(batch, {
+                    const tweetData = await twitterClient.v2.tweets(batchIds, {
                         "tweet.fields": ["public_metrics"]
                     });
 
                     if (!tweetData.data) {
-                        log(`   No data returned for batch.`);
+                        log(`   Batch ${Math.floor(i / BATCH_SIZE) + 1}: No data returned`);
                         continue;
                     }
-
-                    log(`   Fetched data for ${tweetData.data.length} tweets.`);
 
                     for (const tweet of tweetData.data) {
                         const metrics = tweet.public_metrics;
                         if (!metrics) continue;
 
-                        // Find our local post record
-                        const post = twitterPosts.find(p => (p.platformData as any).twitter.tweetId === tweet.id);
-                        if (!post) continue;
+                        const source = batch.find(t => t.tweetId === tweet.id);
+                        if (!source) continue;
 
-                        log(`   Updating stats for post ${post.id} (Tweet ${tweet.id}): Likes: ${metrics.like_count}, Views: ${metrics.impression_count || 0}`);
+                        totalLikes += metrics.like_count || 0;
+                        totalViews += metrics.impression_count || 0;
 
-                        // 3. Update or Insert analytics record
-                        const existing = await db.select()
-                            .from(postAnalytics)
-                            .where(
-                                and(
-                                    eq(postAnalytics.postId, post.id),
-                                    eq(postAnalytics.platform, 'twitter')
-                                )
-                            );
-
-                        if (existing.length > 0) {
-                            await db.update(postAnalytics)
+                        // Update the source record with metrics
+                        if (source.type === 'post') {
+                            // Update posts.platformData.twitter with metrics
+                            const currentData = source.platformData || {};
+                            await db.update(posts)
                                 .set({
-                                    likes: metrics.like_count,
-                                    comments: metrics.reply_count,
-                                    shares: metrics.retweet_count,
-                                    views: metrics.impression_count || 0,
-                                    updatedAt: new Date()
+                                    platformData: {
+                                        ...currentData,
+                                        twitter: {
+                                            ...(currentData.twitter || {}),
+                                            tweetId: tweet.id,
+                                            likes: metrics.like_count || 0,
+                                            replies: metrics.reply_count || 0,
+                                            retweets: metrics.retweet_count || 0,
+                                            quotes: metrics.quote_count || 0,
+                                            impressions: metrics.impression_count || 0,
+                                            bookmarks: metrics.bookmark_count || 0,
+                                            lastSyncedAt: new Date().toISOString()
+                                        }
+                                    }
                                 })
-                                .where(eq(postAnalytics.id, existing[0].id));
+                                .where(eq(posts.id, source.id));
+                            updatedCount++;
                         } else {
-                            await db.insert(postAnalytics).values({
-                                postId: post.id,
-                                platform: 'twitter',
-                                likes: metrics.like_count,
-                                comments: metrics.reply_count,
-                                shares: metrics.retweet_count,
-                                views: metrics.impression_count || 0,
-                            });
+                            // Update postcard_drafts with metrics (for sniper posts)
+                            await db.update(postcardDrafts)
+                                .set({
+                                    likes: metrics.like_count || 0,
+                                    retweets: metrics.retweet_count || 0,
+                                    replies: metrics.reply_count || 0,
+                                    impressions: metrics.impression_count || 0
+                                })
+                                .where(eq(postcardDrafts.id, source.id));
+                            updatedCount++;
                         }
                     }
-                } catch (batchError) {
-                    log(`   Batch failed: ${batchError instanceof Error ? batchError.message : String(batchError)}`);
+                } catch (batchError: any) {
+                    // Handle rate limiting gracefully
+                    if (batchError.code === 429) {
+                        log(`   Rate limited - will retry next cycle`);
+                        break;
+                    }
+                    log(`   Batch error: ${batchError.message || batchError}`);
                 }
+
+                // Small delay between batches to avoid rate limits
+                await new Promise(r => setTimeout(r, 500));
             }
 
-            log("Analytics sync cycle complete.");
+            log(`Sync complete: ${updatedCount} records updated (Total: ${totalLikes} likes, ${totalViews} views)`);
+
         } catch (error) {
-            log(`Error in analytics sync: ${error instanceof Error ? error.message : String(error)}`);
+            log(`Error: ${error instanceof Error ? error.message : String(error)}`);
             console.error("Analytics sync failed:", error);
         } finally {
             this.isSyncing = false;

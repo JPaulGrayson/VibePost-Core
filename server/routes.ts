@@ -906,8 +906,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - days);
 
-      // Fetch posts in range
-      const posts = await storage.getPostsInRange(cutoffDate);
+      // Fetch posts in range (from main posts table)
+      const allPosts = await storage.getPostsInRange(cutoffDate);
 
       // Calculate overall metrics
       let totalLikes = 0, totalRetweets = 0, totalReplies = 0, totalImpressions = 0;
@@ -916,7 +916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dailyData: Record<string, { posts: number; likes: number; retweets: number; replies: number; impressions: number }> = {};
       let likesOnly = 0, retweetsOnly = 0, repliesOnly = 0, multiEngagement = 0;
 
-      posts.forEach((post: any) => {
+      allPosts.forEach((post: any) => {
         const twitter = post.platformData?.twitter;
         if (!twitter) return;
 
@@ -967,15 +967,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const totalEngagements = totalLikes + totalRetweets + totalReplies;
-      const engagementRate = posts.length > 0 ? (totalEngagements / posts.length) : 0;
+      const engagementRate = allPosts.length > 0 ? (totalEngagements / allPosts.length) : 0;
 
       // Format response
       const response = {
         overall: {
-          totalPosts: posts.length,
+          totalPosts: allPosts.length,
           totalEngagements,
           engagementRate,
-          avgImpressionsPerPost: posts.length > 0 ? totalImpressions / posts.length : 0,
+          avgImpressionsPerPost: allPosts.length > 0 ? totalImpressions / allPosts.length : 0,
         },
         trends: Object.entries(dailyData)
           .map(([date, data]) => ({
@@ -1090,7 +1090,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const postsWithEngagement = posts
         .filter(p => p.platformData?.twitter)
         .map(p => {
-          const twitter = p.platformData.twitter;
+          const twitter = (p.platformData as any).twitter;
           const engagement = (twitter.likes || 0) + (twitter.retweets || 0) + (twitter.replies || 0);
           return { ...p, engagement, twitter };
         })
@@ -2495,6 +2495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updatePostcardDraft(id, {
           status: "published",
           publishedAt: new Date(),
+          tweetId: result.tweetId, // Store for analytics tracking
         });
 
         // Create a record in the main posts table for history
