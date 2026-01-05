@@ -2179,14 +2179,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       console.log(`[Metrics] Batch fetching for ${tweetIds.length} tweets...`);
+      console.log(`[Metrics] Sample tweet IDs: ${tweetIds.slice(0, 3).join(', ')}...`);
+      
       // Use v2.tweets to fetch up to 100 tweets at once
       const tweets = await twitterClient.v2.tweets(tweetIds, {
         'tweet.fields': ['public_metrics', 'created_at'],
       });
 
+      console.log(`[Metrics] Twitter API response received. Data exists: ${!!tweets.data}, Errors: ${JSON.stringify(tweets.errors || [])}`);
+
       const metricsMap: Record<string, any> = {};
 
-      if (tweets.data) {
+      if (tweets.data && Array.isArray(tweets.data)) {
+        console.log(`[Metrics] Processing ${tweets.data.length} tweets from response`);
         for (const tweet of tweets.data) {
           const metrics = tweet.public_metrics;
           metricsMap[tweet.id] = {
@@ -2199,9 +2204,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lastUpdatedAt: new Date().toISOString(),
           };
         }
+      } else {
+        console.warn(`[Metrics] No tweet data in response. tweets.data type: ${typeof tweets.data}`);
       }
 
-      console.log(`[Metrics] Successfully fetched metrics for ${Object.keys(metricsMap).length} tweets.`);
+      console.log(`[Metrics] Successfully built metrics map for ${Object.keys(metricsMap).length} tweets.`);
       return metricsMap;
 
     } catch (error) {
