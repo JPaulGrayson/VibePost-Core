@@ -239,8 +239,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sync metrics for all published posts
   app.post("/api/posts/sync-all-metrics", isAuthenticated, async (req, res) => {
     try {
+      console.log("[Sync] Starting manual metrics sync...");
       const posts = await storage.getPostsByStatus("published");
       const results = [];
+      let syncErrors: string[] = [];
 
       // 1. Collect all Twitter IDs needing sync
       // Look for tweetId (new standard) or id (old standard)
@@ -254,6 +256,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return data.tweetId || data.id;
       }).filter(id => id && id !== 'unknown' && /^\d+$/.test(id)); // Validate IDs are numeric
 
+      console.log(`[Sync] Found ${posts.length} published posts, ${twitterIds.length} with valid Twitter IDs`);
+
       // 2. Fetch Twitter metrics in batches of 100 (API limit)
       let twitterMetricsMap: Record<string, any> = {};
       if (twitterIds.length > 0) {
@@ -262,13 +266,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const chunkSize = 100;
           for (let i = 0; i < twitterIds.length; i += chunkSize) {
             const chunk = twitterIds.slice(i, i + chunkSize);
-            console.log(`[Metrics] Fetching batch ${Math.floor(i / chunkSize) + 1}/${Math.ceil(twitterIds.length / chunkSize)} (${chunk.length} IDs)...`);
+            console.log(`[Sync] Fetching batch ${Math.floor(i / chunkSize) + 1}/${Math.ceil(twitterIds.length / chunkSize)} (${chunk.length} IDs)...`);
             const chunkMetrics = await fetchTwitterMetricsBatch(chunk);
             twitterMetricsMap = { ...twitterMetricsMap, ...chunkMetrics };
           }
-        } catch (error) {
-          console.error("Failed to fetch batch Twitter metrics:", error);
+          console.log(`[Sync] Twitter API returned metrics for ${Object.keys(twitterMetricsMap).length} tweets`);
+        } catch (error: any) {
+          console.error("[Sync] Failed to fetch batch Twitter metrics:", error);
+          syncErrors.push(`Twitter API error: ${error.message || 'Unknown error'}`);
         }
+      } else {
+        syncErrors.push("No valid Twitter IDs found to sync");
       }
 
       // 3. Loop through posts and update data
@@ -314,7 +322,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      res.json({ success: true, results });
+      console.log(`[Sync] Complete. Updated ${results.length} posts.`);
+      res.json({ 
+        success: true, 
+        results,
+        stats: {
+          totalPosts: posts.length,
+          postsWithTwitter: twitterIds.length,
+          metricsReturned: Object.keys(twitterMetricsMap).length,
+          postsUpdated: results.length,
+          errors: syncErrors
+        }
+      });
     } catch (error) {
       console.error("Error syncing all metrics:", error);
       res.status(500).json({ message: "Failed to sync metrics" });

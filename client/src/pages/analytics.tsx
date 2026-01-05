@@ -94,11 +94,28 @@ export default function Analytics() {
       console.log("Sync completed:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/comments"] });
+      const stats = data?.stats;
       const updateCount = data?.results?.filter((r: any) => r.success).length || 0;
-      toast({
-        title: "Sync Complete",
-        description: `Updated metrics for ${updateCount} posts from Twitter`,
-      });
+      const metricsReturned = stats?.metricsReturned || 0;
+      const errors = stats?.errors || [];
+      
+      if (metricsReturned > 0) {
+        toast({
+          title: "Sync Complete",
+          description: `Updated metrics for ${updateCount} posts. Twitter returned data for ${metricsReturned} tweets.`,
+        });
+      } else if (errors.length > 0) {
+        toast({
+          title: "Sync Issue",
+          description: errors[0],
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Sync Complete",
+          description: `Checked ${stats?.postsWithTwitter || 0} posts. No new metrics from Twitter.`,
+        });
+      }
     },
     onError: (error) => {
       console.error("Sync error:", error);
