@@ -74,7 +74,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const sniperStatus = {
         isRunning: sniperManager.isRunning,
-        paused: sniperManager.paused,
         draftsGeneratedToday: sniperManager.todaysDrafts,
         dailyLimit: sniperManager.dailyDraftLimit
       };
@@ -2537,33 +2536,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get published drafts (for viewing comments) with date and campaign filters
+  // Get published drafts (for viewing comments)
   app.get("/api/postcard-drafts/published", async (req, res) => {
     try {
-      const days = parseInt(req.query.days as string) || 7; // Default to 7 days
-      const campaignFilter = req.query.campaign as string; // Optional: "turai" or "logigo"
-      
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - days);
-      
       const drafts = await storage.getPostcardDrafts();
-      let publishedDrafts = drafts.filter(d => {
-        if (d.status !== "published") return false;
-        if (d.publishedAt && new Date(d.publishedAt) < cutoffDate) return false;
-        if (campaignFilter && (d as any).campaignType !== campaignFilter) return false;
-        return true;
-      });
-      
+      const publishedDrafts = drafts.filter(d => d.status === "published");
       // Sort by most recently published
       publishedDrafts.sort((a, b) => {
         const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
         const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
         return dateB - dateA;
       });
-      
-      // Limit to 50 max to prevent overload
-      publishedDrafts = publishedDrafts.slice(0, 50);
-      
       res.json(publishedDrafts);
     } catch (error) {
       console.error("Error fetching published drafts:", error);
