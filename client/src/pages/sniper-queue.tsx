@@ -119,8 +119,6 @@ export default function SniperQueue() {
         }
     });
 
-    if (isLoading) return <div>Loading Queue...</div>;
-
     return (
         <div className="p-6 max-w-4xl mx-auto">
             <h1 className="text-2xl font-bold mb-4">🧙‍♂️ Wizard's Tower (Lead Review Queue)</h1>
@@ -186,10 +184,18 @@ export default function SniperQueue() {
             </div>
 
             <div className="grid gap-6">
-                {filteredDrafts?.map((draft) => (
-                    <DraftCard key={draft.id} draft={draft} campaignType={activeCampaign} />
-                ))}
-                {filteredDrafts?.length === 0 && <p>No drafts found matching your search.</p>}
+                {isLoading ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                        <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                        <p>Loading queue...</p>
+                    </div>
+                ) : filteredDrafts?.length === 0 ? (
+                    <p className="text-center py-8 text-muted-foreground">No drafts found matching your search.</p>
+                ) : (
+                    filteredDrafts?.map((draft) => (
+                        <DraftCard key={draft.id} draft={draft} campaignType={activeCampaign} />
+                    ))
+                )}
             </div>
         </div>
     );
