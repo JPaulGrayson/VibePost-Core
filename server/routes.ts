@@ -432,12 +432,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         replies: replies.map(r => ({
           id: r.id,
           author: r.author,
-          authorId: r.authorId,
-          text: r.text,
+          text: r.content,
           createdAt: r.createdAt,
-          likes: r.likes || 0,
-          retweets: r.retweets || 0,
-          replies: r.replies || 0,
+          likes: r.metadata?.likes || 0,
+          retweets: r.metadata?.shares || 0,
+          replies: r.metadata?.replies || 0,
           url: `https://twitter.com/${r.author}/status/${r.id}`
         }))
       });
@@ -486,9 +485,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             replies: replies.map(r => ({
               id: r.id,
               author: r.author,
-              text: r.text,
+              text: r.content,
               createdAt: r.createdAt,
-              likes: r.likes || 0,
+              likes: r.metadata?.likes || 0,
               url: `https://twitter.com/${r.author}/status/${r.id}`
             }))
           });

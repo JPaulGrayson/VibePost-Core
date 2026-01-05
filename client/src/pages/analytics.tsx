@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 import { Loader2, RefreshCw, User, ExternalLink } from "lucide-react";
 import {
   BarChart3,
@@ -60,6 +61,7 @@ export default function Analytics() {
   const [timeRange, setTimeRange] = useState("7days");
   const [selectedPlatform, setSelectedPlatform] = useState("all");
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: posts = [] } = useQuery<Post[]>({
     queryKey: ["/api/posts"],
@@ -79,14 +81,32 @@ export default function Analytics() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
       });
       if (!response.ok) {
-        throw new Error("Failed to sync metrics");
+        const errorText = await response.text();
+        console.error("Sync failed:", response.status, errorText);
+        throw new Error(`Failed to sync metrics: ${response.status}`);
       }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Sync completed:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/analytics/comments"] });
+      const updateCount = data?.results?.filter((r: any) => r.success).length || 0;
+      toast({
+        title: "Sync Complete",
+        description: `Updated metrics for ${updateCount} posts from Twitter`,
+      });
+    },
+    onError: (error) => {
+      console.error("Sync error:", error);
+      toast({
+        title: "Sync Failed",
+        description: error instanceof Error ? error.message : "Failed to sync metrics",
+        variant: "destructive",
+      });
     },
   });
 
@@ -260,11 +280,22 @@ export default function Analytics() {
           </div>
           <div className="flex items-center space-x-4">
             <Button
-              onClick={() => syncAllMetrics.mutate()}
+              onClick={() => {
+                console.log("Starting metrics sync...");
+                syncAllMetrics.mutate();
+              }}
               disabled={syncAllMetrics.isPending}
               className="bg-blue-600 hover:bg-blue-700"
+              data-testid="button-sync-metrics"
             >
-              {syncAllMetrics.isPending ? "Syncing..." : "Sync Metrics"}
+              {syncAllMetrics.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                "Sync Metrics"
+              )}
             </Button>
             <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
               <SelectTrigger className="w-40">
