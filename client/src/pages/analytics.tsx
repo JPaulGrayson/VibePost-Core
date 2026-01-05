@@ -73,6 +73,19 @@ export default function Analytics() {
     queryKey: ["/api/analytics/comments"],
   });
 
+  // Filter out AI bot mentions from comments
+  const AI_BOT_PATTERNS = ['@grok', '@chatgpt', '@gemini', '@claude', '@copilot'];
+  const filterBotMentions = (text: string) => {
+    const lowerText = text.toLowerCase();
+    return !AI_BOT_PATTERNS.some(bot => lowerText.includes(bot));
+  };
+
+  // Calculate filtered comments count (excluding bot mentions)
+  const filteredCommentsCount = commentsData?.posts?.reduce((total, post) => {
+    const filteredReplies = post.replies.filter(r => filterBotMentions(r.text));
+    return total + filteredReplies.length;
+  }, 0) || 0;
+
   // Mutation to sync metrics for all posts
   const syncAllMetrics = useMutation({
     mutationFn: async () => {
@@ -380,13 +393,13 @@ export default function Analytics() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Total Comments</p>
-                    <p className="text-2xl font-bold text-foreground">{totalMetrics.comments.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-foreground">{filteredCommentsCount > 0 ? filteredCommentsCount.toLocaleString() : totalMetrics.comments.toLocaleString()}</p>
                   </div>
                   <MessageCircle className="h-8 w-8 text-blue-500" />
                 </div>
                 <div className="flex items-center mt-4 text-sm">
                   <span className="text-muted-foreground">
-                    {totalMetrics.comments > 0 ? "Live platform data" : "API sync required"}
+                    {filteredCommentsCount > 0 ? "Excluding bot mentions" : totalMetrics.comments > 0 ? "Live platform data" : "API sync required"}
                   </span>
                 </div>
               </CardContent>
