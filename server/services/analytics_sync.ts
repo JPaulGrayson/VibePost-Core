@@ -7,10 +7,11 @@ import * as fs from 'fs';
 
 export class AnalyticsSyncService {
     private isSyncing = false;
-    private checkIntervalMs = 30 * 60 * 1000; // 30 minutes for fresher data
+    private checkIntervalMs = 6 * 60 * 60 * 1000; // 6 hours to conserve Twitter API quota
+    private maxTweetsPerSync = 100; // Limit per cycle to avoid rate limits
 
     async start() {
-        console.log("📈 Analytics Sync Service Started (Syncing every 30 minutes)");
+        console.log("📈 Analytics Sync Service Started (Syncing every 6 hours, max 100 tweets)");
 
         // Initial sync after 10 seconds (let server settle)
         setTimeout(() => {
@@ -127,7 +128,7 @@ export class AnalyticsSyncService {
                 }
             }
 
-            log(`Syncing metrics for ${tweetSources.length} tweets`);
+            log(`Found ${tweetSources.length} tweets total`);
 
             if (tweetSources.length === 0) {
                 log("No tweets to sync.");
@@ -135,14 +136,21 @@ export class AnalyticsSyncService {
                 return;
             }
 
+            // Limit to most recent tweets to conserve API quota
+            const tweetsToSync = tweetSources.slice(0, this.maxTweetsPerSync);
+            log(`Syncing metrics for ${tweetsToSync.length} tweets (limited from ${tweetSources.length})`);
+            
+            // Replace tweetSources with limited set for the rest of the function
+            const limitedSources = tweetsToSync;
+
             // Batch fetch metrics from Twitter (max 100 per request)
             const BATCH_SIZE = 100;
             let updatedCount = 0;
             let totalLikes = 0;
             let totalViews = 0;
 
-            for (let i = 0; i < tweetSources.length; i += BATCH_SIZE) {
-                const batch = tweetSources.slice(i, i + BATCH_SIZE);
+            for (let i = 0; i < limitedSources.length; i += BATCH_SIZE) {
+                const batch = limitedSources.slice(i, i + BATCH_SIZE);
                 const batchIds = batch.map(t => t.tweetId);
 
                 try {
