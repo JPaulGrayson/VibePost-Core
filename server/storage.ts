@@ -677,7 +677,7 @@ export class DatabaseStorage implements IStorage {
    * Much faster than getPostcardDrafts() for auto-publishing use case
    */
   async getTopEligibleDrafts(options: { minScore?: number; maxResults?: number; status?: string } = {}): Promise<PostcardDraft[]> {
-    const { minScore = 90, maxResults = 50, status = 'pending_review' } = options;
+    const { minScore = 95, maxResults = 50, status = 'pending_review' } = options;
 
     // Use raw SQL for the regex filter on originalTweetId (numeric Twitter IDs only)
 

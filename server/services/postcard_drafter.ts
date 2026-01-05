@@ -190,14 +190,14 @@ export async function generateDraft(
     );
     console.log(`Generated reply text: ${draftReplyText.substring(0, 20)}... (Score: ${score})`);
 
-    // Skip low-quality leads (tightened threshold to 90)
+    // Skip leads below 95% - not worth the API credits
     // UNLESS it's a manual draft (force=true)
-    if (score < 90 && !force) {
-        console.log(`⏭️ Skipping low-quality lead (Score: ${score} < 90)`);
+    if (score < 95 && !force) {
+        console.log(`⏭️ Skipping lead (Score: ${score} < 95) - only processing top-tier leads`);
         return false;
     }
 
-    if (force && score < 90) {
+    if (force && score < 95) {
         console.log(`⚠️ Manual draft bypass: Saving lead with Score ${score}`);
     }
 
