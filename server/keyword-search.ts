@@ -456,6 +456,9 @@ export class KeywordSearchEngine {
       console.log(`   Found ${tweets.length} total replies in conversation ${conversationId}`);
 
       const BOT_INDICATORS = ['bot', 'auto', 'spam', 'promo', 'deals', 'crypto', 'nft'];
+      
+      // Filter out replies to Grok or other AI bots (these clutter our analytics)
+      const AI_BOT_MENTIONS = ['@grok', '@chatgpt', '@gemini', '@claude', '@copilot'];
 
       for (const tweet of tweets) {
         // Check if this tweet is a direct reply to our specific tweet
@@ -475,6 +478,13 @@ export class KeywordSearchEngine {
               continue;
             }
           }
+        }
+        
+        // Skip replies that mention AI bots (these are people talking to Grok, not us)
+        const lowerTweetText = tweet.text.toLowerCase();
+        if (AI_BOT_MENTIONS.some(bot => lowerTweetText.includes(bot))) {
+          console.log(`   Skipping @grok reply: "${tweet.text.substring(0, 50)}..."`);
+          continue;
         }
         
         const author = users.find((user: any) => user.id === tweet.author_id);
