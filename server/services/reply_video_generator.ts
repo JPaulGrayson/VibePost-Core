@@ -71,7 +71,7 @@ interface ReplyVideoResult {
  */
 async function extractTravelInterests(tweetText: string, location: string): Promise<TravelInterest[]> {
     try {
-        const prompt = `Analyze this travel-related tweet and extract 3-4 specific travel interests or themes.
+        const prompt = `Analyze this travel-related tweet and extract 4-5 specific travel interests or themes.
 
 Tweet: "${tweetText}"
 Location: ${location}
@@ -116,7 +116,7 @@ Return ONLY the JSON array, no markdown:`;
             }
         }
 
-        return interests.slice(0, 4); // Max 4 interests
+        return interests.slice(0, 5); // Max 5 interests for 60-second videos
     } catch (error) {
         console.error("Error extracting travel interests:", error);
         // Return generic interests
@@ -270,7 +270,7 @@ async function generatePersonalizedNarration(
     try {
         const interestList = interests.map(i => i.theme).join(', ');
 
-        const prompt = `You are a CHARISMATIC travel friend creating a 30-second video narration.
+        const prompt = `You are a CHARISMATIC travel friend creating a 60-second video narration.
 
 User's tweet: "${tweetText}"
 Destination: ${location}
@@ -285,12 +285,13 @@ PERSONALITY (This is what makes you memorable):
 
 Write a warm, personalized narration that:
 1. Opens with a HOOK that grabs attention (reference something specific from their tweet)
-2. Gives ONE quick, insider tip that answers their question
-3. Mentions each topic (${interestList}) with genuine enthusiasm
-4. Ends with a friendly invite to turai.org
+2. Gives insider tips that answer their question
+3. Covers EACH topic (${interestList}) with genuine enthusiasm and specific details
+4. Paints a picture of the experience they'll have
+5. Ends with a friendly invite to turai.org
 
 Rules:
-- Keep it 75-90 words (30 seconds when spoken)
+- Keep it 150-180 words (60 seconds when spoken)
 - Sound like an excited friend, not a tour guide
 - Use short, punchy sentences
 - No hashtags or emojis in the narration
@@ -313,9 +314,9 @@ Write ONLY the narration text, no quotes or labels:`;
         console.error("AI narration failed, using fallback:", error);
     }
 
-    // Fallback to simple template
+    // Fallback to simple template (longer for 60-second videos)
     const interestNames = interests.map(i => i.theme.toLowerCase()).join(', ');
-    return `Planning a trip to ${location}? Great choice! Here's a quick peek at what makes it special. You'll love exploring the ${interestNames}. Each one offers something unique that makes ${location} unforgettable. Ready, to plan your perfect trip? Head over to turai.org for your personalized AI travel guide!`;
+    return `Planning a trip to ${location}? Great choice! You're in for an incredible adventure. Let me give you a peek at what makes this place so special. First up, let's talk about the ${interestNames}. Each one offers something truly unique that makes ${location} unforgettable. Whether you're looking for hidden gems, local favorites, or the must-see spots, this destination has it all. The atmosphere here is electric, the people are welcoming, and every corner reveals something new to discover. Trust me, once you experience ${location}, you'll understand why travelers keep coming back. Ready to plan your perfect trip? Head over to turai.org for your personalized AI travel guide that adapts to exactly what you're looking for!`;
 }
 
 /**
@@ -458,12 +459,12 @@ async function createTeaserVideo(
     outputPath: string,
     audioPath?: string
 ): Promise<void> {
-    // Each image shows for 5 seconds (15-20 sec total)
-    const durationPerImage = 5;
+    // Each image shows for 12 seconds (48-60 sec total with 4-5 images)
+    const durationPerImage = 12;
     const totalDuration = images.length * durationPerImage;
 
     console.log(`      Building ${totalDuration}s video from ${images.length} images...`);
-    fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen] 🎥 Building ${totalDuration}s video... (5s per image)\n`);
+    fs.appendFileSync('auto_publish_debug.log', `[${new Date().toISOString()}] [VideoGen] 🎥 Building ${totalDuration}s video... (12s per image)\n`);
 
     // Create individual image clips SEQUENTIALLY to avoid OOM crashes
     const tempVideos: string[] = [];
