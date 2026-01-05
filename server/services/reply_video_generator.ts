@@ -1,6 +1,6 @@
 /**
  * Reply Video Generator
- * Creates ~60 second teaser videos for travel replies
+ * Creates short (15-30 sec) teaser videos for travel replies
  * Based on multiple interests/themes detected from the user's tweet
  */
 
@@ -82,16 +82,12 @@ Return a JSON array of interests. Each interest should have:
 - emoji: A relevant emoji
 
 Focus on what the person seems interested in. If unclear, suggest popular activities for the location.
-We need 5-6 interests to create a ~60 second video.
 
 Example output:
 [
   {"theme": "Beaches", "keywords": "beautiful beach sunset ${location}", "emoji": "🏖️"},
   {"theme": "Food", "keywords": "local cuisine restaurant ${location}", "emoji": "🍽️"},
-  {"theme": "Culture", "keywords": "local culture tradition ${location}", "emoji": "🎭"},
-  {"theme": "Landmarks", "keywords": "famous landmark monument ${location}", "emoji": "🏛️"},
-  {"theme": "Nightlife", "keywords": "nightclub entertainment ${location}", "emoji": "🎉"},
-  {"theme": "Nature", "keywords": "natural scenery landscape ${location}", "emoji": "🌿"}
+  {"theme": "Nightlife", "keywords": "nightclub entertainment ${location}", "emoji": "🎉"}
 ]
 
 Return ONLY the JSON array, no markdown:`;
@@ -107,23 +103,20 @@ Return ONLY the JSON array, no markdown:`;
 
         const interests = JSON.parse(cleanJson) as TravelInterest[];
 
-        // Ensure we have at least 5 interests for ~60 second video
-        if (interests.length < 5) {
+        // Ensure we have at least 3 interests
+        if (interests.length < 3) {
             // Add generic fallbacks
             const fallbacks: TravelInterest[] = [
                 { theme: "Landmarks", keywords: `famous landmark ${location}`, emoji: "🏛️" },
                 { theme: "Views", keywords: `scenic viewpoint ${location}`, emoji: "📸" },
                 { theme: "Culture", keywords: `local culture ${location}`, emoji: "🎭" },
-                { theme: "Nature", keywords: `natural scenery ${location}`, emoji: "🌿" },
-                { theme: "Cuisine", keywords: `local food dishes ${location}`, emoji: "🍜" },
-                { theme: "Markets", keywords: `local market shopping ${location}`, emoji: "🛍️" },
             ];
-            while (interests.length < 5) {
+            while (interests.length < 3) {
                 interests.push(fallbacks[interests.length]);
             }
         }
 
-        return interests.slice(0, 6); // Max 6 interests for ~60 second video
+        return interests.slice(0, 4); // Max 4 interests
     } catch (error) {
         console.error("Error extracting travel interests:", error);
         // Return generic interests
@@ -267,7 +260,7 @@ async function downloadFile(url: string, localPath: string): Promise<void> {
 /**
  * Generate personalized narration text using AI
  * Addresses the user's specific question and interests
- * Target: ~60 seconds of speech (roughly 150-180 words)
+ * Target: ~30 seconds of speech (roughly 75-90 words)
  */
 async function generatePersonalizedNarration(
     tweetText: string,
@@ -277,7 +270,7 @@ async function generatePersonalizedNarration(
     try {
         const interestList = interests.map(i => i.theme).join(', ');
 
-        const prompt = `You are a CHARISMATIC travel friend creating a 60-second video narration.
+        const prompt = `You are a CHARISMATIC travel friend creating a 30-second video narration.
 
 User's tweet: "${tweetText}"
 Destination: ${location}
@@ -292,18 +285,16 @@ PERSONALITY (This is what makes you memorable):
 
 Write a warm, personalized narration that:
 1. Opens with a HOOK that grabs attention (reference something specific from their tweet)
-2. Gives 2-3 insider tips that answer their question
-3. Mentions each topic (${interestList}) with genuine enthusiasm and a specific detail for each
-4. Transitions smoothly between topics
-5. Ends with a friendly invite to turai.org
+2. Gives ONE quick, insider tip that answers their question
+3. Mentions each topic (${interestList}) with genuine enthusiasm
+4. Ends with a friendly invite to turai.org
 
 Rules:
-- Keep it 150-180 words (60 seconds when spoken at natural pace)
+- Keep it 75-90 words (30 seconds when spoken)
 - Sound like an excited friend, not a tour guide
-- Use short, punchy sentences mixed with slightly longer descriptive ones
+- Use short, punchy sentences
 - No hashtags or emojis in the narration
 - Vary your sentence starters - don't repeat
-- Give each topic enough time to breathe (2-3 sentences each)
 
 Example tone: "So you're curious about ${location}? Oh, you're in for a treat! Here's what most people don't know..."
 
@@ -322,17 +313,9 @@ Write ONLY the narration text, no quotes or labels:`;
         console.error("AI narration failed, using fallback:", error);
     }
 
-    // Fallback to simple template (~150 words for 60 seconds)
+    // Fallback to simple template
     const interestNames = interests.map(i => i.theme.toLowerCase()).join(', ');
-    return `Planning a trip to ${location}? Oh, you are in for an incredible adventure! Let me give you a quick insider look at what makes this destination so special.
-
-First up, you'll absolutely love exploring the ${interestNames}. Each of these experiences offers something truly unique that you won't find anywhere else. The locals have perfected these traditions over generations, and you can feel that authenticity in every moment.
-
-What I love most about ${location} is how it surprises you around every corner. One minute you're discovering hidden gems in quiet neighborhoods, the next you're surrounded by the energy of local life. The food alone is worth the trip!
-
-And here's my insider tip: take your time with each experience. Don't rush through just to check boxes. The real magic happens when you slow down and soak it all in.
-
-Ready to plan your perfect adventure? Head over to turai.org for your personalized AI travel guide!`;
+    return `Planning a trip to ${location}? Great choice! Here's a quick peek at what makes it special. You'll love exploring the ${interestNames}. Each one offers something unique that makes ${location} unforgettable. Ready, to plan your perfect trip? Head over to turai.org for your personalized AI travel guide!`;
 }
 
 /**
@@ -475,8 +458,8 @@ async function createTeaserVideo(
     outputPath: string,
     audioPath?: string
 ): Promise<void> {
-    // Each image shows for 10 seconds (~60 sec total with 6 images)
-    const durationPerImage = 10;
+    // Each image shows for 5 seconds (15-20 sec total)
+    const durationPerImage = 5;
     const totalDuration = images.length * durationPerImage;
 
     console.log(`      Building ${totalDuration}s video from ${images.length} images...`);
@@ -500,7 +483,7 @@ async function createTeaserVideo(
             const args = [
                 '-loop', '1',
                 '-i', relativeImgPath,
-                '-vf', `scale=720:720:force_original_aspect_ratio=increase,crop=720:720,fade=t=in:st=0:d=0.8,fade=t=out:st=${durationPerImage - 0.8}:d=0.8`,
+                '-vf', `scale=720:720:force_original_aspect_ratio=increase,crop=720:720,fade=t=in:st=0:d=0.5,fade=t=out:st=${durationPerImage - 0.5}:d=0.5`,
                 '-c:v', 'libx264',
                 '-preset', 'ultrafast',
                 '-crf', '32',

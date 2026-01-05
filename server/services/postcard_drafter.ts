@@ -2,7 +2,7 @@ import { db } from "../db";
 import { postcardDrafts } from "@shared/schema";
 import { GoogleGenAI } from "@google/genai";
 import { eq } from "drizzle-orm";
-import { CampaignType, CAMPAIGN_CONFIGS, getActiveLogiGoStrategy, getActiveStrategyConfig } from "../campaign-config";
+import { CampaignType, CAMPAIGN_CONFIGS } from "../campaign-config";
 
 // Initialize Gemini
 // Ensure API key is present
@@ -217,7 +217,7 @@ export async function generateDraft(
             turaiImageUrl: imageUrl,
             imageAttribution: imageAttribution,
             score: score,
-            campaignType: campaignType, // Track which campaign generated this draft
+            // Campaign type stored in a metadata field or we'll add a column later
         });
         console.log(`✅ ${config.emoji} Draft saved for ${contextInfo} (Score: ${score})`);
         return true;
@@ -392,60 +392,32 @@ Answer (1-4 words only):` }]
         }
     }
 
-    // Generate a LogiGo-themed image (abstract code aesthetic)
+    // Generate a LogiGo-themed image (flowchart visualization style)
     async generateLogiGoImage(context: string): Promise<string> {
-        // Use a simpler abstract prompt that won't generate complex diagrams with text
-        // Pollinations rate limit: 1 request per 15 seconds for anonymous users
-        const simplePrompts = [
-            "abstract glowing blue purple gradient, technology particles, dark background, minimalist digital art",
-            "dark gradient background with subtle blue green glow, abstract digital aesthetic, no text",
-            "abstract neon lines and dots on dark background, futuristic minimal design, no words",
-            "dark blue gradient with floating light particles, clean tech aesthetic, abstract"
-        ];
-        
-        // Pick a random prompt for variety, but consistent per context using hash
-        const promptIndex = Math.abs(context.split('').reduce((a, b) => a + b.charCodeAt(0), 0)) % simplePrompts.length;
-        const imagePrompt = simplePrompts[promptIndex];
-        
-        // Use seed for caching and consistency
-        const seed = Math.abs(context.split('').reduce((a, b) => a + b.charCodeAt(0), 0) % 10000);
-        const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true&seed=${seed}&width=800&height=800`;
+        try {
+            // Use Pollinations AI to generate a code visualization themed image
+            const imagePrompt = `clean modern code flowchart diagram visualization, ${context}, dark theme IDE aesthetic, abstract geometric shapes and lines, glowing nodes, technology concept art, no text, no letters, no words, minimalist design`;
+            const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true`;
 
-        // Try with exponential backoff (handles 429 rate limit)
-        for (let attempt = 0; attempt < 3; attempt++) {
-            try {
-                console.log(`Generating LogiGo image via Pollinations (attempt ${attempt + 1})...`);
-                const response = await fetch(pollinationsUrl, {
-                    method: 'GET',
-                    signal: AbortSignal.timeout(45000)
-                });
+            console.log("Generating LogiGo image via Pollinations...");
+            const response = await fetch(pollinationsUrl, {
+                method: 'GET',
+                signal: AbortSignal.timeout(45000)
+            });
 
-                if (response.status === 429) {
-                    // Rate limited - wait and retry
-                    const waitTime = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
-                    console.log(`Pollinations rate limited. Waiting ${waitTime/1000}s before retry...`);
-                    await new Promise(resolve => setTimeout(resolve, waitTime));
-                    continue;
-                }
-
-                if (response.ok) {
-                    const contentType = response.headers.get('content-type');
-                    if (contentType && contentType.startsWith('image/')) {
-                        console.log("LogiGo image generated successfully");
-                        return pollinationsUrl;
-                    }
-                }
-            } catch (error) {
-                console.error(`Error generating LogiGo image (attempt ${attempt + 1}):`, error);
-                if (attempt < 2) {
-                    await new Promise(resolve => setTimeout(resolve, 2000));
+            if (response.ok) {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.startsWith('image/')) {
+                    console.log("LogiGo image generated successfully");
+                    return pollinationsUrl;
                 }
             }
+        } catch (error) {
+            console.error("Error generating LogiGo image:", error);
         }
 
-        // Fallback: Use Unsplash abstract tech image (no text, always looks professional)
-        console.log("Using Unsplash fallback for LogiGo image");
-        return `https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&h=800&fit=crop`;
+        // Fallback: Generic code visualization placeholder
+        return `https://placehold.co/800x800/1a1a2e/00ff88?text=LogiGo+Visualization`;
     }
 
     // Extract coding theme (for categorization)
@@ -491,62 +463,41 @@ Answer (one word only):` }]
         return this.generateReplyText(author, context, originalText);
     }
 
-    // LogiGo-specific reply generation (strategy-aware)
+    // LogiGo-specific reply generation
     async generateLogiGoReply(author: string, context: string, originalText: string): Promise<{ text: string; score: number }> {
         try {
-            // Get active strategy to customize reply approach
-            const activeStrategy = getActiveLogiGoStrategy();
-            const strategyConfig = getActiveStrategyConfig();
-            
-            // Strategy-specific prompts
-            const strategyPrompts: Record<string, { persona: string; hook: string; example: string }> = {
-                vibe_scout: {
-                    persona: 'impressed fellow builder who wants to connect with early adopters',
-                    hook: 'Offer them a FREE FOUNDER ACCOUNT on LogiGo because they are building with AI',
-                    example: "This looks great! Since you're building with agents, I'd love to give you a Founder account on LogiGo. DM me for the invite! 🎯"
-                },
-                spaghetti_detective: {
-                    persona: 'empathetic senior developer who has been through the same pain',
-                    hook: 'Share the pain, then mention that visualizing the code flow helps tremendously',
-                    example: "I feel that pain. I usually have to map it out visually to make sense of it. Happy to share my flowchart tool if you want to try it."
-                },
-                stack_visualizer: {
-                    persona: 'helpful expert who offers to visualize their specific question',
-                    hook: 'Offer to generate a diagram for their specific architecture or flow question',
-                    example: "That's a tricky flow to understand in text. It helps to see it mapped out. I can generate a flowchart for that if you're interested?"
-                }
-            };
-            
-            const currentPrompt = strategyPrompts[activeStrategy] || strategyPrompts.spaghetti_detective;
-            
             const systemPrompt = `
-            You are a ${currentPrompt.persona}.
-            
-            STRATEGY: ${strategyConfig.name} (${strategyConfig.description})
+            You are "The Code Sage", a wise and friendly senior developer who helps fellow coders.
             
             Your Goal: 
-            1. Analyze the tweet for "Lead Quality" and assign a Score (0-99).
-               - 80-99: Strong Lead. ${activeStrategy === 'vibe_scout' ? 'They are showing off AI-built projects or sharing workflows' : 'Genuine frustration, asking for help, struggling with specific problem'}.
-               - 60-79: Moderate Lead. Relevant discussion, might engage.
+            1. Analyze the tweet for "Coding Lead Quality" and assign a Score (0-99).
+               - 80-99: Strong Lead. Genuine frustration, asking for help, struggling with specific code problem.
+               - 60-79: Moderate Lead. General coding discussion, might need tools.
                - 0-59: Weak Lead. Promotional, hiring, or not actually seeking help.
             
-            2. Write a reply using this approach: ${currentPrompt.hook}
+            2. Write a short, helpful reply that subtly hints at visualization helping.
             
             Rules:
-            1. Tone: ${strategyConfig.replyPersona.tone}. Use emojis sparingly: 🧠, 💡, ⚡, 🎯, 📊
-            2. ${activeStrategy === 'vibe_scout' ? 
-                'FOUNDER OFFER: Always mention the FREE Founder Account offer. Make them feel special as an early adopter!' :
-                'Be genuinely helpful first, product mention is secondary'}
+            1. Tone: Friendly senior developer, empathetic, NOT salesy. Use emojis sparingly: 🧠, 💡, ⚡, 🔍, 📊
+            2. Vocabulary:
+               - "I feel you, debugging [X] can be tricky..."
+               - "Have you tried visualizing the flow?"
+               - "Sometimes a flowchart really helps see what's happening"
+               - "That's a tough one! Breaking it down step by step helps"
+               - NEVER sound like a bot or advertisement
             3. **CRITICAL**: Do NOT include any URLs or links in the text.
-            4. **CRITICAL**: Sound human, NOT like a bot or advertisement.
+            4. **CRITICAL**: Be genuinely helpful first, product mention secondary.
             5. Length: Keep it under 200 characters.
             
-            Example reply style: "${currentPrompt.example}"
+            Structure:
+            - Acknowledge their struggle (empathy first)
+            - Offer a helpful tip related to visualization/understanding code flow
+            - Optional: Very subtle mention that you use a tool for this
 
             Output Format: JSON
             {
                 "score": 85,
-                "reply": "${currentPrompt.example.substring(0, 50)}..."
+                "reply": "Debugging async can be wild! 🧠 Try mapping out the flow visually..."
             }
             `;
 

@@ -20,7 +20,6 @@ process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
 });
 
 console.log('🛡️ Global error handlers installed - server will not crash on errors');
-console.log('📦 ESM modules loaded successfully');
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -99,14 +98,6 @@ import { twitterListener } from "./services/twitter_listener";
     autoPublisher.start();
   } catch (error) {
     console.error("Failed to start Auto-Publisher:", error);
-  }
-
-  // Start Comment Tracker (Fetches replies to our posts)
-  try {
-    const { commentTracker } = await import("./services/comment_tracker");
-    commentTracker.startCommentTracker();
-  } catch (error) {
-    console.error("Failed to start Comment Tracker:", error);
   }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

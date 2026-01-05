@@ -162,26 +162,6 @@ Changelog:
 - December 30, 2025. NEW: fetchTweetReplies method fetches replies to high-quality tweets (score >= 70)
 - December 30, 2025. FEATURE: Sniper now creates draft replies to engage with active conversation participants
 - December 30, 2025. PROTECTION: Bot/spam filtering and max 3 replies per tweet to avoid spam behavior
-- January 3, 2026. MULTI-STRATEGY: Added LogiGo campaign with 3 switchable strategies (Vibe Scout, Spaghetti Detective, Stack Visualizer)
-- January 3, 2026. ENHANCED: Each strategy has unique keywords, personas, and reply hooks (e.g., Founder Account offers)
-- January 3, 2026. FIXED: Strategy-specific keywords now properly passed to sniper hunts
-- January 3, 2026. UI: Strategy selector appears in Wizard's Tower when LogiGo campaign is active
-- January 3, 2026. IMPROVED: Queue now lazy-loads on demand (instant page load)
-- January 3, 2026. ADDED: Campaign filter buttons in queue (All/Turai/LogiGo with counts)
-- January 3, 2026. VISUAL: Draft cards now show campaign badge and colored left border (blue=Turai, purple=LogiGo)
-- January 3, 2026. FIXED: Video preview generation timeouts - added dynamic timeout based on number of stops
-- January 3, 2026. IMPROVED: Added fetchWithTimeout utility to prevent hanging API requests
-- January 3, 2026. ENHANCED: Preview now returns partial data if timeout reached (instead of failing completely)
-- January 3, 2026. ADDED: Comment tracking system for published Twitter replies with "Published & Comments" view
-- January 3, 2026. PAUSED: Sniper now starts PAUSED by default - must call /api/sniper/resume to enable
-- January 3, 2026. DELETED: Removed 19 LogiGo drafts with rate limit error images and placeholder text
-- January 3, 2026. FIXED: LogiGo image generation now uses simpler abstract prompts (no complex diagrams)
-- January 3, 2026. IMPROVED: Added exponential backoff for Pollinations rate limits (1 req/15s for anon users)
-- January 3, 2026. IMPROVED: LogiGo fallback now uses Unsplash tech image instead of text placeholder
-- January 3, 2026. ENHANCED: Post History now has campaign filter (All/Turai/LogiGo) with counts
-- January 3, 2026. VISUAL: Post cards show campaign badges with icons and colored left borders
-- January 3, 2026. DATA: Auto-publisher now stores campaign type in platformData for future posts
-- January 3, 2026. ENHANCED: Scheduled Posts page now has campaign filter (All/Turai/LogiGo) with visual badges
 ```
 
 ## User Preferences

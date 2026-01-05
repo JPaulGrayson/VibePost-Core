@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ExternalLink, Edit2, Trash2, Plane, Code2 } from "lucide-react";
+import { Search, ExternalLink, Edit2, Trash2 } from "lucide-react";
 import { Twitter, MessageSquare } from "lucide-react";
 import { SiDiscord, SiReddit } from "react-icons/si";
 import type { Post } from "@shared/schema";
@@ -14,41 +14,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
-// Helper to detect campaign type from post content/data
-function getCampaignType(post: Post): 'turai' | 'logigo' | 'unknown' {
-  const platformData = post.platformData as Record<string, any> | null | undefined;
-  
-  // Check if campaign is explicitly stored in any platform data
-  if (platformData) {
-    for (const platform of Object.keys(platformData)) {
-      const campaignValue = platformData[platform]?.campaign;
-      if (campaignValue) {
-        const normalized = String(campaignValue).toLowerCase();
-        if (normalized === 'turai') return 'turai';
-        if (normalized === 'logigo') return 'logigo';
-      }
-    }
-  }
-  
-  // Infer from content keywords
-  const content = (post.content || '').toLowerCase();
-  const turaiKeywords = ['travel', 'destination', 'tour', 'mystical', 'crystal ball', 'paris', 'london', 'tokyo', 'rome', 'barcelona', 'spirit', 'magic', 'wander', 'postcard'];
-  const logigoKeywords = ['code', 'debugging', 'vibe coding', 'logigo', 'flowchart', 'founder account', 'visualiz', 'diagram', 'agent', 'cursor', 'claude'];
-  
-  const hasTuraiKeyword = turaiKeywords.some(kw => content.includes(kw));
-  const hasLogigoKeyword = logigoKeywords.some(kw => content.includes(kw));
-  
-  if (hasLogigoKeyword && !hasTuraiKeyword) return 'logigo';
-  if (hasTuraiKeyword) return 'turai';
-  
-  // Default to turai for legacy posts (most historical posts are travel-related)
-  return 'turai';
-}
-
 export default function PostHistory() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [campaignFilter, setCampaignFilter] = useState("all");
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -131,17 +99,8 @@ export default function PostHistory() {
   const filteredPosts = posts.filter(post => {
     const matchesSearch = post.content.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || post.status === statusFilter;
-    const postCampaign = getCampaignType(post);
-    const matchesCampaign = campaignFilter === "all" || postCampaign === campaignFilter;
-    return matchesSearch && matchesStatus && matchesCampaign;
+    return matchesSearch && matchesStatus;
   });
-  
-  // Count posts by campaign for filter badges
-  const campaignCounts = posts.reduce((acc, post) => {
-    const campaign = getCampaignType(post);
-    acc[campaign] = (acc[campaign] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
 
   const getPostUrl = (post: Post, platform: string) => {
     const platformData = post.platformData as Record<string, any>;
@@ -192,38 +151,15 @@ export default function PostHistory() {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
-                    data-testid="input-search-posts"
                   />
                 </div>
                 <div className="sm:w-48">
-                  <Select value={campaignFilter} onValueChange={setCampaignFilter}>
-                    <SelectTrigger data-testid="select-campaign-filter">
-                      <SelectValue placeholder="Filter by campaign" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Campaigns ({posts.length})</SelectItem>
-                      <SelectItem value="turai">
-                        <span className="flex items-center gap-2">
-                          <Plane className="h-3 w-3 text-blue-500" />
-                          Turai ({campaignCounts.turai || 0})
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="logigo">
-                        <span className="flex items-center gap-2">
-                          <Code2 className="h-3 w-3 text-purple-500" />
-                          LogiGo ({campaignCounts.logigo || 0})
-                        </span>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="sm:w-48">
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger data-testid="select-status-filter">
+                    <SelectTrigger>
                       <SelectValue placeholder="Filter by status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="all">All Posts</SelectItem>
                       <SelectItem value="published">Published</SelectItem>
                       <SelectItem value="draft">Drafts</SelectItem>
                       <SelectItem value="scheduled">Scheduled</SelectItem>
@@ -250,27 +186,12 @@ export default function PostHistory() {
                 </CardContent>
               </Card>
             ) : (
-              filteredPosts.map((post) => {
-                const campaign = getCampaignType(post);
-                const campaignStyles = {
-                  turai: { border: 'border-l-4 border-l-blue-500', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300', icon: Plane },
-                  logigo: { border: 'border-l-4 border-l-purple-500', badge: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300', icon: Code2 },
-                  unknown: { border: 'border-l-4 border-l-gray-400', badge: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300', icon: null }
-                };
-                const style = campaignStyles[campaign];
-                const CampaignIcon = style.icon;
-                
-                return (
-                <Card key={post.id} className={`${style.border}`} data-testid={`card-post-${post.id}`}>
+              filteredPosts.map((post) => (
+                <Card key={post.id}>
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
-                          {/* Campaign Badge */}
-                          <Badge className={style.badge} data-testid={`badge-campaign-${post.id}`}>
-                            {CampaignIcon && <CampaignIcon className="h-3 w-3 mr-1" />}
-                            {campaign === 'turai' ? 'Turai' : campaign === 'logigo' ? 'LogiGo' : 'Other'}
-                          </Badge>
                           <Badge
                             className={statusColors[post.status as keyof typeof statusColors]}
                           >
@@ -294,7 +215,6 @@ export default function PostHistory() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(post.id)}
-                          data-testid={`button-edit-${post.id}`}
                         >
                           <Edit2 className="h-4 w-4" />
                         </Button>
@@ -304,7 +224,6 @@ export default function PostHistory() {
                           className="text-red-600 hover:text-red-700"
                           onClick={() => handleDelete(post.id)}
                           disabled={deletePostMutation.isPending}
-                          data-testid={`button-delete-${post.id}`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -368,8 +287,7 @@ export default function PostHistory() {
                     </div>
                   </CardContent>
                 </Card>
-                );
-              })
+              ))
             )}
           </div>
         </div>

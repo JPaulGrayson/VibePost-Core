@@ -19,13 +19,7 @@ import { getThreadTourSchedulerStatus, setNextThreadDestination, clearNextThread
 import { autoPublisher } from "./services/auto_publisher";
 import { previewVideoPost, generateVideoPost, generateVideoCaption, refreshPreviewData } from "./services/video_post_generator";
 import { getDailyVideoSchedulerStatus, setNextVideoDestination, clearNextVideoDestination, triggerDailyVideoNow, getVideoDestinationQueue } from "./services/daily_video_scheduler";
-import { 
-  CAMPAIGN_CONFIGS, 
-  LOGIGO_STRATEGIES,
-  getActiveLogiGoStrategy, 
-  setActiveLogiGoStrategy,
-  getActiveStrategyConfig 
-} from "./campaign-config";
+import { CAMPAIGN_CONFIGS } from "./campaign-config";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Simple authentication middleware
   const isAuthenticated = (req: any, res: any, next: any) => {
@@ -895,37 +889,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Pause/Resume Sniper hunting
-  app.post("/api/sniper/pause", (req, res) => {
-    sniperManager.pause();
-    res.json({ success: true, paused: true, message: "Sniper hunting PAUSED - no new drafts will be generated" });
-  });
-
-  app.post("/api/sniper/resume", (req, res) => {
-    sniperManager.resume();
-    res.json({ success: true, paused: false, message: "Sniper hunting RESUMED - hunting enabled" });
-  });
-
-  app.get("/api/sniper/status", (req, res) => {
-    res.json({
-      paused: sniperManager.paused,
-      isRunning: sniperManager.isRunning,
-      draftsGeneratedToday: sniperManager.todaysDrafts,
-      dailyLimit: sniperManager.dailyDraftLimit
-    });
-  });
-
-  // Get current campaign configuration
+  // Get current campaign configuration (simplified - always turai)
   app.get("/api/sniper/campaign", (req, res) => {
-    const currentCampaign = (global as any).currentSniperCampaign || 'turai';
-    const activeStrategy = getActiveLogiGoStrategy();
-    
     res.json({
-      currentCampaign,
-      config: CAMPAIGN_CONFIGS[currentCampaign as keyof typeof CAMPAIGN_CONFIGS],
-      activeStrategy: currentCampaign === 'logigo' ? activeStrategy : null,
-      strategyConfig: currentCampaign === 'logigo' ? getActiveStrategyConfig() : null,
-      availableStrategies: currentCampaign === 'logigo' ? Object.values(LOGIGO_STRATEGIES) : []
+      currentCampaign: 'turai',
+      config: CAMPAIGN_CONFIGS['turai']
     });
   });
 
@@ -1122,7 +1090,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const postsWithEngagement = posts
         .filter(p => p.platformData?.twitter)
         .map(p => {
-          const twitter = p.platformData!.twitter;
+          const twitter = p.platformData.twitter;
           const engagement = (twitter.likes || 0) + (twitter.retweets || 0) + (twitter.replies || 0);
           return { ...p, engagement, twitter };
         })
@@ -1246,56 +1214,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Set sniper campaign type
+  // Set sniper campaign type (no-op for simplified sniper)
   app.post("/api/sniper/campaign", (req, res) => {
-    const { campaignType, strategy } = req.body;
-    
-    // Update campaign type if provided
-    if (campaignType && ['turai', 'logigo'].includes(campaignType)) {
-      (global as any).currentSniperCampaign = campaignType;
-      console.log(`🎯 Campaign switched to: ${campaignType}`);
-    }
-    
-    // Update strategy if switching to/within LogiGo
-    const currentCampaign = (global as any).currentSniperCampaign || 'turai';
-    if (currentCampaign === 'logigo' && strategy) {
-      setActiveLogiGoStrategy(strategy);
-    }
-    
     res.json({
       success: true,
-      message: `Campaign set to ${currentCampaign}${currentCampaign === 'logigo' ? ` with strategy: ${getActiveLogiGoStrategy()}` : ''}`,
-      config: CAMPAIGN_CONFIGS[currentCampaign as keyof typeof CAMPAIGN_CONFIGS],
-      activeStrategy: currentCampaign === 'logigo' ? getActiveLogiGoStrategy() : null,
-      strategyConfig: currentCampaign === 'logigo' ? getActiveStrategyConfig() : null
-    });
-  });
-
-  // Set LogiGo strategy
-  app.post("/api/sniper/strategy", (req, res) => {
-    const { strategy } = req.body;
-    
-    if (!strategy || !['vibe_scout', 'spaghetti_detective', 'stack_visualizer'].includes(strategy)) {
-      return res.status(400).json({ error: 'Invalid strategy. Choose: vibe_scout, spaghetti_detective, or stack_visualizer' });
-    }
-    
-    setActiveLogiGoStrategy(strategy);
-    
-    res.json({
-      success: true,
-      activeStrategy: getActiveLogiGoStrategy(),
-      strategyConfig: getActiveStrategyConfig()
+      message: `Campaign is fixed to turai (simplified sniper mode)`,
+      config: CAMPAIGN_CONFIGS['turai']
     });
   });
 
   // Get all available campaign configs
   app.get("/api/sniper/campaigns", (req, res) => {
-    const currentCampaign = (global as any).currentSniperCampaign || 'turai';
-    
     res.json({
       campaigns: Object.values(CAMPAIGN_CONFIGS),
-      currentCampaign,
-      strategies: Object.values(LOGIGO_STRATEGIES)
+      currentCampaign: 'turai'
     });
   });
 
@@ -2536,24 +2468,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get published drafts (for viewing comments)
-  app.get("/api/postcard-drafts/published", async (req, res) => {
-    try {
-      const drafts = await storage.getPostcardDrafts();
-      const publishedDrafts = drafts.filter(d => d.status === "published");
-      // Sort by most recently published
-      publishedDrafts.sort((a, b) => {
-        const dateA = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-        const dateB = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-        return dateB - dateA;
-      });
-      res.json(publishedDrafts);
-    } catch (error) {
-      console.error("Error fetching published drafts:", error);
-      res.status(500).json({ message: "Failed to fetch published drafts" });
-    }
-  });
-
   app.post("/api/postcard-drafts/:id/approve", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -2581,7 +2495,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updatePostcardDraft(id, {
           status: "published",
           publishedAt: new Date(),
-          replyTweetId: result.tweetId, // Store our reply tweet ID for comment tracking
         });
 
         // Create a record in the main posts table for history
@@ -2685,50 +2598,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error regenerating image:", error);
       res.status(500).json({ message: "Failed to regenerate image" });
-    }
-  });
-
-  // Comment Tracking Endpoints
-  app.get("/api/postcard-drafts/:id/comments", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const { commentTracker } = await import("./services/comment_tracker");
-      const comments = await commentTracker.getCommentsForDraft(id);
-      res.json(comments);
-    } catch (error) {
-      console.error("Error fetching comments:", error);
-      res.status(500).json({ message: "Failed to fetch comments" });
-    }
-  });
-
-  app.post("/api/comments/poll", async (req, res) => {
-    try {
-      const { commentTracker } = await import("./services/comment_tracker");
-      const result = await commentTracker.pollForComments();
-      res.json({ message: "Comment poll complete", ...result });
-    } catch (error) {
-      console.error("Error polling for comments:", error);
-      res.status(500).json({ message: "Failed to poll for comments" });
-    }
-  });
-
-  app.get("/api/postcard-drafts/:id/fetch-replies", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const draft = await storage.getPostcardDraft(id);
-      if (!draft) {
-        return res.status(404).json({ message: "Draft not found" });
-      }
-      if (!draft.originalTweetId) {
-        return res.status(400).json({ message: "Draft has no original tweet ID" });
-      }
-      
-      const { commentTracker } = await import("./services/comment_tracker");
-      const comments = await commentTracker.fetchRepliesForTweet(draft.originalTweetId);
-      res.json({ comments, count: comments.length });
-    } catch (error) {
-      console.error("Error fetching replies:", error);
-      res.status(500).json({ message: "Failed to fetch replies" });
     }
   });
 

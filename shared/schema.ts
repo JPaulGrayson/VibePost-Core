@@ -156,38 +156,15 @@ export const postcardDrafts = pgTable("postcard_drafts", {
   // Targeting
   targetCommunityId: text("target_community_id"), // Null = Main Timeline
 
-  // Campaign Type
-  campaignType: text("campaign_type").default("turai"), // 'turai' or 'logigo'
-
   // Metadata
   status: draftStatusEnum("status").default("pending_review").notNull(),
   score: integer("score").default(0), // AI Relevance Score (0-100)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   publishedAt: timestamp("published_at"),
-  
-  // Our reply tweet ID (for tracking comments on our post)
-  replyTweetId: text("reply_tweet_id"),
 
   // Retry mechanism for failed posts
   publishAttempts: integer("publish_attempts").default(0),
   lastError: text("last_error"),
-});
-
-// Comments/replies received on our published posts
-export const postComments = pgTable("post_comments", {
-  id: serial("id").primaryKey(),
-  postId: integer("post_id").references(() => posts.id, { onDelete: "cascade" }),
-  postcardDraftId: integer("postcard_draft_id").references(() => postcardDrafts.id, { onDelete: "cascade" }),
-  platform: varchar("platform", { length: 50 }).notNull(), // twitter, discord, reddit
-  platformCommentId: varchar("platform_comment_id").notNull(), // ID from the platform
-  authorHandle: varchar("author_handle").notNull(),
-  authorName: varchar("author_name"),
-  authorProfileUrl: varchar("author_profile_url"),
-  content: text("content").notNull(),
-  metrics: jsonb("metrics").$type<{ likes?: number; replies?: number; retweets?: number }>(),
-  inReplyToTweetId: varchar("in_reply_to_tweet_id"), // The tweet this is replying to
-  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertPostSchema = createInsertSchema(posts).omit({
@@ -248,12 +225,6 @@ export const insertPostcardDraftSchema = createInsertSchema(postcardDrafts).omit
   createdAt: true,
 });
 
-export const insertPostCommentSchema = createInsertSchema(postComments).omit({
-  id: true,
-  createdAt: true,
-  fetchedAt: true,
-});
-
 // User schema for authentication
 export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
@@ -292,9 +263,6 @@ export type PostStatus = z.infer<typeof PostStatus>;
 
 export type InsertPostcardDraft = z.infer<typeof insertPostcardDraftSchema>;
 export type PostcardDraft = typeof postcardDrafts.$inferSelect;
-
-export type InsertPostComment = z.infer<typeof insertPostCommentSchema>;
-export type PostComment = typeof postComments.$inferSelect;
 
 export const PostcardDraftStatus = z.enum(["pending_review", "approved", "rejected", "published", "failed", "pending_retry"]);
 export type PostcardDraftStatus = z.infer<typeof PostcardDraftStatus>;

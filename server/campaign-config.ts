@@ -6,33 +6,9 @@
  * - Intent detection rules
  * - Reply templates and tone
  * - Product-specific assets (images, links)
- * 
- * LogiGo campaigns support multiple STRATEGIES:
- * - vibe_scout: Target Vibe Coders with Founder Account offers
- * - spaghetti_detective: Find devs complaining about complex code
- * - stack_visualizer: Find questions needing visual explanations
  */
 
 export type CampaignType = 'turai' | 'logigo';
-export type LogiGoStrategy = 'vibe_scout' | 'spaghetti_detective' | 'stack_visualizer';
-
-export interface StrategyConfig {
-    id: LogiGoStrategy;
-    name: string;
-    emoji: string;
-    description: string;
-    keywords: string[];
-    intentType: string;  // What kind of intent we're detecting
-    intentSignals: {
-        positive: string[];
-        negative: string[];
-    };
-    replyPersona: {
-        tone: string;
-        hook: string;  // The special offer or approach
-        templateExample: string;
-    };
-}
 
 export interface CampaignConfig {
     id: CampaignType;
@@ -40,7 +16,7 @@ export interface CampaignConfig {
     emoji: string;
     description: string;
 
-    // Keywords to search for on X/Twitter (default set)
+    // Keywords to search for on X/Twitter
     keywords: string[];
 
     // Intent detection - what phrases indicate genuine interest
@@ -60,144 +36,10 @@ export interface CampaignConfig {
     // Scoring adjustments
     scoring: {
         questionBonus: number;
-        frustrationBonus: number;
-        recentHoursDecay: number;
+        frustrationBonus: number;  // e.g., "I hate debugging" = high intent for LogiGo
+        recentHoursDecay: number;  // Points lost per hour
     };
-
-    // Optional: Strategies (for LogiGo multi-strategy support)
-    strategies?: StrategyConfig[];
-    activeStrategy?: LogiGoStrategy;
 }
-
-// ============= LOGIGO STRATEGIES =============
-export const LOGIGO_STRATEGIES: Record<LogiGoStrategy, StrategyConfig> = {
-    vibe_scout: {
-        id: 'vibe_scout',
-        name: 'Vibe Coding Scout',
-        emoji: '🎯',
-        description: 'Find early adopters of AI coding tools - offer Founder accounts',
-        keywords: [
-            // High-signal Vibe Coding tags
-            "#vibecoding",
-            "#replitagent",
-            "cursor ai",
-            "google antigravity",
-            "built this with AI",
-            "replit agent",
-            "windsurf ai",
-            "claude sonnet",
-            "ai pair programming",
-            "vibe coded this",
-            "let the AI cook",
-            "ai wrote this",
-            "agent built",
-            "natural language to code",
-            "no code ai",
-            "ai dev tools",
-        ],
-        intentType: 'Show and Tell / Workflow Sharing',
-        intentSignals: {
-            positive: [
-                "built", "made", "created", "shipped", "launched",
-                "workflow", "using", "tried", "love", "amazing",
-                "first app", "side project", "prototype", "mvp",
-                "ai coding", "vibe", "agent", "cursor", "copilot"
-            ],
-            negative: [
-                "hiring", "job", "course", "tutorial", "sponsor",
-                "discount", "affiliate", "ad", "promo"
-            ]
-        },
-        replyPersona: {
-            tone: 'Impressed and collaborative. Builder to Builder.',
-            hook: 'Offer a Founder Account (Free Lifetime Access) because they are an early adopter',
-            templateExample: "This looks great! Since you're building with agents, I'd love to give you a Founder account on LogiGo (my AI flowchart tool). It helps visualize the agent's logic when it gets stuck. DM me if you want an invite!"
-        }
-    },
-
-    spaghetti_detective: {
-        id: 'spaghetti_detective',
-        name: 'Spaghetti Detective',
-        emoji: '🍝',
-        description: 'Find developers complaining about complex code - offer visual solution',
-        keywords: [
-            "spaghetti code",
-            "refactoring hell",
-            "codebase is a mess",
-            "lost in the code",
-            "debugging nightmare",
-            "can't understand this legacy code",
-            "inherited this codebase",
-            "code archaeology",
-            "who wrote this",
-            "wtf is this code",
-            "technical debt mountain",
-            "undocumented code",
-            "no comments anywhere",
-            "callback hell",
-            "nested if statements",
-            "unmaintainable code",
-        ],
-        intentType: 'Complexity Pain',
-        intentSignals: {
-            positive: [
-                "frustrated", "nightmare", "mess", "spaghetti", "legacy",
-                "inherited", "refactor", "understand", "confusing", "complex",
-                "debugging", "stuck", "hours", "days", "help"
-            ],
-            negative: [
-                "tutorial", "course", "hiring", "job posting",
-                "just kidding", "meme", "joke"
-            ]
-        },
-        replyPersona: {
-            tone: 'Empathetic developer (not a sales bot)',
-            hook: 'Share the pain, then offer a visual mapping solution',
-            templateExample: "I feel that pain. I usually have to map it out visually to make sense of it. I built a tool called LogiGo to do that automatically - turns messy code into flowcharts. Happy to share if you want to try it."
-        }
-    },
-
-    stack_visualizer: {
-        id: 'stack_visualizer',
-        name: 'Stack Overflow Visualizer',
-        emoji: '📊',
-        description: 'Find technical questions that need visual explanations',
-        keywords: [
-            "architecture diagram",
-            "how does oauth work",
-            "react state flow",
-            "mvc vs mvvm",
-            "visualize the request",
-            "explain this flow",
-            "data flow diagram",
-            "system design help",
-            "api architecture",
-            "microservices diagram",
-            "state machine",
-            "event flow",
-            "sequence diagram needed",
-            "how do these connect",
-            "what's the flow",
-        ],
-        intentType: 'Visual Curiosity',
-        intentSignals: {
-            positive: [
-                "diagram", "visualize", "flow", "architecture", "understand",
-                "explain", "how does", "what's the", "state", "design",
-                "connect", "sequence", "structure"
-            ],
-            negative: [
-                "selling", "course", "udemy", "bootcamp ad",
-                "sponsor", "affiliate"
-            ]
-        },
-        replyPersona: {
-            tone: 'Helpful expert offering to visualize',
-            hook: 'Offer to generate a diagram for their specific question',
-            templateExample: "That's a tricky flow to understand in text. It helps to see it mapped out. I can generate a flowchart for that specific architecture using LogiGo if you're interested?"
-        }
-    }
-};
 
 export const CAMPAIGN_CONFIGS: Record<CampaignType, CampaignConfig> = {
     turai: {
@@ -391,29 +233,45 @@ export const CAMPAIGN_CONFIGS: Record<CampaignType, CampaignConfig> = {
         id: 'logigo',
         name: 'LogiGo Vibe Coding',
         emoji: '🧠',
-        description: 'Target developers with code visualization - multiple strategies available',
+        description: 'Target developers struggling with code - promote code visualization',
 
-        // Default keywords (merged from all strategies for broad hunting)
         keywords: [
-            // From Vibe Scout
-            "#vibecoding", "#replitagent", "cursor ai", "built this with AI",
-            "replit agent", "ai pair programming", "vibe coded",
-            
-            // From Spaghetti Detective
-            "spaghetti code", "refactoring hell", "debugging nightmare",
-            "legacy code", "code makes no sense", "inherited codebase",
-            
-            // From Stack Visualizer
-            "architecture diagram", "code flow", "visualize algorithm",
-            "system design", "state flow",
-            
-            // General coding pain
-            "vibe coding help", "cursor ai help", "claude coding help",
-            "can someone explain this code", "struggling to understand",
-            "can't figure out this bug", "flowchart from code",
-            "code visualization", "learning to code frustrated",
-            "I hate debugging", "spent hours on this bug",
-            "why doesn't this work", "code not working"
+            // VIBE CODING / AI CODING
+            "vibe coding help",
+            "vibe coder struggling",
+            "cursor ai help",
+            "claude coding help",
+            "copilot not understanding",
+            "ai wrote this code and I don't understand",
+
+            // CODE UNDERSTANDING / DEBUGGING
+            "can someone explain this code",
+            "struggling to understand this codebase",
+            "debugging nightmare",
+            "this code makes no sense",
+            "inherited legacy code help",
+            "code review help",
+            "can't figure out this bug",
+
+            // VISUALIZATION NEEDS
+            "flowchart from code",
+            "code visualization",
+            "visualize algorithm",
+            "understand this logic",
+            "diagram this code",
+
+            // LEARNING / EDUCATION
+            "learning to code frustrated",
+            "coding bootcamp struggling",
+            "self taught developer stuck",
+            "junior developer help",
+
+            // FRUSTRATION SIGNALS (high intent)
+            "I hate debugging",
+            "spent hours on this bug",
+            "why doesn't this work",
+            "code not working",
+            "this should work but doesn't"
         ],
 
         intentSignals: {
@@ -421,8 +279,7 @@ export const CAMPAIGN_CONFIGS: Record<CampaignType, CampaignConfig> = {
                 "help", "struggling", "confused", "don't understand", "can't figure",
                 "stuck", "frustrated", "nightmare", "hours", "debug",
                 "explain", "visualize", "understand", "learn", "why doesn't",
-                "code", "programming", "developer", "coding", "algorithm",
-                "built", "made", "shipped", "vibe", "agent", "ai"
+                "code", "programming", "developer", "coding", "algorithm"
             ],
             negative: [
                 "hiring", "job posting", "we're looking for", "apply now",
@@ -433,90 +290,37 @@ export const CAMPAIGN_CONFIGS: Record<CampaignType, CampaignConfig> = {
 
         replySettings: {
             tone: 'helpful senior developer friend',
-            productLink: 'https://logigo.studio',
+            productLink: 'https://logigo.dev',
             callToAction: 'Try visualizing your code flow - it really helps!',
             hashTags: ['#coding', '#developer', '#VibeCoding', '#AI']
         },
 
         scoring: {
             questionBonus: 15,
-            frustrationBonus: 25,
-            recentHoursDecay: 3
-        },
-
-        // LogiGo-specific: Multiple strategies
-        strategies: Object.values(LOGIGO_STRATEGIES),
-        activeStrategy: 'vibe_scout'  // Default to Vibe Coding Scout
+            frustrationBonus: 25,  // High - frustrated devs are great leads!
+            recentHoursDecay: 3   // Faster decay - coding questions go stale quicker
+        }
     }
 };
 
-// ============= STATE MANAGEMENT =============
-// Track active strategy (persisted via API calls)
-let currentLogiGoStrategy: LogiGoStrategy = 'vibe_scout';
-
-export function getActiveLogiGoStrategy(): LogiGoStrategy {
-    return currentLogiGoStrategy;
-}
-
-export function setActiveLogiGoStrategy(strategy: LogiGoStrategy): void {
-    if (LOGIGO_STRATEGIES[strategy]) {
-        currentLogiGoStrategy = strategy;
-        console.log(`🎯 LogiGo strategy switched to: ${LOGIGO_STRATEGIES[strategy].name}`);
-    }
-}
-
-export function getActiveStrategyConfig(): StrategyConfig {
-    return LOGIGO_STRATEGIES[currentLogiGoStrategy];
-}
-
-// ============= HELPER FUNCTIONS =============
-
-// Get keywords for campaign (respects active strategy for LogiGo)
+// Helper to get all keywords for a campaign
 export function getKeywordsForCampaign(type: CampaignType): string[] {
-    if (type === 'logigo') {
-        // Use active strategy keywords
-        return LOGIGO_STRATEGIES[currentLogiGoStrategy].keywords;
-    }
-    return CAMPAIGN_CONFIGS[type].keywords;
-}
-
-// Get all keywords for a campaign (ignores strategy filtering)
-export function getAllKeywordsForCampaign(type: CampaignType): string[] {
     return CAMPAIGN_CONFIGS[type].keywords;
 }
 
 // Helper to check if content has positive intent
 export function hasPositiveIntent(content: string, type: CampaignType): boolean {
     const lower = content.toLowerCase();
-    
-    // For LogiGo, use strategy-specific signals
-    if (type === 'logigo') {
-        const strategy = LOGIGO_STRATEGIES[currentLogiGoStrategy];
-        
-        for (const signal of strategy.intentSignals.negative) {
-            if (lower.includes(signal.toLowerCase())) {
-                return false;
-            }
-        }
-        
-        let positiveCount = 0;
-        for (const signal of strategy.intentSignals.positive) {
-            if (lower.includes(signal.toLowerCase())) {
-                positiveCount++;
-            }
-        }
-        return positiveCount >= 1;
-    }
-    
-    // For Turai, use default config
     const config = CAMPAIGN_CONFIGS[type];
 
+    // Check for negative signals first (disqualify)
     for (const signal of config.intentSignals.negative) {
         if (lower.includes(signal.toLowerCase())) {
             return false;
         }
     }
 
+    // Check for at least 1 positive signal (relaxed from 2 to catch more leads)
     let positiveCount = 0;
     for (const signal of config.intentSignals.positive) {
         if (lower.includes(signal.toLowerCase())) {
@@ -548,45 +352,7 @@ export function calculateCampaignScore(
         score += config.scoring.frustrationBonus;
     }
 
-    // LogiGo-specific: Boost for strategy-relevant signals
-    if (type === 'logigo') {
-        const strategy = LOGIGO_STRATEGIES[currentLogiGoStrategy];
-        
-        // Extra boost if content matches strategy keywords
-        for (const keyword of strategy.keywords.slice(0, 5)) {  // Check top 5 keywords
-            if (lower.includes(keyword.toLowerCase().replace('#', ''))) {
-                score += 10;
-                break;
-            }
-        }
-    }
-
     return Math.min(100, Math.max(0, score));
-}
-
-// Get reply persona for current campaign/strategy
-export function getReplyPersona(type: CampaignType): {
-    tone: string;
-    hook: string;
-    template: string;
-    productLink: string;
-} {
-    if (type === 'logigo') {
-        const strategy = LOGIGO_STRATEGIES[currentLogiGoStrategy];
-        return {
-            tone: strategy.replyPersona.tone,
-            hook: strategy.replyPersona.hook,
-            template: strategy.replyPersona.templateExample,
-            productLink: CAMPAIGN_CONFIGS.logigo.replySettings.productLink
-        };
-    }
-    
-    return {
-        tone: CAMPAIGN_CONFIGS[type].replySettings.tone,
-        hook: CAMPAIGN_CONFIGS[type].replySettings.callToAction,
-        template: '',  // Turai uses dynamic generation
-        productLink: CAMPAIGN_CONFIGS[type].replySettings.productLink
-    };
 }
 
 export default CAMPAIGN_CONFIGS;

@@ -103,31 +103,6 @@ export interface VideoPostOptions {
     theme?: string;          // Tour theme (hidden_gems, landmarks, etc.)
 }
 
-// ==================== HELPER UTILITIES ====================
-
-/**
- * Fetch with timeout to prevent hanging requests
- */
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 30000): Promise<Response> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    
-    try {
-        const response = await fetch(url, {
-            ...options,
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        return response;
-    } catch (error: any) {
-        clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-            throw new Error(`Request timed out after ${timeoutMs}ms`);
-        }
-        throw error;
-    }
-}
-
 // ==================== TOUR GENERATION ====================
 
 /**
@@ -139,7 +114,7 @@ async function generateTour(options: VideoPostOptions): Promise<{ success: boole
     try {
         console.log(`🗺️ Generating tour for: ${destination}${topic ? ` (topic: ${topic})` : ''}`);
 
-        const response = await fetchWithTimeout(`${TURAI_API_URL}/api/tour-maker/wizard/generate`, {
+        const response = await fetch(`${TURAI_API_URL}/api/tour-maker/wizard/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -148,7 +123,7 @@ async function generateTour(options: VideoPostOptions): Promise<{ success: boole
                 focus: topic,
                 email: 'vibepost@turai.app'
             })
-        }, 60000); // 60 second timeout for tour generation
+        });
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -172,34 +147,23 @@ async function generateTour(options: VideoPostOptions): Promise<{ success: boole
 
 /**
  * Wait for tour narrations to be ready
- * For larger tours (7+ stops), uses a longer timeout and returns partial results faster
  */
-async function waitForNarrations(shareCode: string, minNarrations: number = 3, timeoutMs?: number): Promise<any | null> {
-    // Dynamic timeout: 30 seconds per narration, minimum 60s, max 300s (5 min)
-    const calculatedTimeout = Math.max(60000, Math.min(300000, minNarrations * 30000));
-    const actualTimeout = timeoutMs ?? calculatedTimeout;
-    
+async function waitForNarrations(shareCode: string, minNarrations: number = 3, timeoutMs: number = 180000): Promise<any | null> {
     const startTime = Date.now();
     const pollInterval = 5000;
     let lastCount = 0;
     let stableCount = 0;
-    let bestData: any = null;
 
-    console.log(`⏳ Waiting for ${minNarrations}+ narrations (timeout: ${actualTimeout/1000}s)...`);
+    console.log(`⏳ Waiting for ${minNarrations}+ narrations...`);
 
-    while (Date.now() - startTime < actualTimeout) {
+    while (Date.now() - startTime < timeoutMs) {
         try {
-            const response = await fetchWithTimeout(`${TURAI_API_URL}/api/slideshows/${shareCode}`, {}, 15000);
+            const response = await fetch(`${TURAI_API_URL}/api/slideshows/${shareCode}`);
 
             if (response.ok) {
                 const data = await response.json();
                 const slideshowData = data.data || data;
                 const narrations = slideshowData.narrations || [];
-
-                // Keep track of the best data we've seen
-                if (narrations.length > (bestData?.narrations?.length || 0)) {
-                    bestData = slideshowData;
-                }
 
                 if (narrations.length >= minNarrations) {
                     console.log(`   ✅ ${narrations.length} narrations ready`);
@@ -209,7 +173,7 @@ async function waitForNarrations(shareCode: string, minNarrations: number = 3, t
                 if (narrations.length === lastCount && narrations.length > 0) {
                     stableCount++;
                     if (stableCount >= 3) {
-                        console.log(`   ⚠️ ${narrations.length} narrations (stable - returning partial)`);
+                        console.log(`   ⚠️ ${narrations.length} narrations (stable)`);
                         return slideshowData;
                     }
                 } else {
@@ -219,21 +183,13 @@ async function waitForNarrations(shareCode: string, minNarrations: number = 3, t
                 lastCount = narrations.length;
                 console.log(`   ⏳ ${narrations.length}/${minNarrations} narrations...`);
             }
-        } catch (e: any) {
-            console.log(`   ⚠️ Poll error: ${e.message || 'Unknown'}`);
-            // Continue waiting but don't lose bestData
+        } catch (e) {
+            // Continue waiting
         }
 
         await new Promise(r => setTimeout(r, pollInterval));
     }
 
-    // Timeout reached - return best data if we have at least 1 narration
-    if (bestData && (bestData.narrations?.length || 0) >= 1) {
-        console.log(`   ⏰ Timeout - returning ${bestData.narrations.length} narrations (partial)`);
-        return bestData;
-    }
-
-    console.log(`   ❌ Timeout - no narrations found`);
     return null;
 }
 
@@ -365,6 +321,23 @@ export async function refreshPreviewData(shareCode: string, maxStops: number = 5
         stops: [],
         shareCode
     };
+
+    // Helper function for fetch with timeout
+    async function fetchWithTimeout(url: string, timeoutMs: number = 15000): Promise<Response> {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const response = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            return response;
+        } catch (error: any) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error(`Request timed out after ${timeoutMs}ms`);
+            }
+            throw error;
+        }
+    }
 
     try {
         console.log(`🔄 Refreshing preview data for: ${shareCode}`);
