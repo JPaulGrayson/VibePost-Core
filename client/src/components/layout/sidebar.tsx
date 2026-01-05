@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Edit,
   History,
@@ -15,11 +15,14 @@ import {
   Search,
   Inbox,
   Sparkles,
-  Film
+  Film,
+  Play,
+  Pause
 } from "lucide-react";
 
 import { SiDiscord, SiReddit } from "react-icons/si";
 import type { PlatformConnection } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function Sidebar() {
   const [location] = useLocation();
@@ -117,19 +120,45 @@ function HealthStatusSection() {
     refetchInterval: 30000, // Check every 30s
   });
 
+  // Toggle sniper pause/resume
+  const toggleSniper = useMutation({
+    mutationFn: async (action: "pause" | "resume") => {
+      const res = await apiRequest("POST", `/api/sniper/${action}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/health/detailed"] });
+    }
+  });
+
   if (!status) return null;
+
+  // Sniper status: check paused first, then isRunning
+  const sniperPaused = status.sniper?.paused ?? true;
+  const sniperActive = !sniperPaused;
+  const sniperStatusText = sniperPaused ? "Paused" : "Active";
+  const sniperStatusColor = sniperPaused ? "text-yellow-500" : "text-green-500";
 
   return (
     <div className="p-4 border-t border-sidebar-border">
       <h3 className="text-sm font-semibold text-muted-foreground mb-3">System Health</h3>
       <div className="space-y-2">
-        {/* Sniper Status */}
+        {/* Sniper Status - Clickable to toggle */}
         <div className="flex items-center justify-between">
           <span className="text-sm text-sidebar-foreground">Sniper</span>
-          <div className="flex items-center space-x-2" title={status.sniper?.isRunning ? "Auto-Pilot Active" : "Stopped"}>
-            <span className="text-xs text-muted-foreground">{status.sniper?.isRunning ? "Active" : "Stopped"}</span>
-            <Circle className={`w-2 h-2 ${status.sniper?.isRunning ? 'text-green-500 fill-current' : 'text-red-500 fill-current'}`} />
-          </div>
+          <button 
+            className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+            onClick={() => toggleSniper.mutate(sniperPaused ? "resume" : "pause")}
+            disabled={toggleSniper.isPending}
+            title={sniperPaused ? "Click to resume sniper" : "Click to pause sniper"}
+          >
+            <span className={`text-xs ${sniperStatusColor}`}>{sniperStatusText}</span>
+            {sniperPaused ? (
+              <Play className="w-3 h-3 text-yellow-500" />
+            ) : (
+              <Circle className="w-2 h-2 text-green-500 fill-current" />
+            )}
+          </button>
         </div>
 
         {/* Turai Status */}
