@@ -6,8 +6,14 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
 }
 
+// Log connection info (masked for security)
+const dbUrl = process.env.DATABASE_URL;
+const maskedUrl = dbUrl.replace(/:[^:@]+@/, ':****@');
+console.log('🔌 DB URL (masked):', maskedUrl);
+console.log('🔌 Using pooler:', dbUrl.includes('-pooler') ? 'YES' : 'NO');
+
 // Neon requires SSL - add to connection string if not present
-let connectionString = process.env.DATABASE_URL;
+let connectionString = dbUrl;
 if (!connectionString.includes('sslmode=')) {
   connectionString += connectionString.includes('?') ? '&sslmode=require' : '?sslmode=require';
 }
@@ -23,6 +29,16 @@ const pool = new Pool({
 
 // Log pool creation
 console.log('🔌 Database pool created with TCP connection');
+
+// Test connection immediately on startup
+(async () => {
+  try {
+    const result = await pool.query('SELECT NOW() as time');
+    console.log('✅ Database connection verified at:', result.rows[0]?.time);
+  } catch (err) {
+    console.error('❌ Database connection FAILED on startup:', (err as Error).message);
+  }
+})();
 
 // Handle pool-level errors (e.g., from Neon auto-suspend)
 pool.on('error', (err) => {
