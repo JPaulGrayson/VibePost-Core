@@ -22,6 +22,7 @@ import { getDailyVideoSchedulerStatus, setNextVideoDestination, clearNextVideoDe
 import { CAMPAIGN_CONFIGS } from "./campaign-config";
 import { getActiveCampaign, setActiveCampaign, isValidCampaignType } from "./campaign-state";
 import { arenaService, type ArenaRequest, getRandomChallenge, getAllChallenges, runAutoArena } from "./services/arena_service";
+import { requireTier, checkFeature, getTierLimits, TIER_LIMITS } from "./middleware/tier-guard";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Simple authentication middleware
@@ -1360,6 +1361,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== ARENA API ====================
   
+  // Get user's tier and feature limits
+  app.get("/api/arena/tier", async (req, res) => {
+    const userId = (req as any).user?.claims?.sub;
+    if (!userId) {
+      return res.json({
+        tier: "free",
+        limits: TIER_LIMITS.free,
+        authenticated: false
+      });
+    }
+    
+    try {
+      const limits = await getTierLimits(userId);
+      const tierKey = Object.entries(TIER_LIMITS).find(
+        ([_, v]) => JSON.stringify(v) === JSON.stringify(limits)
+      )?.[0] || "free";
+      
+      res.json({
+        tier: tierKey,
+        limits,
+        authenticated: true
+      });
+    } catch (error) {
+      res.json({
+        tier: "free",
+        limits: TIER_LIMITS.free,
+        authenticated: true,
+        error: "Could not determine tier"
+      });
+    }
+  });
+  
   // Run arena comparison - queries all 4 AI models
   app.post("/api/arena/run", async (req, res) => {
     try {
@@ -1492,8 +1525,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Run auto-arena and post to X
-  app.post("/api/arena/auto-post", async (req, res) => {
+  // Run auto-arena and post to X (requires Pro tier)
+  app.post("/api/arena/auto-post", checkFeature("threadPosting"), async (req, res) => {
     try {
       const useAI = req.body?.useAI === true;
       console.log(`🏟️ Auto Arena API: Running and posting to X (useAI: ${useAI})...`);

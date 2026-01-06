@@ -20,9 +20,15 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  tier: varchar("tier").default("free"), // free, pro, byok
+  stripeCustomerId: varchar("stripe_customer_id"),
+  stripeSubscriptionId: varchar("stripe_subscription_id"),
+  tierExpiresAt: timestamp("tier_expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+export type UserTier = "free" | "pro" | "byok";
 
 export const posts = pgTable("posts", {
   id: serial("id").primaryKey(),
