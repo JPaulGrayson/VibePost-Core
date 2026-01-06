@@ -103,7 +103,10 @@ export default function ArenaPage() {
             <Switch
               id="mode-toggle"
               checked={mode === "question"}
-              onCheckedChange={(checked) => setMode(checked ? "question" : "debug")}
+              onCheckedChange={(checked) => {
+                setMode(checked ? "question" : "debug");
+                arenaMutation.reset();
+              }}
               data-testid="switch-mode"
             />
             <div className={`flex items-center gap-2 ${mode === "question" ? "text-purple-400" : "text-gray-500"}`}>
