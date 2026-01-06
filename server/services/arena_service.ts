@@ -193,7 +193,7 @@ async function queryGrok(prompt: string): Promise<ModelResponse> {
   } catch (error) {
     console.error("Grok error:", error);
     return {
-      model: "Grok-4",
+      model: "Grok-3",
       provider: "xAI",
       response: "",
       responseTime: Date.now() - start,
