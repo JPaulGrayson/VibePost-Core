@@ -21,6 +21,7 @@ import { previewVideoPost, generateVideoPost, generateVideoCaption, refreshPrevi
 import { getDailyVideoSchedulerStatus, setNextVideoDestination, clearNextVideoDestination, triggerDailyVideoNow, getVideoDestinationQueue } from "./services/daily_video_scheduler";
 import { CAMPAIGN_CONFIGS } from "./campaign-config";
 import { getActiveCampaign, setActiveCampaign, isValidCampaignType } from "./campaign-state";
+import { arenaService, type ArenaRequest } from "./services/arena_service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Simple authentication middleware
@@ -1355,6 +1356,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
       campaigns: Object.values(CAMPAIGN_CONFIGS),
       currentCampaign: getActiveCampaign()
     });
+  });
+
+  // ==================== ARENA API ====================
+  
+  // Run arena comparison - queries all 4 AI models
+  app.post("/api/arena/run", async (req, res) => {
+    try {
+      const { code, problemDescription, language } = req.body;
+      
+      if (!code || typeof code !== 'string') {
+        return res.status(400).json({ error: "Code is required" });
+      }
+      
+      console.log("🏟️ Arena API: Starting multi-model comparison...");
+      const result = await arenaService.runArena({ code, problemDescription, language });
+      res.json(result);
+    } catch (error) {
+      console.error("Arena error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Arena failed" });
+    }
+  });
+  
+  // Generate X thread content from arena result
+  app.post("/api/arena/generate-thread", async (req, res) => {
+    try {
+      const { code, problemDescription, language } = req.body;
+      
+      if (!code || typeof code !== 'string') {
+        return res.status(400).json({ error: "Code is required" });
+      }
+      
+      console.log("🏟️ Arena API: Generating thread content...");
+      const result = await arenaService.runArena({ code, problemDescription, language });
+      const thread = arenaService.generateArenaThread(result);
+      
+      res.json({ 
+        result,
+        thread,
+        threadCount: thread.length
+      });
+    } catch (error) {
+      console.error("Arena thread generation error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Thread generation failed" });
+    }
+  });
+  
+  // Post arena thread to X
+  app.post("/api/arena/post-thread", async (req, res) => {
+    try {
+      const { code, problemDescription, language } = req.body;
+      
+      if (!code || typeof code !== 'string') {
+        return res.status(400).json({ error: "Code is required" });
+      }
+      
+      // Generate arena result and thread
+      const result = await arenaService.runArena({ code, problemDescription, language });
+      const thread = arenaService.generateArenaThread(result);
+      
+      // Get Twitter credentials
+      const xConnection = await storage.getPlatformConnection("twitter");
+      if (!xConnection?.credentials) {
+        return res.status(400).json({ error: "X/Twitter not connected" });
+      }
+      
+      const creds = xConnection.credentials as any;
+      const client = new TwitterApi({
+        appKey: creds.apiKey || process.env.TWITTER_API_KEY!,
+        appSecret: creds.apiSecret || process.env.TWITTER_API_SECRET!,
+        accessToken: creds.accessToken || process.env.TWITTER_ACCESS_TOKEN!,
+        accessSecret: creds.accessTokenSecret || process.env.TWITTER_ACCESS_TOKEN_SECRET!,
+      });
+      
+      // Post thread
+      const tweets: string[] = [];
+      let lastTweetId: string | undefined;
+      
+      for (const tweetText of thread) {
+        const tweetParams: any = { text: tweetText };
+        if (lastTweetId) {
+          tweetParams.reply = { in_reply_to_tweet_id: lastTweetId };
+        }
+        
+        const tweet = await client.v2.tweet(tweetParams);
+        tweets.push(tweet.data.id);
+        lastTweetId = tweet.data.id;
+      }
+      
+      console.log(`🏟️ Arena thread posted! ${tweets.length} tweets, first: ${tweets[0]}`);
+      
+      res.json({
+        success: true,
+        tweetIds: tweets,
+        threadUrl: `https://twitter.com/i/status/${tweets[0]}`,
+        arenaResult: result
+      });
+    } catch (error) {
+      console.error("Arena post error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to post arena thread" });
+    }
   });
 
   app.post("/api/debug/wipe", async (req, res) => {

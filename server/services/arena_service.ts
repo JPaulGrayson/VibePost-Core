@@ -1,4 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
+import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 export interface ArenaRequest {
   code: string;
@@ -25,16 +27,7 @@ export interface ArenaResult {
 
 const LOGIGO_BASE_URL = process.env.LOGIGO_API_URL || "https://logigo-studio-jpaulgrayson.replit.app";
 
-async function queryGemini(code: string, problem: string): Promise<ModelResponse> {
-  const start = Date.now();
-  try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return { model: "Gemini", provider: "Google", response: "", responseTime: 0, error: "API key not configured" };
-    }
-    
-    const genAI = new GoogleGenAI({ apiKey });
-    const prompt = `You are a helpful coding assistant. Debug this code and explain the issue clearly and concisely.
+const DEBUG_PROMPT = (code: string, problem: string) => `You are a helpful coding assistant. Debug this code and explain the issue clearly and concisely.
 
 Problem: ${problem || "Debug this code"}
 
@@ -46,24 +39,36 @@ ${code}
 Provide a clear, concise explanation of:
 1. What the bug/issue is
 2. How to fix it
-3. The corrected code (if applicable)
+3. The corrected code snippet (if applicable)
 
-Keep your response under 280 characters for the main explanation (tweet-friendly).`;
+Keep your main explanation under 200 words for readability.`;
+
+async function queryGemini(code: string, problem: string): Promise<ModelResponse> {
+  const start = Date.now();
+  try {
+    const genAI = new GoogleGenAI({
+      apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+      httpOptions: {
+        apiVersion: "",
+        baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+      },
+    });
 
     const result = await genAI.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: prompt,
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: DEBUG_PROMPT(code, problem) }] }],
     });
 
     return {
-      model: "Gemini",
+      model: "Gemini 2.5",
       provider: "Google",
       response: result.text || "",
       responseTime: Date.now() - start
     };
   } catch (error) {
+    console.error("Gemini error:", error);
     return {
-      model: "Gemini",
+      model: "Gemini 2.5",
       provider: "Google",
       response: "",
       responseTime: Date.now() - start,
@@ -75,47 +80,22 @@ Keep your response under 280 characters for the main explanation (tweet-friendly
 async function queryOpenAI(code: string, problem: string): Promise<ModelResponse> {
   const start = Date.now();
   try {
-    const prompt = `You are a helpful coding assistant. Debug this code and explain the issue clearly and concisely.
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-Problem: ${problem || "Debug this code"}
-
-Code:
-\`\`\`
-${code}
-\`\`\`
-
-Provide a clear, concise explanation of:
-1. What the bug/issue is
-2. How to fix it
-3. The corrected code (if applicable)
-
-Keep your response under 280 characters for the main explanation (tweet-friendly).`;
-
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY || ""}`,
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-4o",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 500
-      })
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: DEBUG_PROMPT(code, problem) }],
+      max_tokens: 1000
     });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const data = await response.json();
     return {
       model: "GPT-4o",
       provider: "OpenAI",
-      response: data.choices?.[0]?.message?.content || "",
+      response: response.choices[0]?.message?.content || "",
       responseTime: Date.now() - start
     };
   } catch (error) {
+    console.error("OpenAI error:", error);
     return {
       model: "GPT-4o",
       provider: "OpenAI",
@@ -129,49 +109,25 @@ Keep your response under 280 characters for the main explanation (tweet-friendly
 async function queryClaude(code: string, problem: string): Promise<ModelResponse> {
   const start = Date.now();
   try {
-    const prompt = `You are a helpful coding assistant. Debug this code and explain the issue clearly and concisely.
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-Problem: ${problem || "Debug this code"}
-
-Code:
-\`\`\`
-${code}
-\`\`\`
-
-Provide a clear, concise explanation of:
-1. What the bug/issue is
-2. How to fix it
-3. The corrected code (if applicable)
-
-Keep your response under 280 characters for the main explanation (tweet-friendly).`;
-
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY || ""}`,
-      },
-      body: JSON.stringify({
-        model: "anthropic/claude-3.5-sonnet",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 500
-      })
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      messages: [{ role: "user", content: DEBUG_PROMPT(code, problem) }]
     });
 
-    if (!response.ok) {
-      throw new Error(`Claude API error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const textContent = response.content.find(c => c.type === 'text');
     return {
-      model: "Claude 3.5",
+      model: "Claude Sonnet 4",
       provider: "Anthropic",
-      response: data.choices?.[0]?.message?.content || "",
+      response: textContent?.type === 'text' ? textContent.text : "",
       responseTime: Date.now() - start
     };
   } catch (error) {
+    console.error("Claude error:", error);
     return {
-      model: "Claude 3.5",
+      model: "Claude Sonnet 4",
       provider: "Anthropic",
       response: "",
       responseTime: Date.now() - start,
@@ -183,37 +139,21 @@ Keep your response under 280 characters for the main explanation (tweet-friendly
 async function queryGrok(code: string, problem: string): Promise<ModelResponse> {
   const start = Date.now();
   try {
-    const prompt = `You are a helpful coding assistant. Debug this code and explain the issue clearly and concisely.
-
-Problem: ${problem || "Debug this code"}
-
-Code:
-\`\`\`
-${code}
-\`\`\`
-
-Provide a clear, concise explanation of:
-1. What the bug/issue is
-2. How to fix it
-3. The corrected code (if applicable)
-
-Keep your response under 280 characters for the main explanation (tweet-friendly).`;
-
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch("https://api.x.ai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY || ""}`,
+        "Authorization": `Bearer ${process.env.XAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "x-ai/grok-2",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 500
+        model: "grok-2-latest",
+        messages: [{ role: "user", content: DEBUG_PROMPT(code, problem) }],
+        max_tokens: 1000
       })
     });
 
     if (!response.ok) {
-      throw new Error(`Grok API error: ${response.status}`);
+      throw new Error(`Grok API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -224,6 +164,7 @@ Keep your response under 280 characters for the main explanation (tweet-friendly
       responseTime: Date.now() - start
     };
   } catch (error) {
+    console.error("Grok error:", error);
     return {
       model: "Grok-2",
       provider: "xAI",
@@ -235,40 +176,49 @@ Keep your response under 280 characters for the main explanation (tweet-friendly
 }
 
 async function determineWinner(responses: ModelResponse[], code: string): Promise<{ winner: string; reason: string }> {
+  const validResponses = responses.filter(r => r.response && !r.error);
+  
+  if (validResponses.length === 0) {
+    return { winner: "None", reason: "All models failed to respond" };
+  }
+  
+  if (validResponses.length === 1) {
+    return { winner: validResponses[0].model, reason: "Only model to respond successfully" };
+  }
+
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      const validResponses = responses.filter(r => r.response && !r.error);
-      const fastest = validResponses.sort((a, b) => a.responseTime - b.responseTime)[0];
-      return { winner: fastest?.model || "Unknown", reason: "Fastest response" };
-    }
+    const genAI = new GoogleGenAI({
+      apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+      httpOptions: {
+        apiVersion: "",
+        baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+      },
+    });
 
-    const genAI = new GoogleGenAI({ apiKey });
-    const responsesSummary = responses
-      .filter(r => r.response && !r.error)
-      .map(r => `${r.model}: "${r.response.substring(0, 200)}..."`)
-      .join("\n\n");
+    const responsesSummary = validResponses
+      .map(r => `${r.model}: "${r.response.substring(0, 300)}..."`)
+      .join("\n\n---\n\n");
 
-    const prompt = `You are judging a coding debug arena. Here are responses from different AI models for this code:
+    const prompt = `You are judging a coding debug arena. Different AI models were asked to debug this code:
 
 Code:
 \`\`\`
-${code}
+${code.substring(0, 500)}
 \`\`\`
 
-Responses:
+Their responses:
 ${responsesSummary}
 
 Pick the WINNER based on:
 1. Accuracy of identifying the bug
-2. Clarity of explanation
-3. Quality of the fix
+2. Clarity and helpfulness of explanation
+3. Quality of the suggested fix
 
 Reply with JSON only: {"winner": "ModelName", "reason": "Brief 1-sentence reason"}`;
 
     const result = await genAI.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: prompt,
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
     const text = result.text || '{"winner": "Unknown", "reason": "Unable to determine"}';
@@ -278,10 +228,11 @@ Reply with JSON only: {"winner": "ModelName", "reason": "Brief 1-sentence reason
       return { winner: parsed.winner, reason: parsed.reason };
     }
     
-    return { winner: "Unknown", reason: "Unable to determine winner" };
+    return { winner: validResponses[0].model, reason: "First valid response" };
   } catch (error) {
     console.error("Error determining winner:", error);
-    return { winner: "Unknown", reason: "Error determining winner" };
+    const fastest = validResponses.sort((a, b) => a.responseTime - b.responseTime)[0];
+    return { winner: fastest?.model || "Unknown", reason: "Fastest response time" };
   }
 }
 
@@ -291,7 +242,7 @@ function generateLogigoArenaUrl(code: string): string {
 }
 
 export async function runArena(request: ArenaRequest): Promise<ArenaResult> {
-  const { code, problemDescription, language } = request;
+  const { code, problemDescription } = request;
   const problem = problemDescription || "Debug this code and explain the issue";
 
   console.log("🏟️ Arena: Starting multi-model comparison...");
@@ -303,7 +254,8 @@ export async function runArena(request: ArenaRequest): Promise<ArenaResult> {
     queryGrok(code, problem)
   ]);
 
-  console.log(`🏟️ Arena: Got ${responses.filter(r => !r.error).length}/4 valid responses`);
+  const validCount = responses.filter(r => !r.error).length;
+  console.log(`🏟️ Arena: Got ${validCount}/4 valid responses`);
 
   const { winner, reason } = await determineWinner(responses, code);
 
