@@ -308,8 +308,161 @@ Want to try YOUR code in the arena?
   return thread;
 }
 
+const SAMPLE_CHALLENGES = [
+  {
+    code: `function calculateTotal(items) {
+  let total = 0;
+  for (let i = 0; i <= items.length; i++) {
+    total += items[i].price;
+  }
+  return total;
+}`,
+    problem: "This function throws an error when calculating the total of items. Find the bug!",
+    category: "off-by-one"
+  },
+  {
+    code: `async function fetchUsers() {
+  const users = await fetch('/api/users');
+  return users.map(u => u.name);
+}`,
+    problem: "This async function fails when trying to get user names. What's wrong?",
+    category: "async"
+  },
+  {
+    code: `function reverseString(str) {
+  let reversed = "";
+  for (let i = str.length; i >= 0; i--) {
+    reversed += str[i];
+  }
+  return reversed;
+}`,
+    problem: "The reversed string has 'undefined' at the start. Why?",
+    category: "off-by-one"
+  },
+  {
+    code: `class Counter {
+  constructor() {
+    this.count = 0;
+  }
+  
+  increment() {
+    setTimeout(function() {
+      this.count++;
+      console.log(this.count);
+    }, 1000);
+  }
+}`,
+    problem: "The counter always logs NaN instead of incrementing. What's the issue?",
+    category: "this-context"
+  },
+  {
+    code: `function findMax(numbers) {
+  let max = 0;
+  for (const num of numbers) {
+    if (num > max) {
+      max = num;
+    }
+  }
+  return max;
+}`,
+    problem: "findMax([-5, -2, -10]) returns 0 instead of -2. Debug this!",
+    category: "initialization"
+  },
+  {
+    code: `function removeDuplicates(arr) {
+  for (let i = 0; i < arr.length; i++) {
+    for (let j = i + 1; j < arr.length; j++) {
+      if (arr[i] === arr[j]) {
+        arr.splice(j, 1);
+      }
+    }
+  }
+  return arr;
+}`,
+    problem: "Some duplicates aren't being removed. What's the bug?",
+    category: "mutation"
+  }
+];
+
+export function getRandomChallenge(): { code: string; problem: string; category: string } {
+  return SAMPLE_CHALLENGES[Math.floor(Math.random() * SAMPLE_CHALLENGES.length)];
+}
+
+export function getAllChallenges(): typeof SAMPLE_CHALLENGES {
+  return [...SAMPLE_CHALLENGES];
+}
+
+export async function generateAIChallenge(): Promise<{ code: string; problem: string }> {
+  try {
+    const genAI = new GoogleGenAI({
+      apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+      httpOptions: {
+        apiVersion: "",
+        baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+      },
+    });
+
+    const prompt = `Generate a short JavaScript code snippet (10-15 lines) with a subtle bug. Common bug categories: off-by-one errors, async/await mistakes, this context issues, type coercion bugs, null/undefined handling.
+
+Return JSON only: {"code": "...", "problem": "A 1-sentence description of the symptom (don't reveal the bug)"}`;
+
+    const result = await genAI.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+
+    const text = result.text || "";
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return { code: parsed.code, problem: parsed.problem };
+    }
+    
+    return getRandomChallenge();
+  } catch (error) {
+    console.error("Error generating AI challenge:", error);
+    return getRandomChallenge();
+  }
+}
+
+export async function runAutoArena(useAI: boolean = false): Promise<{ result: ArenaResult; thread: string[]; challengeSource: string }> {
+  let challenge: { code: string; problem: string; category?: string };
+  let challengeSource: string;
+  
+  if (useAI) {
+    console.log("🏟️ Auto Arena: Attempting AI-generated challenge...");
+    try {
+      challenge = await generateAIChallenge();
+      challengeSource = "ai-generated";
+      console.log("🏟️ Auto Arena: Using AI-generated challenge");
+    } catch (error) {
+      console.log("🏟️ Auto Arena: AI generation failed, falling back to library");
+      challenge = getRandomChallenge();
+      challengeSource = "library-fallback";
+    }
+  } else {
+    challenge = getRandomChallenge();
+    challengeSource = "library";
+    console.log(`🏟️ Auto Arena: Using library challenge (${challenge.category || "unknown"})...`);
+  }
+  
+  const result = await runArena({
+    code: challenge.code,
+    problemDescription: challenge.problem,
+    language: "javascript"
+  });
+  
+  const thread = generateArenaThread(result);
+  
+  return { result, thread, challengeSource };
+}
+
 export const arenaService = {
   runArena,
   generateArenaThread,
-  generateLogigoArenaUrl
+  generateLogigoArenaUrl,
+  getRandomChallenge,
+  getAllChallenges,
+  generateAIChallenge,
+  runAutoArena
 };

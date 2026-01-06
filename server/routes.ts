@@ -21,7 +21,7 @@ import { previewVideoPost, generateVideoPost, generateVideoCaption, refreshPrevi
 import { getDailyVideoSchedulerStatus, setNextVideoDestination, clearNextVideoDestination, triggerDailyVideoNow, getVideoDestinationQueue } from "./services/daily_video_scheduler";
 import { CAMPAIGN_CONFIGS } from "./campaign-config";
 import { getActiveCampaign, setActiveCampaign, isValidCampaignType } from "./campaign-state";
-import { arenaService, type ArenaRequest } from "./services/arena_service";
+import { arenaService, type ArenaRequest, getRandomChallenge, getAllChallenges, runAutoArena } from "./services/arena_service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Simple authentication middleware
@@ -1455,6 +1455,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Arena post error:", error);
       res.status(500).json({ error: error instanceof Error ? error.message : "Failed to post arena thread" });
+    }
+  });
+  
+  // Get all available coding challenges
+  app.get("/api/arena/challenges", (req, res) => {
+    const challenges = getAllChallenges();
+    res.json({
+      challenges,
+      count: challenges.length
+    });
+  });
+  
+  // Get a random challenge
+  app.get("/api/arena/random-challenge", (req, res) => {
+    const challenge = getRandomChallenge();
+    res.json(challenge);
+  });
+  
+  // Run a full auto-arena (pick random challenge, run all models, return result + thread)
+  app.post("/api/arena/auto", async (req, res) => {
+    try {
+      const useAI = req.body?.useAI === true;
+      console.log(`🏟️ Auto Arena API: Starting automatic challenge (useAI: ${useAI})...`);
+      const { result, thread, challengeSource } = await runAutoArena(useAI);
+      res.json({
+        success: true,
+        result,
+        thread,
+        threadCount: thread.length,
+        challengeSource
+      });
+    } catch (error) {
+      console.error("Auto arena error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Auto arena failed" });
+    }
+  });
+  
+  // Run auto-arena and post to X
+  app.post("/api/arena/auto-post", async (req, res) => {
+    try {
+      const useAI = req.body?.useAI === true;
+      console.log(`🏟️ Auto Arena API: Running and posting to X (useAI: ${useAI})...`);
+      
+      const { result, thread, challengeSource } = await runAutoArena(useAI);
+      
+      // Get Twitter credentials
+      const xConnection = await storage.getPlatformConnection("twitter");
+      if (!xConnection?.credentials) {
+        return res.status(400).json({ error: "X/Twitter not connected" });
+      }
+      
+      const creds = xConnection.credentials as any;
+      const client = new TwitterApi({
+        appKey: creds.apiKey || process.env.TWITTER_API_KEY!,
+        appSecret: creds.apiSecret || process.env.TWITTER_API_SECRET!,
+        accessToken: creds.accessToken || process.env.TWITTER_ACCESS_TOKEN!,
+        accessSecret: creds.accessTokenSecret || process.env.TWITTER_ACCESS_TOKEN_SECRET!,
+      });
+      
+      // Post thread
+      const tweets: string[] = [];
+      let lastTweetId: string | undefined;
+      
+      for (const tweetText of thread) {
+        const tweetParams: any = { text: tweetText };
+        if (lastTweetId) {
+          tweetParams.reply = { in_reply_to_tweet_id: lastTweetId };
+        }
+        
+        const tweet = await client.v2.tweet(tweetParams);
+        tweets.push(tweet.data.id);
+        lastTweetId = tweet.data.id;
+      }
+      
+      console.log(`🏟️ Auto Arena thread posted! ${tweets.length} tweets, first: ${tweets[0]}`);
+      
+      res.json({
+        success: true,
+        tweetIds: tweets,
+        threadUrl: `https://twitter.com/i/status/${tweets[0]}`,
+        arenaResult: result,
+        thread,
+        challengeSource
+      });
+    } catch (error) {
+      console.error("Auto arena post error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to post auto arena thread" });
     }
   });
 
