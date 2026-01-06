@@ -55,12 +55,12 @@ async function queryGemini(code: string, problem: string): Promise<ModelResponse
     });
 
     const result = await genAI.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: [{ role: "user", parts: [{ text: DEBUG_PROMPT(code, problem) }] }],
     });
 
     return {
-      model: "Gemini 2.5",
+      model: "Gemini 3 Flash",
       provider: "Google",
       response: result.text || "",
       responseTime: Date.now() - start
@@ -68,7 +68,7 @@ async function queryGemini(code: string, problem: string): Promise<ModelResponse
   } catch (error) {
     console.error("Gemini error:", error);
     return {
-      model: "Gemini 2.5",
+      model: "Gemini 3 Flash",
       provider: "Google",
       response: "",
       responseTime: Date.now() - start,
@@ -83,13 +83,13 @@ async function queryOpenAI(code: string, problem: string): Promise<ModelResponse
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-5.2-thinking",
       messages: [{ role: "user", content: DEBUG_PROMPT(code, problem) }],
       max_tokens: 1000
     });
 
     return {
-      model: "GPT-4o",
+      model: "GPT-5.2 Thinking",
       provider: "OpenAI",
       response: response.choices[0]?.message?.content || "",
       responseTime: Date.now() - start
@@ -97,7 +97,7 @@ async function queryOpenAI(code: string, problem: string): Promise<ModelResponse
   } catch (error) {
     console.error("OpenAI error:", error);
     return {
-      model: "GPT-4o",
+      model: "GPT-5.2 Thinking",
       provider: "OpenAI",
       response: "",
       responseTime: Date.now() - start,
@@ -112,14 +112,14 @@ async function queryClaude(code: string, problem: string): Promise<ModelResponse
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-opus-4-5-20250514",
       max_tokens: 1000,
       messages: [{ role: "user", content: DEBUG_PROMPT(code, problem) }]
     });
 
     const textContent = response.content.find(c => c.type === 'text');
     return {
-      model: "Claude Sonnet 4",
+      model: "Claude Opus 4.5",
       provider: "Anthropic",
       response: textContent?.type === 'text' ? textContent.text : "",
       responseTime: Date.now() - start
@@ -127,7 +127,7 @@ async function queryClaude(code: string, problem: string): Promise<ModelResponse
   } catch (error) {
     console.error("Claude error:", error);
     return {
-      model: "Claude Sonnet 4",
+      model: "Claude Opus 4.5",
       provider: "Anthropic",
       response: "",
       responseTime: Date.now() - start,
@@ -146,7 +146,7 @@ async function queryGrok(code: string, problem: string): Promise<ModelResponse> 
         "Authorization": `Bearer ${process.env.XAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "grok-2-latest",
+        model: "grok-4",
         messages: [{ role: "user", content: DEBUG_PROMPT(code, problem) }],
         max_tokens: 1000
       })
@@ -158,7 +158,7 @@ async function queryGrok(code: string, problem: string): Promise<ModelResponse> 
 
     const data = await response.json();
     return {
-      model: "Grok-2",
+      model: "Grok-4",
       provider: "xAI",
       response: data.choices?.[0]?.message?.content || "",
       responseTime: Date.now() - start
@@ -166,7 +166,7 @@ async function queryGrok(code: string, problem: string): Promise<ModelResponse> 
   } catch (error) {
     console.error("Grok error:", error);
     return {
-      model: "Grok-2",
+      model: "Grok-4",
       provider: "xAI",
       response: "",
       responseTime: Date.now() - start,
@@ -217,7 +217,7 @@ Pick the WINNER based on:
 Reply with JSON only: {"winner": "ModelName", "reason": "Brief 1-sentence reason"}`;
 
     const result = await genAI.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
@@ -407,7 +407,7 @@ export async function generateAIChallenge(): Promise<{ code: string; problem: st
 Return JSON only: {"code": "...", "problem": "A 1-sentence description of the symptom (don't reveal the bug)"}`;
 
     const result = await genAI.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
