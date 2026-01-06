@@ -34,7 +34,12 @@ function Router() {
   }
 
   if (!isAuthenticated) {
-    return <Landing />;
+    return (
+      <Switch>
+        <Route path="/arena" component={Arena} />
+        <Route component={Landing} />
+      </Switch>
+    );
   }
 
   return (
