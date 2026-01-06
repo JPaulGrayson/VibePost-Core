@@ -162,6 +162,15 @@ Changelog:
 - December 30, 2025. NEW: fetchTweetReplies method fetches replies to high-quality tweets (score >= 70)
 - December 30, 2025. FEATURE: Sniper now creates draft replies to engage with active conversation participants
 - December 30, 2025. PROTECTION: Bot/spam filtering and max 3 replies per tweet to avoid spam behavior
+- January 6, 2026. NEW: AI Debug Arena feature for lead generation funnel
+- January 6, 2026. ADDED: Arena service queries 4 AI models (Gemini, GPT-4, Claude, Grok) in parallel
+- January 6, 2026. FEATURE: Arena landing page at /arena with code input and model comparison display
+- January 6, 2026. ADDED: Auto-arena content generator with 6 sample coding challenges
+- January 6, 2026. FEATURE: AI-generated challenge creation with Gemini fallback to library
+- January 6, 2026. ADDED: X thread generation and auto-posting from arena results
+- January 6, 2026. IMPLEMENTED: Tier-based access control (free/pro/byok) with middleware
+- January 6, 2026. SCHEMA: Added user tier fields (tier, stripeCustomerId, stripeSubscriptionId, tierExpiresAt)
+- January 6, 2026. API: Arena endpoints (/api/arena/run, /api/arena/auto, /api/arena/auto-post, /api/arena/tier)
 ```
 
 ## User Preferences
