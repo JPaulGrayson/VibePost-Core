@@ -356,3 +356,110 @@ export function calculateCampaignScore(
 }
 
 export default CAMPAIGN_CONFIGS;
+
+// ============= LOGIGO STRATEGY SYSTEM =============
+export type LogiGoStrategy = 'vibe_scout' | 'spaghetti_detective' | 'stack_visualizer';
+
+export interface StrategyConfig {
+    id: string;
+    name: string;
+    emoji: string;
+    description: string;
+    keywords: string[];
+    intentType: string;
+    intentSignals: {
+        positive: string[];
+        negative: string[];
+    };
+    replyPersona: {
+        tone: string;
+        hook: string;
+        templateExample: string;
+    };
+}
+
+export const LOGIGO_STRATEGIES: Record<LogiGoStrategy, StrategyConfig> = {
+    vibe_scout: {
+        id: 'vibe_scout',
+        name: 'Vibe Coding Scout',
+        emoji: '🎯',
+        description: 'Find early adopters of AI coding tools - offer Founder accounts',
+        keywords: [
+            "#vibecoding", "#replitagent", "cursor ai", "built this with AI",
+            "replit agent", "windsurf ai", "claude sonnet", "ai pair programming",
+            "vibe coded this", "let the AI cook", "ai wrote this", "agent built"
+        ],
+        intentType: 'Show and Tell / Workflow Sharing',
+        intentSignals: {
+            positive: ["built", "made", "created", "shipped", "launched", "workflow", "using", "tried", "love", "amazing", "first app", "side project"],
+            negative: ["hiring", "job", "course", "tutorial", "sponsor", "discount"]
+        },
+        replyPersona: {
+            tone: 'Impressed and collaborative. Builder to Builder.',
+            hook: 'Offer a Founder Account (Free Lifetime Access) because they are an early adopter',
+            templateExample: "This looks great! Since you're building with agents, I'd love to give you a Founder account on LogiGo (my AI flowchart tool). DM me if you want an invite!"
+        }
+    },
+
+    spaghetti_detective: {
+        id: 'spaghetti_detective',
+        name: 'Spaghetti Detective',
+        emoji: '🍝',
+        description: 'Find devs complaining about complex code - offer visual solution',
+        keywords: [
+            "spaghetti code", "refactoring hell", "codebase is a mess", "lost in the code",
+            "debugging nightmare", "inherited this codebase", "code archaeology", "who wrote this",
+            "wtf is this code", "technical debt", "unmaintainable code"
+        ],
+        intentType: 'Complexity Pain',
+        intentSignals: {
+            positive: ["frustrated", "nightmare", "mess", "spaghetti", "legacy", "inherited", "refactor", "confusing", "complex", "debugging", "stuck"],
+            negative: ["tutorial", "course", "hiring", "job posting", "meme", "joke"]
+        },
+        replyPersona: {
+            tone: 'Empathetic developer (not a sales bot)',
+            hook: 'Share the pain, then offer a visual mapping solution',
+            templateExample: "I feel that pain. I built a tool called LogiGo to map messy code visually - turns it into flowcharts. Happy to share if you want to try it."
+        }
+    },
+
+    stack_visualizer: {
+        id: 'stack_visualizer',
+        name: 'Stack Overflow Visualizer',
+        emoji: '📊',
+        description: 'Find technical questions that need visual explanations',
+        keywords: [
+            "architecture diagram", "how does oauth work", "react state flow",
+            "mvc vs mvvm", "visualize the request", "explain this flow",
+            "data flow diagram", "system design help"
+        ],
+        intentType: 'Learning / Conceptual Questions',
+        intentSignals: {
+            positive: ["how does", "explain", "diagram", "visualize", "architecture", "flow", "understand", "confused about"],
+            negative: ["hiring", "job", "course ad", "promo"]
+        },
+        replyPersona: {
+            tone: 'Helpful educator sharing a useful resource',
+            hook: 'Offer to visualize the concept they are asking about',
+            templateExample: "That's a great question! Visual diagrams really help with this. I made a tool called LogiGo that auto-generates flowcharts from code - might help you understand the flow better."
+        }
+    }
+};
+
+// State management for active strategy
+let currentLogiGoStrategy: LogiGoStrategy = 'vibe_scout';
+
+export function getActiveLogiGoStrategy(): LogiGoStrategy {
+    return currentLogiGoStrategy;
+}
+
+export function setActiveLogiGoStrategy(strategy: LogiGoStrategy): void {
+    if (LOGIGO_STRATEGIES[strategy]) {
+        currentLogiGoStrategy = strategy;
+        console.log(`🎯 LogiGo strategy switched to: ${LOGIGO_STRATEGIES[strategy].name}`);
+    }
+}
+
+export function getActiveStrategyConfig(): StrategyConfig {
+    return LOGIGO_STRATEGIES[currentLogiGoStrategy];
+}
