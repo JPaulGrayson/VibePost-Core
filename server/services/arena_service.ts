@@ -52,16 +52,16 @@ Provide a clear, concise explanation of:
 
 Keep your main explanation under 200 words for readability.`;
 
-const QUESTION_PROMPT = (question: string) => `You are a helpful coding and development expert. Answer this question clearly and concisely.
+const QUESTION_PROMPT = (question: string) => `You are a knowledgeable assistant. Answer this question clearly and concisely.
 
 Question: ${question}
 
 Provide a clear, helpful answer that:
 1. Directly addresses the question
-2. Includes practical examples or code snippets when relevant
-3. Mentions any important caveats or best practices
+2. Includes relevant examples or evidence when helpful
+3. Mentions any important caveats and best practices
 
-Keep your answer under 300 words for readability.`;
+Keep your answer under 300 words for readability. If the question is non-technical, do NOT force a coding or technical response.`;
 
 function getPrompt(code: string, problem: string, mode: "debug" | "question"): string {
   if (mode === "question") {
@@ -110,13 +110,13 @@ async function queryOpenAI(prompt: string): Promise<ModelResponse> {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5.2-thinking",
+      model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
       max_tokens: 1000
     });
 
     return {
-      model: "GPT-5.2 Thinking",
+      model: "GPT-4o",
       provider: "OpenAI",
       response: response.choices[0]?.message?.content || "",
       responseTime: Date.now() - start
@@ -124,7 +124,7 @@ async function queryOpenAI(prompt: string): Promise<ModelResponse> {
   } catch (error) {
     console.error("OpenAI error:", error);
     return {
-      model: "GPT-5.2 Thinking",
+      model: "GPT-4o",
       provider: "OpenAI",
       response: "",
       responseTime: Date.now() - start,
@@ -139,14 +139,14 @@ async function queryClaude(prompt: string): Promise<ModelResponse> {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const response = await anthropic.messages.create({
-      model: "claude-opus-4-5-20250514",
+      model: "claude-sonnet-4-20250514",
       max_tokens: 1000,
       messages: [{ role: "user", content: prompt }]
     });
 
     const textContent = response.content.find(c => c.type === 'text');
     return {
-      model: "Claude Opus 4.5",
+      model: "Claude Sonnet 4",
       provider: "Anthropic",
       response: textContent?.type === 'text' ? textContent.text : "",
       responseTime: Date.now() - start
@@ -154,7 +154,7 @@ async function queryClaude(prompt: string): Promise<ModelResponse> {
   } catch (error) {
     console.error("Claude error:", error);
     return {
-      model: "Claude Opus 4.5",
+      model: "Claude Sonnet 4",
       provider: "Anthropic",
       response: "",
       responseTime: Date.now() - start,
