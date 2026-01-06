@@ -40,11 +40,18 @@ export default function SniperQueue() {
         }
     }, [campaignData?.currentCampaign]);
 
-    const filteredDrafts = drafts?.filter(draft =>
-        draft.originalAuthorHandle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        draft.originalTweetText.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (draft.detectedLocation && draft.detectedLocation.toLowerCase().includes(searchQuery.toLowerCase()))
-    ).sort((a, b) => (b.score || 0) - (a.score || 0)); // Sort by Score DESC
+    const filteredDrafts = drafts?.filter(draft => {
+        // Filter by campaign type first
+        const campaignMatch = (draft as any).campaignType === activeCampaign || 
+            (!((draft as any).campaignType) && activeCampaign === 'turai'); // Legacy drafts default to turai
+        
+        if (!campaignMatch) return false;
+        
+        // Then filter by search query
+        return draft.originalAuthorHandle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            draft.originalTweetText.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (draft.detectedLocation && draft.detectedLocation.toLowerCase().includes(searchQuery.toLowerCase()));
+    }).sort((a, b) => (b.score || 0) - (a.score || 0)); // Sort by Score DESC
 
     // Switch campaign mutation with optimistic updates
     const switchCampaign = useMutation({
@@ -143,13 +150,19 @@ export default function SniperQueue() {
                     className="w-full"
                 >
                     <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="turai" className="flex items-center gap-2">
+                        <TabsTrigger value="turai" className="flex items-center gap-2" data-testid="tab-turai">
                             <Plane className="h-4 w-4" />
                             <span>✈️ Turai Travel</span>
+                            <Badge variant="secondary" className="ml-1 text-xs">
+                                {drafts?.filter(d => (d as any).campaignType === 'turai' || !(d as any).campaignType).length || 0}
+                            </Badge>
                         </TabsTrigger>
-                        <TabsTrigger value="logigo" className="flex items-center gap-2">
+                        <TabsTrigger value="logigo" className="flex items-center gap-2" data-testid="tab-logigo">
                             <Code2 className="h-4 w-4" />
                             <span>🧠 LogiGo Vibe Coding</span>
+                            <Badge variant="secondary" className="ml-1 text-xs">
+                                {drafts?.filter(d => (d as any).campaignType === 'logigo').length || 0}
+                            </Badge>
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>
