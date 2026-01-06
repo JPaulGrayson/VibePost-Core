@@ -36,14 +36,14 @@ const MODEL_COLORS: Record<string, string> = {
   "Gemini 3 Flash": "bg-blue-500",
   "GPT-5.2 Thinking": "bg-green-500",
   "Claude Opus 4.5": "bg-purple-500",
-  "Grok-3": "bg-orange-500"
+  "Grok-2": "bg-orange-500"
 };
 
 const MODEL_ICONS: Record<string, string> = {
   "Gemini 3 Flash": "🔮",
   "GPT-5.2 Thinking": "🤖",
   "Claude Opus 4.5": "🧠",
-  "Grok-3": "⚡"
+  "Grok-2": "⚡"
 };
 
 type ArenaMode = "debug" | "question";
@@ -82,16 +82,16 @@ export default function ArenaPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-12">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <Trophy className="w-12 h-12 text-yellow-400" />
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-500 bg-clip-text text-transparent" data-testid="title-arena">
-              AI {mode === "debug" ? "Debug" : "Question"} Arena
+            <span className="text-5xl">🥊</span>
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-red-500 via-yellow-400 to-orange-500 bg-clip-text text-transparent" data-testid="title-arena">
+              AI Cage Match
             </h1>
-            <Trophy className="w-12 h-12 text-yellow-400" />
+            <span className="text-5xl">🥊</span>
           </div>
           <p className="text-xl text-gray-300 max-w-2xl mx-auto mb-6">
             {mode === "debug" 
-              ? "Watch the world's top AI models compete to find bugs in your code."
-              : "Ask any dev question and see how different AI models respond."
+              ? "4 AI gladiators enter. Only one survives. Who will debug your code best?"
+              : "4 AI titans face off. Watch them battle for the best answer!"
             }
           </p>
           
@@ -193,12 +193,12 @@ export default function ArenaPage() {
             {arenaMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Models are competing...
+                The cage match is underway...
               </>
             ) : (
               <>
-                <Trophy className="mr-2 h-5 w-5" />
-                {mode === "debug" ? "Start Debug Battle!" : "Ask the AIs!"}
+                🥊
+                {mode === "debug" ? "FIGHT!" : "LET'S RUMBLE!"}
               </>
             )}
           </Button>
@@ -217,101 +217,13 @@ export default function ArenaPage() {
 
         {result && (
           <div className="space-y-8">
-            <Card className="bg-gradient-to-r from-yellow-900/30 to-orange-900/30 border-yellow-600">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Trophy className="w-10 h-10 text-yellow-400" />
-                    <div>
-                      <CardTitle className="text-2xl text-yellow-300" data-testid="text-winner">
-                        🏆 Winner: {result.winner}
-                      </CardTitle>
-                      <CardDescription className="text-yellow-200/70" data-testid="text-winner-reason">
-                        {result.winnerReason}
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <a
-                    href={result.logigoArenaUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg text-white font-medium transition-colors"
-                    data-testid="link-logigo"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    View in LogiGo
-                  </a>
-                </div>
-              </CardHeader>
-            </Card>
+            {/* Contestants Header */}
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-white mb-2">🔔 The Contenders Have Spoken! 🔔</h2>
+              <p className="text-gray-400">Read their responses, then scroll down for the referee's decision...</p>
+            </div>
 
-            {result.judge && (
-              <Card className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border-indigo-500" data-testid="card-chairman">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <div className="text-4xl">👨‍⚖️</div>
-                    <div className="flex-1">
-                      <CardTitle className="text-xl text-indigo-200 flex items-center gap-2">
-                        Chairman's Verdict
-                        <Badge className="bg-indigo-600 text-white">
-                          {result.judge.judgeModel}
-                        </Badge>
-                      </CardTitle>
-                      <CardDescription className="text-indigo-300/80 text-sm">
-                        Judged by {result.judge.judgeProvider}
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="bg-indigo-950/50 p-4 rounded-lg border border-indigo-700/50">
-                    <p className="text-gray-200 italic leading-relaxed" data-testid="text-chairman-reasoning">
-                      "{result.judge.reasoning}"
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {mode === "debug" && code && (
-              <Card className="bg-gradient-to-r from-cyan-900/40 to-teal-900/40 border-cyan-600" data-testid="card-flowchart">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <GitBranch className="w-10 h-10 text-cyan-400" />
-                      <div>
-                        <CardTitle className="text-xl text-cyan-200">Code Flow Visualization</CardTitle>
-                        <CardDescription className="text-cyan-300/70">
-                          See your code's execution path as a visual flowchart
-                        </CardDescription>
-                      </div>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <a
-                      href={result.logigoArenaUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-700 px-6 py-4 rounded-lg text-white font-medium transition-colors text-center"
-                      data-testid="button-flowchart"
-                    >
-                      <GitBranch className="w-5 h-5" />
-                      Open Interactive Flowchart
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                    <div className="flex-1 bg-slate-900/50 p-4 rounded-lg border border-cyan-700/30">
-                      <p className="text-cyan-200/80 text-sm">
-                        <strong>LogiGo Flowcharts</strong> transform your code into visual diagrams, 
-                        making it easier to understand logic flow and spot potential issues.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
+            {/* Model Responses Grid - FIRST */}
             <div className="grid md:grid-cols-2 gap-6">
               {result.responses.map((response, idx) => (
                 <Card
@@ -357,6 +269,55 @@ export default function ArenaPage() {
               ))}
             </div>
 
+            {/* Winner Announcement - AFTER model responses */}
+            <Card className="bg-gradient-to-r from-yellow-900/30 to-orange-900/30 border-yellow-600">
+              <CardHeader>
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-5xl">🏆</span>
+                    <div>
+                      <CardTitle className="text-2xl text-yellow-300" data-testid="text-winner">
+                        AND THE WINNER IS... {result.winner}!
+                      </CardTitle>
+                      <CardDescription className="text-yellow-200/70" data-testid="text-winner-reason">
+                        {result.winnerReason}
+                      </CardDescription>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+
+            {/* Referee's Verdict */}
+            {result.judge && (
+              <Card className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border-indigo-500" data-testid="card-chairman">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <span className="text-4xl">🎙️</span>
+                    <div className="flex-1">
+                      <CardTitle className="text-xl text-indigo-200 flex items-center gap-2">
+                        Referee's Decision
+                        <Badge className="bg-indigo-600 text-white">
+                          {result.judge.judgeModel}
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription className="text-indigo-300/80 text-sm">
+                        Official ruling by {result.judge.judgeProvider}
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-indigo-950/50 p-4 rounded-lg border border-indigo-700/50">
+                    <p className="text-gray-200 italic leading-relaxed" data-testid="text-chairman-reasoning">
+                      "{result.judge.reasoning}"
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* LogiGo CTA */}
             <Card className="bg-slate-800/50 border-slate-700">
               <CardContent className="pt-6">
                 <div className="text-center space-y-4">
