@@ -1396,14 +1396,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Run arena comparison - queries all 4 AI models
   app.post("/api/arena/run", async (req, res) => {
     try {
-      const { code, problemDescription, language } = req.body;
+      const { code, problemDescription, mode = "debug" } = req.body;
       
-      if (!code || typeof code !== 'string') {
-        return res.status(400).json({ error: "Code is required" });
+      // Code is only required in debug mode
+      if (mode === "debug" && (!code || typeof code !== 'string')) {
+        return res.status(400).json({ error: "Code is required for debug mode" });
       }
       
-      console.log("🏟️ Arena API: Starting multi-model comparison...");
-      const result = await arenaService.runArena({ code, problemDescription, language });
+      // Question mode requires problemDescription
+      if (mode === "question" && (!problemDescription || typeof problemDescription !== 'string')) {
+        return res.status(400).json({ error: "Question is required" });
+      }
+      
+      console.log(`🏟️ Arena API: Starting multi-model comparison (mode: ${mode})...`);
+      const result = await arenaService.runArena({ code: code || "", problemDescription, mode });
       res.json(result);
     } catch (error) {
       console.error("Arena error:", error);
