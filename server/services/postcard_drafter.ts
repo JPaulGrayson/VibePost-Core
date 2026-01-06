@@ -205,6 +205,7 @@ export async function generateDraft(
     console.log("Saving draft to DB...");
     try {
         await db.insert(postcardDrafts).values({
+            campaignType: campaignType,
             originalTweetId: tweet.id,
             originalAuthorHandle: authorHandle,
             originalTweetText: tweet.text,
@@ -214,9 +215,8 @@ export async function generateDraft(
             turaiImageUrl: imageUrl,
             imageAttribution: imageAttribution,
             score: score,
-            // Campaign type stored in a metadata field or we'll add a column later
         });
-        console.log(`✅ ${config.emoji} Draft saved for ${contextInfo} (Score: ${score})`);
+        console.log(`✅ ${config.emoji} Draft saved for ${contextInfo} (Score: ${score}, Campaign: ${campaignType})`);
         return true;
     } catch (error) {
         console.error("Error saving draft to DB:", error);
