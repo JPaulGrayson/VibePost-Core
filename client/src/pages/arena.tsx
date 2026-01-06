@@ -29,7 +29,7 @@ interface ArenaResult {
   winner: string;
   winnerReason: string;
   judge?: JudgeVerdict;
-  logigoArenaUrl: string;
+  logicartArenaUrl: string;
 }
 
 const MODEL_COLORS: Record<string, string> = {
@@ -301,17 +301,33 @@ export default function ArenaPage() {
               </Card>
             )}
 
-            {/* Simple LogiGo mention */}
+            {/* Visualize with LogicArt */}
             {mode === "debug" && code && (
-              <div className="text-center text-gray-400 text-sm py-4" data-testid="logigo-mention">
-                💡 <strong>Pro tip:</strong> You can visualize your code's execution flow with LogiGo to spot bugs faster.
+              <div className="text-center py-6" data-testid="logicart-visualize">
+                <Button
+                  onClick={() => {
+                    const winnerResponse = result?.responses.find(r => r.model === result.winner);
+                    const codeToVisualize = winnerResponse?.response || code;
+                    const encodedCode = encodeURIComponent(codeToVisualize);
+                    const logicartUrl = `https://logicart-studio.replit.app?code=${encodedCode}`;
+                    window.open(logicartUrl, '_blank');
+                  }}
+                  className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-6 py-3"
+                  data-testid="button-visualize"
+                >
+                  <GitBranch className="w-5 h-5 mr-2" />
+                  Visualize Winning Code with LogicArt
+                </Button>
+                <p className="text-gray-400 text-sm mt-2">
+                  💡 See the code's execution flow as a beautiful flowchart
+                </p>
               </div>
             )}
           </div>
         )}
 
         <footer className="mt-16 text-center text-gray-500 text-sm">
-          <p>Powered by LogiGo - Code visualization that makes debugging intuitive</p>
+          <p>Powered by <strong>LogicArt</strong> - The Art of Logic</p>
         </footer>
       </div>
     </div>

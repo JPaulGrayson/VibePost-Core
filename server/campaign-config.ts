@@ -8,7 +8,7 @@
  * - Product-specific assets (images, links)
  */
 
-export type CampaignType = 'turai' | 'logigo';
+export type CampaignType = 'turai' | 'logicart';
 
 export interface CampaignConfig {
     id: CampaignType;
@@ -36,7 +36,7 @@ export interface CampaignConfig {
     // Scoring adjustments
     scoring: {
         questionBonus: number;
-        frustrationBonus: number;  // e.g., "I hate debugging" = high intent for LogiGo
+        frustrationBonus: number;  // e.g., "I hate debugging" = high intent for LogicArt
         recentHoursDecay: number;  // Points lost per hour
     };
 }
@@ -229,9 +229,9 @@ export const CAMPAIGN_CONFIGS: Record<CampaignType, CampaignConfig> = {
         }
     },
 
-    logigo: {
-        id: 'logigo',
-        name: 'LogiGo Vibe Coding',
+    logicart: {
+        id: 'logicart',
+        name: 'LogicArt Vibe Coding',
         emoji: '🧠',
         description: 'Target developers struggling with code - promote code visualization',
 
@@ -290,7 +290,7 @@ export const CAMPAIGN_CONFIGS: Record<CampaignType, CampaignConfig> = {
 
         replySettings: {
             tone: 'helpful senior developer friend',
-            productLink: 'https://logigo.dev',
+            productLink: 'https://logicart.dev',
             callToAction: 'Try visualizing your code flow - it really helps!',
             hashTags: ['#coding', '#developer', '#VibeCoding', '#AI']
         },
@@ -346,7 +346,7 @@ export function calculateCampaignScore(
         score += config.scoring.questionBonus;
     }
 
-    // Frustration bonus (especially valuable for LogiGo)
+    // Frustration bonus (especially valuable for LogicArt)
     const frustrationKeywords = ['frustrated', 'struggle', 'hate', 'nightmare', 'stuck', 'hours'];
     if (frustrationKeywords.some(k => lower.includes(k))) {
         score += config.scoring.frustrationBonus;
@@ -357,8 +357,8 @@ export function calculateCampaignScore(
 
 export default CAMPAIGN_CONFIGS;
 
-// ============= LOGIGO STRATEGY SYSTEM =============
-export type LogiGoStrategy = 'vibe_scout' | 'spaghetti_detective' | 'stack_visualizer';
+// ============= LOGICART STRATEGY SYSTEM =============
+export type LogicArtStrategy = 'vibe_scout' | 'spaghetti_detective' | 'stack_visualizer';
 
 export interface StrategyConfig {
     id: string;
@@ -378,7 +378,7 @@ export interface StrategyConfig {
     };
 }
 
-export const LOGIGO_STRATEGIES: Record<LogiGoStrategy, StrategyConfig> = {
+export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
     vibe_scout: {
         id: 'vibe_scout',
         name: 'Vibe Coding Scout',
@@ -397,7 +397,7 @@ export const LOGIGO_STRATEGIES: Record<LogiGoStrategy, StrategyConfig> = {
         replyPersona: {
             tone: 'Impressed and collaborative. Builder to Builder.',
             hook: 'Offer a Founder Account (Free Lifetime Access) because they are an early adopter',
-            templateExample: "This looks great! Since you're building with agents, I'd love to give you a Founder account on LogiGo (my AI flowchart tool). DM me if you want an invite!"
+            templateExample: "This looks great! Since you're building with agents, I'd love to give you a Founder account on LogicArt (my AI flowchart tool). DM me if you want an invite!"
         }
     },
 
@@ -419,7 +419,7 @@ export const LOGIGO_STRATEGIES: Record<LogiGoStrategy, StrategyConfig> = {
         replyPersona: {
             tone: 'Empathetic developer (not a sales bot)',
             hook: 'Share the pain, then offer a visual mapping solution',
-            templateExample: "I feel that pain. I built a tool called LogiGo to map messy code visually - turns it into flowcharts. Happy to share if you want to try it."
+            templateExample: "I feel that pain. I built a tool called LogicArt to map messy code visually - turns it into flowcharts. Happy to share if you want to try it."
         }
     },
 
@@ -441,25 +441,25 @@ export const LOGIGO_STRATEGIES: Record<LogiGoStrategy, StrategyConfig> = {
         replyPersona: {
             tone: 'Helpful educator sharing a useful resource',
             hook: 'Offer to visualize the concept they are asking about',
-            templateExample: "That's a great question! Visual diagrams really help with this. I made a tool called LogiGo that auto-generates flowcharts from code - might help you understand the flow better."
+            templateExample: "That's a great question! Visual diagrams really help with this. I made a tool called LogicArt that auto-generates flowcharts from code - might help you understand the flow better."
         }
     }
 };
 
 // State management for active strategy
-let currentLogiGoStrategy: LogiGoStrategy = 'vibe_scout';
+let currentLogicArtStrategy: LogicArtStrategy = 'vibe_scout';
 
-export function getActiveLogiGoStrategy(): LogiGoStrategy {
-    return currentLogiGoStrategy;
+export function getActiveLogicArtStrategy(): LogicArtStrategy {
+    return currentLogicArtStrategy;
 }
 
-export function setActiveLogiGoStrategy(strategy: LogiGoStrategy): void {
-    if (LOGIGO_STRATEGIES[strategy]) {
-        currentLogiGoStrategy = strategy;
-        console.log(`🎯 LogiGo strategy switched to: ${LOGIGO_STRATEGIES[strategy].name}`);
+export function setActiveLogicArtStrategy(strategy: LogicArtStrategy): void {
+    if (LOGICART_STRATEGIES[strategy]) {
+        currentLogicArtStrategy = strategy;
+        console.log(`🎯 LogicArt strategy switched to: ${LOGICART_STRATEGIES[strategy].name}`);
     }
 }
 
 export function getActiveStrategyConfig(): StrategyConfig {
-    return LOGIGO_STRATEGIES[currentLogiGoStrategy];
+    return LOGICART_STRATEGIES[currentLogicArtStrategy];
 }

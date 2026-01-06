@@ -171,6 +171,10 @@ Changelog:
 - January 6, 2026. IMPLEMENTED: Tier-based access control (free/pro/byok) with middleware
 - January 6, 2026. SCHEMA: Added user tier fields (tier, stripeCustomerId, stripeSubscriptionId, tierExpiresAt)
 - January 6, 2026. API: Arena endpoints (/api/arena/run, /api/arena/auto, /api/arena/auto-post, /api/arena/tier)
+- January 6, 2026. REBRAND: LogiGo renamed to LogicArt across entire codebase - "The Art of Logic"
+- January 6, 2026. FEATURE: Added "Visualize" button in Arena that opens LogicArt with encoded winner code via URL parameter
+- January 6, 2026. UPDATED: Arena footer now shows "Powered by LogicArt - The Art of Logic"
+- January 6, 2026. INTEGRATION: LogicArt URL accepts ?code= parameter for code transfer from Arena
 ```
 
 ## User Preferences

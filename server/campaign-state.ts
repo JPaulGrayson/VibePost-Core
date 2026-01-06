@@ -12,5 +12,5 @@ export function setActiveCampaign(campaign: CampaignType): void {
 }
 
 export function isValidCampaignType(value: string): value is CampaignType {
-  return value === 'turai' || value === 'logigo';
+  return value === 'turai' || value === 'logicart';
 }

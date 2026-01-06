@@ -116,7 +116,7 @@ export default function SniperQueue() {
             const stats = data.result?.stats;
             if (stats) {
                 toast({
-                    title: `Hunt Complete! ${activeCampaign === 'logigo' ? '🧠' : '🧙‍♂️'}`,
+                    title: `Hunt Complete! ${activeCampaign === 'logicart' ? '🧠' : '🧙‍♂️'}`,
                     description: `Found ${stats.tweetsFound} tweets, created ${stats.draftsCreated} new drafts.`,
                 });
             } else {
@@ -158,7 +158,7 @@ export default function SniperQueue() {
         }
     });
 
-    // Switch LogiGo strategy mutation
+    // Switch LogicArt strategy mutation
     const switchStrategy = useMutation({
         mutationFn: async (strategy: string) => {
             const res = await apiRequest("POST", "/api/sniper/strategy", { strategy });
@@ -200,11 +200,11 @@ export default function SniperQueue() {
                                 {drafts?.filter(d => (d as any).campaignType === 'turai' || !(d as any).campaignType).length || 0}
                             </Badge>
                         </TabsTrigger>
-                        <TabsTrigger value="logigo" className="flex items-center gap-2" data-testid="tab-logigo">
+                        <TabsTrigger value="logicart" className="flex items-center gap-2" data-testid="tab-logicart">
                             <Code2 className="h-4 w-4" />
-                            <span>🧠 LogiGo Vibe Coding</span>
+                            <span>🧠 LogicArt Vibe Coding</span>
                             <Badge variant="secondary" className="ml-1 text-xs">
-                                {drafts?.filter(d => (d as any).campaignType === 'logigo').length || 0}
+                                {drafts?.filter(d => (d as any).campaignType === 'logicart').length || 0}
                             </Badge>
                         </TabsTrigger>
                     </TabsList>
@@ -215,8 +215,8 @@ export default function SniperQueue() {
                         : 'Hunting for developers with coding questions - promoting AI Debug Arena'}
                 </p>
 
-                {/* Strategy Selector (LogiGo only) */}
-                {activeCampaign === 'logigo' && campaignData?.availableStrategies && campaignData.availableStrategies.length > 0 && (
+                {/* Strategy Selector (LogicArt only) */}
+                {activeCampaign === 'logicart' && campaignData?.availableStrategies && campaignData.availableStrategies.length > 0 && (
                     <div className="mt-4 pt-4 border-t">
                         <label className="text-sm font-medium text-muted-foreground mb-2 block">Active Strategy</label>
                         <div className="grid grid-cols-3 gap-2">

@@ -1337,7 +1337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!isValidCampaignType(campaignType)) {
       return res.status(400).json({ 
         success: false, 
-        error: `Invalid campaign type: ${campaignType}. Must be 'turai' or 'logigo'` 
+        error: `Invalid campaign type: ${campaignType}. Must be 'turai' or 'logicart'` 
       });
     }
     
@@ -1353,43 +1353,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get all available campaign configs
   app.get("/api/sniper/campaigns", (req, res) => {
-    const { LOGIGO_STRATEGIES, getActiveLogiGoStrategy, getActiveStrategyConfig } = require('./campaign-config');
+    const { LOGICART_STRATEGIES, getActiveLogicArtStrategy, getActiveStrategyConfig } = require('./campaign-config');
     res.json({
       campaigns: Object.values(CAMPAIGN_CONFIGS),
       currentCampaign: getActiveCampaign(),
-      strategies: Object.values(LOGIGO_STRATEGIES),
-      activeStrategy: getActiveLogiGoStrategy()
+      strategies: Object.values(LOGICART_STRATEGIES),
+      activeStrategy: getActiveLogicArtStrategy()
     });
   });
 
   // Get current campaign state (used by frontend)
   app.get("/api/sniper/campaign", (req, res) => {
-    const { LOGIGO_STRATEGIES, getActiveLogiGoStrategy, getActiveStrategyConfig } = require('./campaign-config');
+    const { LOGICART_STRATEGIES, getActiveLogicArtStrategy, getActiveStrategyConfig } = require('./campaign-config');
     const currentCampaign = getActiveCampaign();
     
     res.json({
       currentCampaign,
       config: CAMPAIGN_CONFIGS[currentCampaign],
-      activeStrategy: currentCampaign === 'logigo' ? getActiveLogiGoStrategy() : null,
-      strategyConfig: currentCampaign === 'logigo' ? getActiveStrategyConfig() : null,
-      availableStrategies: currentCampaign === 'logigo' ? Object.values(LOGIGO_STRATEGIES) : []
+      activeStrategy: currentCampaign === 'logicart' ? getActiveLogicArtStrategy() : null,
+      strategyConfig: currentCampaign === 'logicart' ? getActiveStrategyConfig() : null,
+      availableStrategies: currentCampaign === 'logicart' ? Object.values(LOGICART_STRATEGIES) : []
     });
   });
 
-  // Switch LogiGo strategy
+  // Switch LogicArt strategy
   app.post("/api/sniper/strategy", (req, res) => {
     const { strategy } = req.body;
-    const { setActiveLogiGoStrategy, getActiveLogiGoStrategy, getActiveStrategyConfig, LOGIGO_STRATEGIES } = require('./campaign-config');
+    const { setActiveLogicArtStrategy, getActiveLogicArtStrategy, getActiveStrategyConfig, LOGICART_STRATEGIES } = require('./campaign-config');
     
     if (!strategy || !['vibe_scout', 'spaghetti_detective', 'stack_visualizer'].includes(strategy)) {
       return res.status(400).json({ error: 'Invalid strategy. Choose: vibe_scout, spaghetti_detective, or stack_visualizer' });
     }
     
-    setActiveLogiGoStrategy(strategy);
+    setActiveLogicArtStrategy(strategy);
     
     res.json({
       success: true,
-      activeStrategy: getActiveLogiGoStrategy(),
+      activeStrategy: getActiveLogicArtStrategy(),
       strategyConfig: getActiveStrategyConfig()
     });
   });

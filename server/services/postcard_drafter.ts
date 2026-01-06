@@ -36,7 +36,7 @@ async function verifyIntent(tweetText: string, campaignType: CampaignType = 'tur
 
         let prompt: string;
 
-        if (campaignType === 'logigo') {
+        if (campaignType === 'logicart') {
             prompt = `Analyze this social media post and determine if it's a GENUINE coding/development inquiry where someone is:
 - Struggling with code or debugging
 - Asking for help understanding code
@@ -153,8 +153,8 @@ export async function generateDraft(
             console.log("No location detected in tweet. Skipping.");
             return false;
         }
-    } else if (campaignType === 'logigo') {
-        // For LogiGo: extract the coding topic/language
+    } else if (campaignType === 'logicart') {
+        // For LogicArt: extract the coding topic/language
         contextInfo = await drafter.extractCodingContext(tweet.text);
         if (!contextInfo) {
             contextInfo = "code debugging"; // Default context
@@ -169,9 +169,9 @@ export async function generateDraft(
         const imageResult = await drafter.generateTuraiImage(contextInfo!);
         imageUrl = imageResult.imageUrl;
         imageAttribution = imageResult.attribution;
-    } else if (campaignType === 'logigo') {
-        // For LogiGo: use a code visualization themed image
-        imageUrl = await drafter.generateLogiGoImage(contextInfo!);
+    } else if (campaignType === 'logicart') {
+        // For LogicArt: use a code visualization themed image
+        imageUrl = await drafter.generateLogicArtImage(contextInfo!);
     }
 
     // 2b. Extract Theme
@@ -389,14 +389,14 @@ Answer (1-4 words only):` }]
         }
     }
 
-    // Generate a LogiGo-themed image (flowchart visualization style)
-    async generateLogiGoImage(context: string): Promise<string> {
+    // Generate a LogicArt-themed image (flowchart visualization style)
+    async generateLogicArtImage(context: string): Promise<string> {
         try {
             // Use Pollinations AI to generate a code visualization themed image
             const imagePrompt = `clean modern code flowchart diagram visualization, ${context}, dark theme IDE aesthetic, abstract geometric shapes and lines, glowing nodes, technology concept art, no text, no letters, no words, minimalist design`;
             const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true`;
 
-            console.log("Generating LogiGo image via Pollinations...");
+            console.log("Generating LogicArt image via Pollinations...");
             const response = await fetch(pollinationsUrl, {
                 method: 'GET',
                 signal: AbortSignal.timeout(45000)
@@ -405,16 +405,16 @@ Answer (1-4 words only):` }]
             if (response.ok) {
                 const contentType = response.headers.get('content-type');
                 if (contentType && contentType.startsWith('image/')) {
-                    console.log("LogiGo image generated successfully");
+                    console.log("LogicArt image generated successfully");
                     return pollinationsUrl;
                 }
             }
         } catch (error) {
-            console.error("Error generating LogiGo image:", error);
+            console.error("Error generating LogicArt image:", error);
         }
 
         // Fallback: Generic code visualization placeholder
-        return `https://placehold.co/800x800/1a1a2e/00ff88?text=LogiGo+Visualization`;
+        return `https://placehold.co/800x800/1a1a2e/00ff88?text=LogicArt+Visualization`;
     }
 
     // Extract coding theme (for categorization)
@@ -453,15 +453,15 @@ Answer (one word only):` }]
         originalText: string,
         campaignType: CampaignType
     ): Promise<{ text: string; score: number }> {
-        if (campaignType === 'logigo') {
-            return this.generateLogiGoReply(author, context, originalText);
+        if (campaignType === 'logicart') {
+            return this.generateLogicArtReply(author, context, originalText);
         }
         // Default to Turai travel reply
         return this.generateReplyText(author, context, originalText);
     }
 
-    // LogiGo-specific reply generation
-    async generateLogiGoReply(author: string, context: string, originalText: string): Promise<{ text: string; score: number }> {
+    // LogicArt-specific reply generation
+    async generateLogicArtReply(author: string, context: string, originalText: string): Promise<{ text: string; score: number }> {
         try {
             const systemPrompt = `
             You are "The Code Sage", a wise and friendly senior developer who helps fellow coders.
@@ -523,7 +523,7 @@ Answer (one word only):` }]
                     score: parsed.score || 50
                 };
             } catch (e) {
-                console.error("Failed to parse LogiGo AI JSON response:", resultText);
+                console.error("Failed to parse LogicArt AI JSON response:", resultText);
                 return {
                     text: (resultText || `That's a tricky one, @${author}! Sometimes visualizing the code flow helps. 🧠`) + " (Check my pinned post for the tool I use! 📊)",
                     score: 50
@@ -531,7 +531,7 @@ Answer (one word only):` }]
             }
 
         } catch (error) {
-            console.error("Error generating LogiGo reply:", error);
+            console.error("Error generating LogicArt reply:", error);
             return {
                 text: `That's a tricky one, @${author}! Sometimes visualizing your code flow helps see where things go wrong. 🧠 (Check my pinned post! 📊)`,
                 score: 50

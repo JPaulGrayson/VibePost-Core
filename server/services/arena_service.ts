@@ -30,11 +30,11 @@ export interface ArenaResult {
   winner?: string;
   winnerReason?: string;
   judge?: JudgeVerdict;
-  logigoArenaUrl: string;
+  logicartArenaUrl: string;
   timestamp: string;
 }
 
-const LOGIGO_BASE_URL = process.env.LOGIGO_API_URL || "https://logigo-studio-jpaulgrayson.replit.app";
+const LOGICART_BASE_URL = process.env.LOGICART_API_URL || "https://logicart-studio.replit.app";
 
 const DEBUG_PROMPT = (code: string, problem: string) => `You are a helpful coding assistant. Debug this code and explain the issue clearly and concisely.
 
@@ -293,9 +293,10 @@ Reply with JSON only: {"winner": "ModelName", "reasoning": "Your detailed 2-3 se
   }
 }
 
-function generateLogigoArenaUrl(code: string): string {
-  // LogiGo doesn't accept code via URL - link to Remote Mode for integration instructions
-  return `${LOGIGO_BASE_URL}/remote`;
+function generateLogicartArenaUrl(code: string): string {
+  // LogicArt accepts code via URL query parameter
+  const encodedCode = encodeURIComponent(code);
+  return `${LOGICART_BASE_URL}?code=${encodedCode}`;
 }
 
 export async function runArena(request: ArenaRequest): Promise<ArenaResult> {
@@ -323,7 +324,7 @@ export async function runArena(request: ArenaRequest): Promise<ArenaResult> {
     winner: judge.winner,
     winnerReason: judge.reasoning,
     judge,
-    logigoArenaUrl: code ? generateLogigoArenaUrl(code) : `${LOGIGO_BASE_URL}`,
+    logicartArenaUrl: code ? generateLogicartArenaUrl(code) : `${LOGICART_BASE_URL}`,
     timestamp: new Date().toISOString()
   };
 }
@@ -360,9 +361,9 @@ ${shortResponse}`);
 ${result.winnerReason}
 
 Want to try YOUR code in the arena?
-👉 ${result.logigoArenaUrl}
+👉 ${result.logicartArenaUrl}
 
-#VibeCoding #AI #Debugging #LogiGo`);
+#VibeCoding #AI #Debugging #LogicArt`);
 
   return thread;
 }
@@ -519,7 +520,7 @@ export async function runAutoArena(useAI: boolean = false): Promise<{ result: Ar
 export const arenaService = {
   runArena,
   generateArenaThread,
-  generateLogigoArenaUrl,
+  generateLogicartArenaUrl,
   getRandomChallenge,
   getAllChallenges,
   generateAIChallenge,

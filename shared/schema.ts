@@ -146,7 +146,7 @@ export const draftStatusEnum = pgEnum("draft_status", [
 export const postcardDrafts = pgTable("postcard_drafts", {
   id: serial("id").primaryKey(),
 
-  // Campaign Type (turai = travel, logigo = coding)
+  // Campaign Type (turai = travel, logicart = coding)
   campaignType: text("campaign_type").default("turai"),
 
   // Origin Data (The User's Tweet)
