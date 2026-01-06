@@ -290,7 +290,7 @@ export default function ArenaPage() {
 
             {/* Referee's Verdict */}
             {result.judge && (
-              <Card className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border-indigo-500" data-testid="card-chairman">
+              <Card className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border-indigo-500" data-testid="card-referee">
                 <CardHeader>
                   <div className="flex items-center gap-3">
                     <span className="text-4xl">🎙️</span>
@@ -309,7 +309,7 @@ export default function ArenaPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="bg-indigo-950/50 p-4 rounded-lg border border-indigo-700/50">
-                    <p className="text-gray-200 italic leading-relaxed" data-testid="text-chairman-reasoning">
+                    <p className="text-gray-200 italic leading-relaxed" data-testid="text-referee-reasoning">
                       "{result.judge.reasoning}"
                     </p>
                   </div>
