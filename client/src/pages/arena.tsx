@@ -269,46 +269,27 @@ export default function ArenaPage() {
               ))}
             </div>
 
-            {/* Winner Announcement - AFTER model responses */}
-            <Card className="bg-gradient-to-r from-yellow-900/30 to-orange-900/30 border-yellow-600">
-              <CardHeader>
-                <div className="flex items-center justify-between flex-wrap gap-4">
-                  <div className="flex items-center gap-3">
-                    <span className="text-5xl">🏆</span>
-                    <div>
-                      <CardTitle className="text-2xl text-yellow-300" data-testid="text-winner">
-                        AND THE WINNER IS... {result.winner}!
-                      </CardTitle>
-                      <CardDescription className="text-yellow-200/70" data-testid="text-winner-reason">
-                        {result.winnerReason}
-                      </CardDescription>
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
-
-            {/* Referee's Verdict */}
+            {/* Winner Announcement with Referee's Verdict Combined */}
             {result.judge && (
-              <Card className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border-indigo-500" data-testid="card-referee">
+              <Card className="bg-gradient-to-r from-yellow-900/30 to-orange-900/30 border-yellow-600" data-testid="card-referee">
                 <CardHeader>
                   <div className="flex items-center gap-3">
-                    <span className="text-4xl">🎙️</span>
+                    <span className="text-5xl">🏆</span>
                     <div className="flex-1">
-                      <CardTitle className="text-xl text-indigo-200 flex items-center gap-2">
-                        Referee's Decision
-                        <Badge className="bg-indigo-600 text-white">
+                      <CardTitle className="text-2xl text-yellow-300 flex items-center gap-2" data-testid="text-winner">
+                        AND THE WINNER IS... {result.winner}!
+                      </CardTitle>
+                      <CardDescription className="text-yellow-200/70 text-sm flex items-center gap-2">
+                        Official ruling by {result.judge.judgeProvider}
+                        <Badge className="bg-yellow-600 text-white">
                           {result.judge.judgeModel}
                         </Badge>
-                      </CardTitle>
-                      <CardDescription className="text-indigo-300/80 text-sm">
-                        Official ruling by {result.judge.judgeProvider}
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="bg-indigo-950/50 p-4 rounded-lg border border-indigo-700/50">
+                  <div className="bg-yellow-950/50 p-4 rounded-lg border border-yellow-700/50">
                     <p className="text-gray-200 italic leading-relaxed" data-testid="text-referee-reasoning">
                       "{result.judge.reasoning}"
                     </p>
