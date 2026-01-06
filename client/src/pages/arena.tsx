@@ -324,9 +324,9 @@ export default function ArenaPage() {
                   <div className="flex items-center gap-3">
                     <GitBranch className="w-10 h-10 text-cyan-400" />
                     <div>
-                      <CardTitle className="text-xl text-cyan-200">📊 Code Flow Visualization</CardTitle>
+                      <CardTitle className="text-xl text-cyan-200">📊 Visualize Your Code Flow</CardTitle>
                       <CardDescription className="text-cyan-300/70">
-                        See your code's execution path as an interactive flowchart
+                        Connect LogiGo to see real-time execution flowcharts
                       </CardDescription>
                     </div>
                   </div>
@@ -341,13 +341,13 @@ export default function ArenaPage() {
                       data-testid="button-flowchart"
                     >
                       <GitBranch className="w-5 h-5" />
-                      Open Interactive Flowchart
+                      Connect to LogiGo
                       <ExternalLink className="w-4 h-4" />
                     </a>
                     <div className="flex-1 bg-slate-900/50 p-4 rounded-lg border border-cyan-700/30">
                       <p className="text-cyan-200/80 text-sm">
-                        <strong>LogiGo Flowcharts</strong> transform your code into visual diagrams, 
-                        making it easier to understand logic flow and spot potential issues.
+                        <strong>LogiGo Remote Mode</strong> lets you add one line of code to your app 
+                        and instantly see live execution flowcharts as your code runs.
                       </p>
                     </div>
                   </div>

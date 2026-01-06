@@ -278,8 +278,8 @@ Reply with JSON only: {"winner": "ModelName", "reasoning": "Your detailed 2-3 se
 }
 
 function generateLogigoArenaUrl(code: string): string {
-  const encodedCode = encodeURIComponent(code);
-  return `${LOGIGO_BASE_URL}?code=${encodedCode}`;
+  // LogiGo doesn't accept code via URL - link to Remote Mode for integration instructions
+  return `${LOGIGO_BASE_URL}/remote`;
 }
 
 export async function runArena(request: ArenaRequest): Promise<ArenaResult> {
