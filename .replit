@@ -20,4 +20,4 @@ externalPort = 80
 channel = "stable-25_05"
 
 [agent]
-integrations = ["javascript_log_in_with_replit:2.0.0"]
+integrations = ["javascript_log_in_with_replit:2.0.0", "javascript_gemini_ai_integrations:2.0.0"]
