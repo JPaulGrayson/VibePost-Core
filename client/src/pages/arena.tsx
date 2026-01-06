@@ -307,7 +307,13 @@ export default function ArenaPage() {
                 <Button
                   onClick={() => {
                     const winnerResponse = result?.responses.find(r => r.model === result.winner);
-                    const codeToVisualize = winnerResponse?.response || code;
+                    let codeToVisualize = code;
+                    if (winnerResponse?.response) {
+                      const codeBlockMatch = winnerResponse.response.match(/```(?:javascript|js|typescript|ts)?\n([\s\S]*?)```/);
+                      if (codeBlockMatch) {
+                        codeToVisualize = codeBlockMatch[1].trim();
+                      }
+                    }
                     const encodedCode = encodeURIComponent(codeToVisualize);
                     const logicartUrl = `https://logigo-studio-jpaulgrayson.replit.app?code=${encodedCode}&autorun=true`;
                     window.open(logicartUrl, '_blank');
