@@ -173,7 +173,7 @@ async function queryGrok(prompt: string): Promise<ModelResponse> {
         "Authorization": `Bearer ${process.env.XAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "grok-4",
+        model: "grok-4-0709",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 1000
       })

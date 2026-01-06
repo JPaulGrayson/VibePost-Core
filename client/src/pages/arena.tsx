@@ -317,67 +317,12 @@ export default function ArenaPage() {
               </Card>
             )}
 
-            {/* Code Flow Visualization - Only shows for debug mode with code */}
+            {/* Simple LogiGo mention */}
             {mode === "debug" && code && (
-              <Card className="bg-gradient-to-r from-cyan-900/40 to-teal-900/40 border-cyan-600" data-testid="card-flowchart">
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <GitBranch className="w-10 h-10 text-cyan-400" />
-                    <div>
-                      <CardTitle className="text-xl text-cyan-200">📊 Visualize Your Code Flow</CardTitle>
-                      <CardDescription className="text-cyan-300/70">
-                        Connect LogiGo to see real-time execution flowcharts
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <a
-                      href={result.logigoArenaUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-700 px-6 py-4 rounded-lg text-white font-medium transition-colors text-center"
-                      data-testid="button-flowchart"
-                    >
-                      <GitBranch className="w-5 h-5" />
-                      Connect to LogiGo
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                    <div className="flex-1 bg-slate-900/50 p-4 rounded-lg border border-cyan-700/30">
-                      <p className="text-cyan-200/80 text-sm">
-                        <strong>LogiGo Remote Mode</strong> lets you add one line of code to your app 
-                        and instantly see live execution flowcharts as your code runs.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="text-center text-gray-400 text-sm py-4" data-testid="logigo-mention">
+                💡 <strong>Pro tip:</strong> You can visualize your code's execution flow with LogiGo to spot bugs faster.
+              </div>
             )}
-
-            {/* LogiGo CTA */}
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardContent className="pt-6">
-                <div className="text-center space-y-4">
-                  <h3 className="text-xl font-semibold text-white">
-                    Want to see how your code executes step-by-step?
-                  </h3>
-                  <p className="text-gray-400">
-                    LogiGo visualizes your code execution in real-time, helping you understand exactly where bugs occur.
-                  </p>
-                  <a
-                    href={result.logigoArenaUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-6 py-3 rounded-lg text-white font-bold transition-colors"
-                    data-testid="link-logigo-cta"
-                  >
-                    <ExternalLink className="w-5 h-5" />
-                    Try LogiGo Free
-                  </a>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         )}
 
