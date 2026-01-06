@@ -202,7 +202,7 @@ async function queryGrok(prompt: string): Promise<ModelResponse> {
   }
 }
 
-async function determineWinner(responses: ModelResponse[], code: string): Promise<JudgeVerdict> {
+async function determineWinner(responses: ModelResponse[], context: string, mode: "debug" | "question"): Promise<JudgeVerdict> {
   const validResponses = responses.filter(r => r.response && !r.error);
   const judgeModel = "Gemini 3 Flash";
   const judgeProvider = "Google";
@@ -233,11 +233,12 @@ async function determineWinner(responses: ModelResponse[], code: string): Promis
       .map(r => `${r.model}: "${r.response.substring(0, 500)}..."`)
       .join("\n\n---\n\n");
 
-    const prompt = `You are the Chairman Judge of the AI Debug Arena. Different AI models were asked to debug this code:
+    const prompt = mode === "debug" 
+      ? `You are the Chairman Judge of the AI Debug Arena. Different AI models were asked to debug this code:
 
 Code:
 \`\`\`
-${code.substring(0, 500)}
+${context.substring(0, 500)}
 \`\`\`
 
 Their responses:
@@ -247,6 +248,21 @@ As Chairman, evaluate each response and pick the WINNER based on:
 1. Accuracy of identifying the bug
 2. Clarity and helpfulness of explanation
 3. Quality of the suggested fix
+
+Provide your official verdict with detailed reasoning (2-3 sentences explaining WHY the winner's response was best).
+
+Reply with JSON only: {"winner": "ModelName", "reasoning": "Your detailed 2-3 sentence explanation as Chairman Judge"}`
+      : `You are the Chairman Judge of the AI Cage Match. Different AI models were asked this question:
+
+Question: "${context.substring(0, 500)}"
+
+Their responses:
+${responsesSummary}
+
+As Chairman, evaluate each response and pick the WINNER based on:
+1. Accuracy and correctness of the answer
+2. Clarity and helpfulness of explanation
+3. Relevance and depth of insights provided
 
 Provide your official verdict with detailed reasoning (2-3 sentences explaining WHY the winner's response was best).
 
@@ -299,7 +315,7 @@ export async function runArena(request: ArenaRequest): Promise<ArenaResult> {
   const validCount = responses.filter(r => !r.error).length;
   console.log(`🏟️ Arena: Got ${validCount}/4 valid responses`);
 
-  const judge = await determineWinner(responses, code || problem);
+  const judge = await determineWinner(responses, code || problem, mode);
 
   return {
     request,
