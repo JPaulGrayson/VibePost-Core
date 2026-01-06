@@ -317,6 +317,44 @@ export default function ArenaPage() {
               </Card>
             )}
 
+            {/* Code Flow Visualization - Only shows for debug mode with code */}
+            {mode === "debug" && code && (
+              <Card className="bg-gradient-to-r from-cyan-900/40 to-teal-900/40 border-cyan-600" data-testid="card-flowchart">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <GitBranch className="w-10 h-10 text-cyan-400" />
+                    <div>
+                      <CardTitle className="text-xl text-cyan-200">📊 Code Flow Visualization</CardTitle>
+                      <CardDescription className="text-cyan-300/70">
+                        See your code's execution path as an interactive flowchart
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <a
+                      href={result.logigoArenaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-700 px-6 py-4 rounded-lg text-white font-medium transition-colors text-center"
+                      data-testid="button-flowchart"
+                    >
+                      <GitBranch className="w-5 h-5" />
+                      Open Interactive Flowchart
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                    <div className="flex-1 bg-slate-900/50 p-4 rounded-lg border border-cyan-700/30">
+                      <p className="text-cyan-200/80 text-sm">
+                        <strong>LogiGo Flowcharts</strong> transform your code into visual diagrams, 
+                        making it easier to understand logic flow and spot potential issues.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* LogiGo CTA */}
             <Card className="bg-slate-800/50 border-slate-700">
               <CardContent className="pt-6">
