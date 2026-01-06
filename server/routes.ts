@@ -20,6 +20,8 @@ import { autoPublisher } from "./services/auto_publisher";
 import { previewVideoPost, generateVideoPost, generateVideoCaption, refreshPreviewData } from "./services/video_post_generator";
 import { getDailyVideoSchedulerStatus, setNextVideoDestination, clearNextVideoDestination, triggerDailyVideoNow, getVideoDestinationQueue } from "./services/daily_video_scheduler";
 import { CAMPAIGN_CONFIGS } from "./campaign-config";
+import { getActiveCampaign, setActiveCampaign, isValidCampaignType } from "./campaign-state";
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Simple authentication middleware
   const isAuthenticated = (req: any, res: any, next: any) => {
@@ -993,11 +995,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get current campaign configuration (simplified - always turai)
+  // Get current campaign configuration
   app.get("/api/sniper/campaign", (req, res) => {
+    const activeCampaign = getActiveCampaign();
     res.json({
-      currentCampaign: 'turai',
-      config: CAMPAIGN_CONFIGS['turai']
+      currentCampaign: activeCampaign,
+      config: CAMPAIGN_CONFIGS[activeCampaign]
     });
   });
 
@@ -1318,12 +1321,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Set sniper campaign type (no-op for simplified sniper)
+  // Set sniper campaign type
   app.post("/api/sniper/campaign", (req, res) => {
+    const { campaignType } = req.body;
+    
+    if (!campaignType) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "campaignType is required" 
+      });
+    }
+    
+    if (!isValidCampaignType(campaignType)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Invalid campaign type: ${campaignType}. Must be 'turai' or 'logigo'` 
+      });
+    }
+    
+    setActiveCampaign(campaignType);
+    const activeCampaign = getActiveCampaign();
+    
     res.json({
       success: true,
-      message: `Campaign is fixed to turai (simplified sniper mode)`,
-      config: CAMPAIGN_CONFIGS['turai']
+      message: `Campaign set to ${activeCampaign}`,
+      config: CAMPAIGN_CONFIGS[activeCampaign]
     });
   });
 
@@ -1331,7 +1353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/sniper/campaigns", (req, res) => {
     res.json({
       campaigns: Object.values(CAMPAIGN_CONFIGS),
-      currentCampaign: 'turai'
+      currentCampaign: getActiveCampaign()
     });
   });
 

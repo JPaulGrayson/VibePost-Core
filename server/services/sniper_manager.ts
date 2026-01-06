@@ -3,6 +3,8 @@ import { generateDraft } from "./postcard_drafter";
 import { storage } from "../storage";
 import { replyTimingOptimizer } from "./reply_timing_optimizer";
 import { dmFollowUpService } from "./dm_follow_up";
+import { getActiveCampaign } from "../campaign-state";
+import { CAMPAIGN_CONFIGS } from "../campaign-config";
 
 export class SniperManager {
     private isHunting = false;  // Tracks if a hunt is in progress
@@ -12,53 +14,15 @@ export class SniperManager {
     private minScoreForReplyChain = 95;    // Only fetch replies for highest-quality tweets (≥95%)
     private dmFollowUpEnabled = true;      // Enable DM follow-ups after replies
 
-    // Travel-focused keywords - kept simple for broad matching
-    private keywords = [
-        // High-intent travel phrases (catch ANY destination)
-        "planning a trip to",
-        "traveling to",
-        "flying to",
-        "driving to",
-        "road trip to",
-        "visiting",
-        "headed to",
-        "going to",
-        "vacation in",
-        "holiday in",
-
-        // Questions & recommendations (high engagement)
-        "travel recommendations",
-        "where should I stay",
-        "any tips for",
-        "first time visiting",
-        "itinerary help",
-        "food recommendations",
-        "restaurant suggestions",
-        "things to do in",
-        "what to see in",
-        "places to visit",
-
-        // US Destinations (balanced representation)
-        "New York",
-        "Las Vegas",
-        "Miami",
-        "Los Angeles",
-        "Chicago",
-        "Hawaii",
-        "San Francisco",
-        "Orlando",
-        "Nashville",
-        "Austin",
-
-        // International Destinations
-        "Paris",
-        "London",
-        "Tokyo",
-        "Rome",
-        "Barcelona",
-        "Bali",
-        "Thailand",
-    ];
+    // Keywords loaded dynamically from active campaign config
+    private getKeywords(): string[] {
+        const campaign = getActiveCampaign();
+        const config = CAMPAIGN_CONFIGS[campaign];
+        // Return a subset of keywords to avoid rate limiting (rotate through them)
+        const allKeywords = config.keywords;
+        // Use first 20 keywords per hunt cycle
+        return allKeywords.slice(0, 20);
+    }
 
     private dailyLimit = 500;
     private draftsGeneratedToday = 0;
@@ -154,7 +118,11 @@ export class SniperManager {
                 return stats;
             }
 
-            for (const keyword of this.keywords) {
+            const currentCampaign = getActiveCampaign();
+            const keywords = this.getKeywords();
+            console.log(`   🎯 Hunting for ${currentCampaign} campaign (${keywords.length} keywords)`);
+
+            for (const keyword of keywords) {
                 stats.keywordsSearched++;
                 try {
                     // Search for keyword on Twitter
@@ -182,7 +150,8 @@ export class SniperManager {
                             author_id: "unknown"
                         };
 
-                        const created = await generateDraft(postObj, result.author);
+                        // Pass the active campaign type to generateDraft
+                        const created = await generateDraft(postObj, result.author, currentCampaign);
                         if (created) {
                             this.draftsGeneratedToday++;
                             stats.draftsCreated++;

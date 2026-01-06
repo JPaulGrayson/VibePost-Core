@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { PostcardDraft } from "@shared/schema";
 import { RefreshCw, Plane, Code2 } from "lucide-react";
@@ -31,12 +31,14 @@ export default function SniperQueue() {
 
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState("");
-    const [activeCampaign, setActiveCampaign] = useState<string>(campaignData?.currentCampaign || "turai");
+    const [activeCampaign, setActiveCampaign] = useState<string>("turai");
 
-    // Update local state when campaign data loads
-    if (campaignData?.currentCampaign && campaignData.currentCampaign !== activeCampaign) {
-        setActiveCampaign(campaignData.currentCampaign);
-    }
+    // Sync local state when campaign data loads from server
+    useEffect(() => {
+        if (campaignData?.currentCampaign && campaignData.currentCampaign !== activeCampaign) {
+            setActiveCampaign(campaignData.currentCampaign);
+        }
+    }, [campaignData?.currentCampaign]);
 
     const filteredDrafts = drafts?.filter(draft =>
         draft.originalAuthorHandle.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -44,21 +46,30 @@ export default function SniperQueue() {
         (draft.detectedLocation && draft.detectedLocation.toLowerCase().includes(searchQuery.toLowerCase()))
     ).sort((a, b) => (b.score || 0) - (a.score || 0)); // Sort by Score DESC
 
-    // Switch campaign mutation
+    // Switch campaign mutation with optimistic updates
     const switchCampaign = useMutation({
         mutationFn: async (campaignType: string) => {
             const res = await apiRequest("POST", "/api/sniper/campaign", { campaignType });
             return res.json();
         },
+        onMutate: async (campaignType: string) => {
+            // Optimistically update local state immediately
+            const previousCampaign = activeCampaign;
+            setActiveCampaign(campaignType);
+            return { previousCampaign };
+        },
         onSuccess: (data) => {
-            setActiveCampaign(data.config.id);
             queryClient.invalidateQueries({ queryKey: ["/api/sniper/campaign"] });
             toast({
                 title: `Campaign Switched! ${data.config.emoji}`,
                 description: `Now hunting for ${data.config.name} leads.`,
             });
         },
-        onError: (error) => {
+        onError: (error, _variables, context) => {
+            // Rollback on error
+            if (context?.previousCampaign) {
+                setActiveCampaign(context.previousCampaign);
+            }
             toast({
                 variant: "destructive",
                 title: "Failed to switch campaign",
@@ -123,11 +134,12 @@ export default function SniperQueue() {
         <div className="p-6 max-w-4xl mx-auto">
             <h1 className="text-2xl font-bold mb-4">🧙‍♂️ Wizard's Tower (Lead Review Queue)</h1>
 
-            {/* Campaign Selector - LogiGo temporarily disabled */}
+            {/* Campaign Selector */}
             <div className="mb-6 p-4 bg-card rounded-lg border">
                 <label className="text-sm font-medium text-muted-foreground mb-2 block">Active Campaign</label>
                 <Tabs
-                    value="turai"
+                    value={activeCampaign}
+                    onValueChange={(value) => switchCampaign.mutate(value)}
                     className="w-full"
                 >
                     <TabsList className="grid w-full grid-cols-2">
@@ -135,14 +147,16 @@ export default function SniperQueue() {
                             <Plane className="h-4 w-4" />
                             <span>✈️ Turai Travel</span>
                         </TabsTrigger>
-                        <TabsTrigger value="logigo" className="flex items-center gap-2 opacity-50" disabled>
+                        <TabsTrigger value="logigo" className="flex items-center gap-2">
                             <Code2 className="h-4 w-4" />
-                            <span>🧠 LogiGo Vibe Coding (Disabled)</span>
+                            <span>🧠 LogiGo Vibe Coding</span>
                         </TabsTrigger>
                     </TabsList>
                 </Tabs>
                 <p className="text-xs text-muted-foreground mt-2">
-                    Hunting for travelers planning trips - promoting AI Tour Guide
+                    {activeCampaign === 'turai' 
+                        ? 'Hunting for travelers planning trips - promoting AI Tour Guide'
+                        : 'Hunting for developers with coding questions - promoting AI Debug Arena'}
                 </p>
             </div>
 
