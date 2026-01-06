@@ -3,9 +3,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 
 export interface ArenaRequest {
-  code: string;
+  code?: string;
   problemDescription?: string;
   language?: string;
+  mode?: "debug" | "question";
 }
 
 export interface ModelResponse {
@@ -16,11 +17,19 @@ export interface ModelResponse {
   error?: string;
 }
 
+export interface JudgeVerdict {
+  judgeModel: string;
+  judgeProvider: string;
+  winner: string;
+  reasoning: string;
+}
+
 export interface ArenaResult {
   request: ArenaRequest;
   responses: ModelResponse[];
   winner?: string;
   winnerReason?: string;
+  judge?: JudgeVerdict;
   logigoArenaUrl: string;
   timestamp: string;
 }
@@ -43,7 +52,25 @@ Provide a clear, concise explanation of:
 
 Keep your main explanation under 200 words for readability.`;
 
-async function queryGemini(code: string, problem: string): Promise<ModelResponse> {
+const QUESTION_PROMPT = (question: string) => `You are a helpful coding and development expert. Answer this question clearly and concisely.
+
+Question: ${question}
+
+Provide a clear, helpful answer that:
+1. Directly addresses the question
+2. Includes practical examples or code snippets when relevant
+3. Mentions any important caveats or best practices
+
+Keep your answer under 300 words for readability.`;
+
+function getPrompt(code: string, problem: string, mode: "debug" | "question"): string {
+  if (mode === "question") {
+    return QUESTION_PROMPT(problem);
+  }
+  return DEBUG_PROMPT(code, problem);
+}
+
+async function queryGemini(prompt: string): Promise<ModelResponse> {
   const start = Date.now();
   try {
     const genAI = new GoogleGenAI({
@@ -56,7 +83,7 @@ async function queryGemini(code: string, problem: string): Promise<ModelResponse
 
     const result = await genAI.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: [{ role: "user", parts: [{ text: DEBUG_PROMPT(code, problem) }] }],
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
     return {
@@ -77,14 +104,14 @@ async function queryGemini(code: string, problem: string): Promise<ModelResponse
   }
 }
 
-async function queryOpenAI(code: string, problem: string): Promise<ModelResponse> {
+async function queryOpenAI(prompt: string): Promise<ModelResponse> {
   const start = Date.now();
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const response = await openai.chat.completions.create({
       model: "gpt-5.2-thinking",
-      messages: [{ role: "user", content: DEBUG_PROMPT(code, problem) }],
+      messages: [{ role: "user", content: prompt }],
       max_tokens: 1000
     });
 
@@ -106,7 +133,7 @@ async function queryOpenAI(code: string, problem: string): Promise<ModelResponse
   }
 }
 
-async function queryClaude(code: string, problem: string): Promise<ModelResponse> {
+async function queryClaude(prompt: string): Promise<ModelResponse> {
   const start = Date.now();
   try {
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -114,7 +141,7 @@ async function queryClaude(code: string, problem: string): Promise<ModelResponse
     const response = await anthropic.messages.create({
       model: "claude-opus-4-5-20250514",
       max_tokens: 1000,
-      messages: [{ role: "user", content: DEBUG_PROMPT(code, problem) }]
+      messages: [{ role: "user", content: prompt }]
     });
 
     const textContent = response.content.find(c => c.type === 'text');
@@ -136,7 +163,7 @@ async function queryClaude(code: string, problem: string): Promise<ModelResponse
   }
 }
 
-async function queryGrok(code: string, problem: string): Promise<ModelResponse> {
+async function queryGrok(prompt: string): Promise<ModelResponse> {
   const start = Date.now();
   try {
     const response = await fetch("https://api.x.ai/v1/chat/completions", {
@@ -147,7 +174,7 @@ async function queryGrok(code: string, problem: string): Promise<ModelResponse> 
       },
       body: JSON.stringify({
         model: "grok-4",
-        messages: [{ role: "user", content: DEBUG_PROMPT(code, problem) }],
+        messages: [{ role: "user", content: prompt }],
         max_tokens: 1000
       })
     });
@@ -175,15 +202,22 @@ async function queryGrok(code: string, problem: string): Promise<ModelResponse> 
   }
 }
 
-async function determineWinner(responses: ModelResponse[], code: string): Promise<{ winner: string; reason: string }> {
+async function determineWinner(responses: ModelResponse[], code: string): Promise<JudgeVerdict> {
   const validResponses = responses.filter(r => r.response && !r.error);
+  const judgeModel = "Gemini 3 Flash";
+  const judgeProvider = "Google";
   
   if (validResponses.length === 0) {
-    return { winner: "None", reason: "All models failed to respond" };
+    return { judgeModel, judgeProvider, winner: "None", reasoning: "All models failed to respond. No winner can be determined." };
   }
   
   if (validResponses.length === 1) {
-    return { winner: validResponses[0].model, reason: "Only model to respond successfully" };
+    return { 
+      judgeModel, 
+      judgeProvider, 
+      winner: validResponses[0].model, 
+      reasoning: `${validResponses[0].model} wins by default as the only model to provide a successful response.` 
+    };
   }
 
   try {
@@ -196,10 +230,10 @@ async function determineWinner(responses: ModelResponse[], code: string): Promis
     });
 
     const responsesSummary = validResponses
-      .map(r => `${r.model}: "${r.response.substring(0, 300)}..."`)
+      .map(r => `${r.model}: "${r.response.substring(0, 500)}..."`)
       .join("\n\n---\n\n");
 
-    const prompt = `You are judging a coding debug arena. Different AI models were asked to debug this code:
+    const prompt = `You are the Chairman Judge of the AI Debug Arena. Different AI models were asked to debug this code:
 
 Code:
 \`\`\`
@@ -209,30 +243,37 @@ ${code.substring(0, 500)}
 Their responses:
 ${responsesSummary}
 
-Pick the WINNER based on:
+As Chairman, evaluate each response and pick the WINNER based on:
 1. Accuracy of identifying the bug
 2. Clarity and helpfulness of explanation
 3. Quality of the suggested fix
 
-Reply with JSON only: {"winner": "ModelName", "reason": "Brief 1-sentence reason"}`;
+Provide your official verdict with detailed reasoning (2-3 sentences explaining WHY the winner's response was best).
+
+Reply with JSON only: {"winner": "ModelName", "reasoning": "Your detailed 2-3 sentence explanation as Chairman Judge"}`;
 
     const result = await genAI.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
-    const text = result.text || '{"winner": "Unknown", "reason": "Unable to determine"}';
-    const jsonMatch = text.match(/\{[^}]+\}/);
+    const text = result.text || '{"winner": "Unknown", "reasoning": "Unable to determine winner"}';
+    const jsonMatch = text.match(/\{[\s\S]*?\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
-      return { winner: parsed.winner, reason: parsed.reason };
+      return { judgeModel, judgeProvider, winner: parsed.winner, reasoning: parsed.reasoning };
     }
     
-    return { winner: validResponses[0].model, reason: "First valid response" };
+    return { judgeModel, judgeProvider, winner: validResponses[0].model, reasoning: "First valid response selected as winner." };
   } catch (error) {
     console.error("Error determining winner:", error);
     const fastest = validResponses.sort((a, b) => a.responseTime - b.responseTime)[0];
-    return { winner: fastest?.model || "Unknown", reason: "Fastest response time" };
+    return { 
+      judgeModel, 
+      judgeProvider, 
+      winner: fastest?.model || "Unknown", 
+      reasoning: `Winner determined by fastest response time (${fastest?.responseTime}ms).` 
+    };
   }
 }
 
@@ -242,29 +283,31 @@ function generateLogigoArenaUrl(code: string): string {
 }
 
 export async function runArena(request: ArenaRequest): Promise<ArenaResult> {
-  const { code, problemDescription } = request;
-  const problem = problemDescription || "Debug this code and explain the issue";
+  const { code = "", problemDescription = "", mode = "debug" } = request;
+  const problem = problemDescription || (mode === "debug" ? "Debug this code and explain the issue" : "Answer this question");
+  const prompt = getPrompt(code, problem, mode);
 
-  console.log("🏟️ Arena: Starting multi-model comparison...");
+  console.log(`🏟️ Arena: Starting multi-model comparison (mode: ${mode})...`);
 
   const responses = await Promise.all([
-    queryGemini(code, problem),
-    queryOpenAI(code, problem),
-    queryClaude(code, problem),
-    queryGrok(code, problem)
+    queryGemini(prompt),
+    queryOpenAI(prompt),
+    queryClaude(prompt),
+    queryGrok(prompt)
   ]);
 
   const validCount = responses.filter(r => !r.error).length;
   console.log(`🏟️ Arena: Got ${validCount}/4 valid responses`);
 
-  const { winner, reason } = await determineWinner(responses, code);
+  const judge = await determineWinner(responses, code || problem);
 
   return {
     request,
     responses,
-    winner,
-    winnerReason: reason,
-    logigoArenaUrl: generateLogigoArenaUrl(code),
+    winner: judge.winner,
+    winnerReason: judge.reasoning,
+    judge,
+    logigoArenaUrl: code ? generateLogigoArenaUrl(code) : `${LOGIGO_BASE_URL}`,
     timestamp: new Date().toISOString()
   };
 }

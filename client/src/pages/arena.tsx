@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Trophy, Clock, AlertCircle, ExternalLink, Zap } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Loader2, Trophy, Clock, AlertCircle, ExternalLink, Zap, MessageSquare, Bug, GitBranch } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface ModelResponse {
@@ -15,29 +17,39 @@ interface ModelResponse {
   error?: string;
 }
 
+interface JudgeVerdict {
+  judgeModel: string;
+  judgeProvider: string;
+  winner: string;
+  reasoning: string;
+}
+
 interface ArenaResult {
   responses: ModelResponse[];
   winner: string;
   winnerReason: string;
-  code: string;
-  arenaUrl: string;
+  judge?: JudgeVerdict;
+  logigoArenaUrl: string;
 }
 
 const MODEL_COLORS: Record<string, string> = {
-  "Gemini 2.5": "bg-blue-500",
-  "GPT-4o": "bg-green-500",
-  "Claude Sonnet": "bg-purple-500",
-  "Grok 2": "bg-orange-500"
+  "Gemini 3 Flash": "bg-blue-500",
+  "GPT-5.2 Thinking": "bg-green-500",
+  "Claude Opus 4.5": "bg-purple-500",
+  "Grok-4": "bg-orange-500"
 };
 
 const MODEL_ICONS: Record<string, string> = {
-  "Gemini 2.5": "🔮",
-  "GPT-4o": "🤖",
-  "Claude Sonnet": "🧠",
-  "Grok 2": "⚡"
+  "Gemini 3 Flash": "🔮",
+  "GPT-5.2 Thinking": "🤖",
+  "Claude Opus 4.5": "🧠",
+  "Grok-4": "⚡"
 };
 
+type ArenaMode = "debug" | "question";
+
 export default function ArenaPage() {
+  const [mode, setMode] = useState<ArenaMode>("debug");
   const [code, setCode] = useState(`function calculateTotal(items) {
   let total = 0;
   for (let i = 0; i <= items.length; i++) {
@@ -46,16 +58,21 @@ export default function ArenaPage() {
   return total;
 }`);
   const [problem, setProblem] = useState("This function throws an error when calculating the total. Find the bug.");
+  const [question, setQuestion] = useState("");
 
   const arenaMutation = useMutation({
-    mutationFn: async (data: { code: string; problemDescription: string }) => {
+    mutationFn: async (data: { code?: string; problemDescription: string; mode: ArenaMode }) => {
       const response = await apiRequest("POST", "/api/arena/run", data);
       return response.json();
     }
   });
 
   const handleRunArena = () => {
-    arenaMutation.mutate({ code, problemDescription: problem });
+    if (mode === "debug") {
+      arenaMutation.mutate({ code, problemDescription: problem, mode });
+    } else {
+      arenaMutation.mutate({ code: "", problemDescription: question, mode });
+    }
   };
 
   const result = arenaMutation.data as ArenaResult | undefined;
@@ -67,64 +84,108 @@ export default function ArenaPage() {
           <div className="flex items-center justify-center gap-3 mb-4">
             <Trophy className="w-12 h-12 text-yellow-400" />
             <h1 className="text-5xl font-bold bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-500 bg-clip-text text-transparent" data-testid="title-arena">
-              AI Debug Arena
+              AI {mode === "debug" ? "Debug" : "Question"} Arena
             </h1>
             <Trophy className="w-12 h-12 text-yellow-400" />
           </div>
-          <p className="text-xl text-gray-300 max-w-2xl mx-auto">
-            Watch the world's top AI models compete to find bugs in your code. 
-            See which model gives the best debugging advice!
+          <p className="text-xl text-gray-300 max-w-2xl mx-auto mb-6">
+            {mode === "debug" 
+              ? "Watch the world's top AI models compete to find bugs in your code."
+              : "Ask any dev question and see how different AI models respond."
+            }
           </p>
+          
+          <div className="flex items-center justify-center gap-4 bg-slate-800/50 rounded-lg p-4 max-w-md mx-auto">
+            <div className={`flex items-center gap-2 ${mode === "debug" ? "text-yellow-400" : "text-gray-500"}`}>
+              <Bug className="w-5 h-5" />
+              <Label htmlFor="mode-toggle" className="cursor-pointer">Debug Code</Label>
+            </div>
+            <Switch
+              id="mode-toggle"
+              checked={mode === "question"}
+              onCheckedChange={(checked) => setMode(checked ? "question" : "debug")}
+              data-testid="switch-mode"
+            />
+            <div className={`flex items-center gap-2 ${mode === "question" ? "text-purple-400" : "text-gray-500"}`}>
+              <MessageSquare className="w-5 h-5" />
+              <Label htmlFor="mode-toggle" className="cursor-pointer">Ask Question</Label>
+            </div>
+          </div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-8 mb-8">
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Zap className="w-5 h-5 text-yellow-400" />
-                Your Buggy Code
-              </CardTitle>
-              <CardDescription className="text-gray-400">
-                Paste code with a bug you want the AI models to find
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                className="min-h-[200px] font-mono text-sm bg-slate-900 border-slate-600 text-gray-100"
-                placeholder="Paste your buggy code here..."
-                data-testid="input-code"
-              />
-            </CardContent>
-          </Card>
+        {mode === "debug" ? (
+          <div className="grid lg:grid-cols-2 gap-8 mb-8">
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-yellow-400" />
+                  Your Buggy Code
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Paste code with a bug you want the AI models to find
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="min-h-[200px] font-mono text-sm bg-slate-900 border-slate-600 text-gray-100"
+                  placeholder="Paste your buggy code here..."
+                  data-testid="input-code"
+                />
+              </CardContent>
+            </Card>
 
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-red-400" />
-                Problem Description
-              </CardTitle>
-              <CardDescription className="text-gray-400">
-                Describe the bug or error you're experiencing
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                value={problem}
-                onChange={(e) => setProblem(e.target.value)}
-                className="min-h-[200px] bg-slate-900 border-slate-600 text-gray-100"
-                placeholder="Describe what's going wrong..."
-                data-testid="input-problem"
-              />
-            </CardContent>
-          </Card>
-        </div>
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-400" />
+                  Problem Description
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Describe the bug or error you're experiencing
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  value={problem}
+                  onChange={(e) => setProblem(e.target.value)}
+                  className="min-h-[200px] bg-slate-900 border-slate-600 text-gray-100"
+                  placeholder="Describe what's going wrong..."
+                  data-testid="input-problem"
+                />
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <div className="max-w-3xl mx-auto mb-8">
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-purple-400" />
+                  Your Dev Question
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Ask anything about coding, architecture, best practices, or dev tools
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  className="min-h-[200px] bg-slate-900 border-slate-600 text-gray-100"
+                  placeholder="What's the best way to structure a React app? How do I optimize database queries? What's the difference between REST and GraphQL?"
+                  data-testid="input-question"
+                />
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         <div className="text-center mb-12">
           <Button
             onClick={handleRunArena}
-            disabled={arenaMutation.isPending || !code.trim()}
+            disabled={arenaMutation.isPending || (mode === "debug" ? !code.trim() : !question.trim())}
             size="lg"
             className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-black font-bold text-lg px-8 py-6"
             data-testid="button-run-arena"
@@ -137,7 +198,7 @@ export default function ArenaPage() {
             ) : (
               <>
                 <Trophy className="mr-2 h-5 w-5" />
-                Start Debug Battle!
+                {mode === "debug" ? "Start Debug Battle!" : "Ask the AIs!"}
               </>
             )}
           </Button>
@@ -171,7 +232,7 @@ export default function ArenaPage() {
                     </div>
                   </div>
                   <a
-                    href={result.arenaUrl}
+                    href={result.logigoArenaUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg text-white font-medium transition-colors"
@@ -183,6 +244,34 @@ export default function ArenaPage() {
                 </div>
               </CardHeader>
             </Card>
+
+            {result.judge && (
+              <Card className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border-indigo-500" data-testid="card-chairman">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="text-4xl">👨‍⚖️</div>
+                    <div className="flex-1">
+                      <CardTitle className="text-xl text-indigo-200 flex items-center gap-2">
+                        Chairman's Verdict
+                        <Badge className="bg-indigo-600 text-white">
+                          {result.judge.judgeModel}
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription className="text-indigo-300/80 text-sm">
+                        Judged by {result.judge.judgeProvider}
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-indigo-950/50 p-4 rounded-lg border border-indigo-700/50">
+                    <p className="text-gray-200 italic leading-relaxed" data-testid="text-chairman-reasoning">
+                      "{result.judge.reasoning}"
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <div className="grid md:grid-cols-2 gap-6">
               {result.responses.map((response, idx) => (
@@ -239,7 +328,7 @@ export default function ArenaPage() {
                     LogiGo visualizes your code execution in real-time, helping you understand exactly where bugs occur.
                   </p>
                   <a
-                    href={result.arenaUrl}
+                    href={result.logigoArenaUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-6 py-3 rounded-lg text-white font-bold transition-colors"
