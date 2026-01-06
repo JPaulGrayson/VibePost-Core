@@ -36,14 +36,14 @@ const MODEL_COLORS: Record<string, string> = {
   "Gemini 3 Flash": "bg-blue-500",
   "GPT-5.2 Thinking": "bg-green-500",
   "Claude Opus 4.5": "bg-purple-500",
-  "Grok-2": "bg-orange-500"
+  "Grok-4": "bg-orange-500"
 };
 
 const MODEL_ICONS: Record<string, string> = {
   "Gemini 3 Flash": "🔮",
   "GPT-5.2 Thinking": "🤖",
   "Claude Opus 4.5": "🧠",
-  "Grok-2": "⚡"
+  "Grok-4": "⚡"
 };
 
 type ArenaMode = "debug" | "question";
