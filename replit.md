@@ -182,4 +182,5 @@ Changelog:
 ```
 Preferred communication style: Simple, everyday language.
 Troubleshooting approach: Always suggest cold restart early when programs behave unpredictably.
+Domain purchasing: Use external registrars (Namecheap, Porkbun) instead of Replit's domain service - had issues with verification.
 ```
