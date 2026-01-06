@@ -166,10 +166,10 @@ export default function ArenaPage() {
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-purple-400" />
-                  Your Dev Question
+                  Your Question
                 </CardTitle>
                 <CardDescription className="text-gray-400">
-                  Ask anything about coding, architecture, best practices, or dev tools
+                  Ask anything - the AI models will compete to give you the best answer
                 </CardDescription>
               </CardHeader>
               <CardContent>
