@@ -20,6 +20,7 @@ import SniperQueue from "@/pages/sniper-queue";
 import DailyPostcard from "@/pages/daily-postcard";
 import VideoSlideshows from "@/pages/video-slideshows";
 import ThreadTours from "@/pages/thread-tours";
+import Arena from "@/pages/arena";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -58,6 +59,7 @@ function Router() {
         <Route path="/daily-postcard" component={DailyPostcard} />
         <Route path="/video-slideshows" component={VideoSlideshows} />
         <Route path="/thread-tours" component={ThreadTours} />
+        <Route path="/arena" component={Arena} />
         <Route component={NotFound} />
       </Switch>
     </MainLayout>
