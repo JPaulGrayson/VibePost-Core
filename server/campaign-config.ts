@@ -397,16 +397,32 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         emoji: '🎯',
         description: 'Find users debating AI model performance - Cage Match reply',
         keywords: [
-            "Claude vs GPT", "Cursor AI", "Grok code", "which model is best", "hallucination",
-            "Cursor vs Windsurf", "Claude is dumb", "Cursor hallucinating", "Grok is better",
-            "Claude lazy code", "GPT not working", "best coding AI", "model comparison",
-            "Windsurf ai", "Replit agent", "Bolt ai", "AI coding assistant",
-            "model keeps failing", "tried Claude and", "switched to GPT"
+            // ===== VIBE CODING PLATFORMS =====
+            "vibe coding", "vibe coder", "vibecoding",
+            "Cursor AI", "Cursor vs", "Cursor hallucinating", "Cursor agent",
+            "Windsurf ai", "Windsurf vs", "Windsurf code",
+            "Replit agent", "Replit AI", "Replit ghostwriter",
+            "Bolt ai", "Bolt.new", "bolt new",
+            "v0 dev", "v0 ai", "Vercel v0",
+            "Lovable ai", "Lovable dev", "lovable.dev",
+            "Claude artifacts", "Claude code", "Claude coding",
+            "GitHub Copilot", "Copilot vs", "Copilot hallucinating",
+            "Codeium", "Codeium vs",
+            "Aider ai", "aider code",
+            "Continue dev", "continue.dev",
+            
+            // ===== MODEL DEBATES =====
+            "Claude vs GPT", "Grok code", "which model is best",
+            "Claude is dumb", "Grok is better", "Claude lazy code",
+            "GPT not working", "best coding AI", "model comparison",
+            "AI coding assistant", "AI pair programming",
+            "model keeps failing", "tried Claude and", "switched to GPT",
+            "hallucination", "hallucinating code"
         ],
         intentType: 'Model Comparison / Debate',
         intentSignals: {
-            positive: ["vs", "better", "worse", "compared", "hallucinating", "frustrated", "dumb", "lazy", "not working", "which one"],
-            negative: ["hiring", "job", "course", "tutorial", "sponsor", "discount", "affiliate", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto]
+            positive: ["vs", "better", "worse", "compared", "hallucinating", "frustrated", "dumb", "lazy", "not working", "which one", "struggling", "broken", "buggy", "help", "issue", "problem", "switched"],
+            negative: ["hiring", "job", "course", "tutorial", "sponsor", "discount", "affiliate", "founder", "CEO", "we're building", "launching", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto]
         },
         replyPersona: {
             tone: 'Competitive, Fun - "Let\'s settle this in the Cage Match"',
