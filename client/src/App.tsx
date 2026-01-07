@@ -43,31 +43,35 @@ function Router() {
   }
 
   return (
-    <MainLayout>
-      <Switch>
-        <Route path="/" component={CreatePost} />
-        <Route path="/create" component={CreatePost} />
-        <Route path="/create-post" component={CreatePost} />
-        <Route path="/history" component={PostHistory} />
-        <Route path="/post-history" component={PostHistory} />
-        <Route path="/scheduled" component={ScheduledPosts} />
-        <Route path="/campaigns" component={Campaigns} />
-        <Route path="/campaigns/:id" component={CampaignDetails} />
-        <Route path="/analytics" component={Analytics} />
-        <Route path="/growth-reports" component={GrowthReports} />
-        <Route path="/topic-search" component={TopicSearch} />
-        <Route path="/search" component={TopicSearch} />
-        <Route path="/settings" component={Settings} />
-        <Route path="/settings" component={Settings} />
-        <Route path="/sniper-queue" component={SniperQueue} />
-        <Route path="/sniper" component={SniperQueue} />
-        <Route path="/daily-postcard" component={DailyPostcard} />
-        <Route path="/video-slideshows" component={VideoSlideshows} />
-        <Route path="/thread-tours" component={ThreadTours} />
-        <Route path="/arena" component={Arena} />
-        <Route component={NotFound} />
-      </Switch>
-    </MainLayout>
+    <Switch>
+      <Route path="/arena" component={Arena} />
+      <Route>
+        <MainLayout>
+          <Switch>
+            <Route path="/" component={CreatePost} />
+            <Route path="/create" component={CreatePost} />
+            <Route path="/create-post" component={CreatePost} />
+            <Route path="/history" component={PostHistory} />
+            <Route path="/post-history" component={PostHistory} />
+            <Route path="/scheduled" component={ScheduledPosts} />
+            <Route path="/campaigns" component={Campaigns} />
+            <Route path="/campaigns/:id" component={CampaignDetails} />
+            <Route path="/analytics" component={Analytics} />
+            <Route path="/growth-reports" component={GrowthReports} />
+            <Route path="/topic-search" component={TopicSearch} />
+            <Route path="/search" component={TopicSearch} />
+            <Route path="/settings" component={Settings} />
+            <Route path="/settings" component={Settings} />
+            <Route path="/sniper-queue" component={SniperQueue} />
+            <Route path="/sniper" component={SniperQueue} />
+            <Route path="/daily-postcard" component={DailyPostcard} />
+            <Route path="/video-slideshows" component={VideoSlideshows} />
+            <Route path="/thread-tours" component={ThreadTours} />
+            <Route component={NotFound} />
+          </Switch>
+        </MainLayout>
+      </Route>
+    </Switch>
   );
 }
 
