@@ -358,7 +358,7 @@ export function calculateCampaignScore(
 export default CAMPAIGN_CONFIGS;
 
 // ============= LOGICART STRATEGY SYSTEM =============
-export type LogicArtStrategy = 'vibe_scout' | 'spaghetti_detective' | 'stack_visualizer';
+export type LogicArtStrategy = 'vibe_scout' | 'spaghetti_detective' | 'bug_hunter';
 
 export interface StrategyConfig {
     id: string;
@@ -383,21 +383,23 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         id: 'vibe_scout',
         name: 'Vibe Coding Scout',
         emoji: '🎯',
-        description: 'Find early adopters of AI coding tools - offer Founder accounts',
+        description: 'Find devs frustrated with AI models - challenge them to the Cage Match',
         keywords: [
-            "#vibecoding", "#replitagent", "cursor ai", "built this with AI",
-            "replit agent", "windsurf ai", "claude sonnet", "ai pair programming",
-            "vibe coded this", "let the AI cook", "ai wrote this", "agent built"
+            "Claude vs GPT", "Cursor vs Windsurf", "Claude is dumb today", "Cursor hallucinating",
+            "Grok is better", "Claude lazy code", "GPT not working", "AI coding frustrating",
+            "which AI model", "best coding AI", "Claude timeout", "model comparison",
+            "Cursor ai", "Windsurf ai", "Replit agent", "Bolt ai", "lazy AI code",
+            "AI hallucinations", "model keeps failing", "tried Claude and", "switched to GPT"
         ],
-        intentType: 'Show and Tell / Workflow Sharing',
+        intentType: 'Model Comparison / Frustration',
         intentSignals: {
-            positive: ["built", "made", "created", "shipped", "launched", "workflow", "using", "tried", "love", "amazing", "first app", "side project"],
-            negative: ["hiring", "job", "course", "tutorial", "sponsor", "discount"]
+            positive: ["frustrated", "dumb", "hallucinating", "lazy", "not working", "timeout", "better", "worse", "vs", "compared", "switched", "tried"],
+            negative: ["hiring", "job", "course", "tutorial", "sponsor", "discount", "affiliate"]
         },
         replyPersona: {
-            tone: 'Impressed and collaborative. Builder to Builder.',
-            hook: 'Offer a Founder Account (Free Lifetime Access) because they are an early adopter',
-            templateExample: "This looks great! Since you're building with agents, I'd love to give you a Founder account on LogicArt (my AI flowchart tool). DM me if you want an invite!"
+            tone: 'Challenge them to test their assumption in the Arena',
+            hook: 'Position the Cage Match as the ultimate tie-breaker between AI models',
+            templateExample: "I noticed you're struggling with Claude today. 📉 I just ran a similar loop in the Cage Match, and Grok actually nailed the logic while Claude timed out. You should throw that prompt in the Arena to see who wins: [Link]"
         }
     },
 
@@ -405,43 +407,47 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         id: 'spaghetti_detective',
         name: 'Spaghetti Detective',
         emoji: '🍝',
-        description: 'Find devs complaining about complex code - offer visual solution',
+        description: 'Find devs crying about legacy code - offer instant visual clarity',
         keywords: [
-            "spaghetti code", "refactoring hell", "codebase is a mess", "lost in the code",
-            "debugging nightmare", "inherited this codebase", "code archaeology", "who wrote this",
-            "wtf is this code", "technical debt", "unmaintainable code"
+            "spaghetti code", "technical debt", "legacy code", "refactoring hell",
+            "inherited this codebase", "code archaeology", "who wrote this",
+            "wtf is this code", "unmaintainable code", "codebase is a mess",
+            "lost in the code", "debugging nightmare", "confusing function",
+            "how does this work", "can't understand this code"
         ],
-        intentType: 'Complexity Pain',
+        intentType: 'Complexity Pain / Confusion',
         intentSignals: {
-            positive: ["frustrated", "nightmare", "mess", "spaghetti", "legacy", "inherited", "refactor", "confusing", "complex", "debugging", "stuck"],
+            positive: ["frustrated", "nightmare", "mess", "spaghetti", "legacy", "inherited", "refactor", "confusing", "complex", "debugging", "stuck", "lost", "wtf"],
             negative: ["tutorial", "course", "hiring", "job posting", "meme", "joke"]
         },
         replyPersona: {
-            tone: 'Empathetic developer (not a sales bot)',
-            hook: 'Share the pain, then offer a visual mapping solution',
-            templateExample: "I feel that pain. I built a tool called LogicArt to map messy code visually - turns it into flowcharts. Happy to share if you want to try it."
+            tone: 'The Technomancer who offers instant clarity - not just empathy',
+            hook: 'Dare them to put the code in the Cage to generate a visual map instantly',
+            templateExample: "The spirits are confused by this syntax. 🍝 I ran your snippet through the LogicArt Arena... looks like the logic creates an infinite loop in the second block. Check the blueprint here: [Link]"
         }
     },
 
-    stack_visualizer: {
-        id: 'stack_visualizer',
-        name: 'Stack Overflow Visualizer',
-        emoji: '📊',
-        description: 'Find technical questions that need visual explanations',
+    bug_hunter: {
+        id: 'bug_hunter',
+        name: 'The Bug Hunter',
+        emoji: '🐛',
+        description: 'Find devs posting errors or asking for debug help - act as the referee',
         keywords: [
-            "architecture diagram", "how does oauth work", "react state flow",
-            "mvc vs mvvm", "visualize the request", "explain this flow",
-            "data flow diagram", "system design help"
+            "syntax error", "undefined is not a function", "help me debug",
+            "why isn't this working", "error message", "bug in my code",
+            "TypeError", "ReferenceError", "cannot read property", "null pointer",
+            "code not working", "this should work but", "can someone help debug",
+            "what am I doing wrong", "stuck on this error", "screenshot of error"
         ],
-        intentType: 'Learning / Conceptual Questions',
+        intentType: 'Active Debugging / Error Help',
         intentSignals: {
-            positive: ["how does", "explain", "diagram", "visualize", "architecture", "flow", "understand", "confused about"],
-            negative: ["hiring", "job", "course ad", "promo"]
+            positive: ["error", "bug", "debug", "not working", "undefined", "null", "TypeError", "help", "stuck", "wrong", "broken", "fix"],
+            negative: ["hiring", "job", "course ad", "promo", "tutorial sale"]
         },
         replyPersona: {
-            tone: 'Helpful educator sharing a useful resource',
-            hook: 'Offer to visualize the concept they are asking about',
-            templateExample: "That's a great question! Visual diagrams really help with this. I made a tool called LogicArt that auto-generates flowcharts from code - might help you understand the flow better."
+            tone: 'Act as the referee - you ran their code through the Arena to find the fix',
+            hook: 'Tell them you threw their error into the Cage Match and found the issue',
+            templateExample: "I threw your error into the AI Cage Match to see if Gemini could catch it. It flagged a type mismatch on line 14 immediately. Here is the logic map showing exactly where it breaks: [Link]"
         }
     }
 };

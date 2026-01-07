@@ -1,0 +1,45 @@
+1. Strategy: Vibe Coding Scout (Update)
+Target: People using Cursor, Windsurf, Replit, or Bolt.
+The Problem: Your current prompt looks for generic users.
+The Fix: You want users who are frustrated or comparing models. That is the perfect opening for a "Cage Match."
+Search Prompt (Update to this):
+"Find developers discussing or comparing AI coding models (Claude vs. GPT-4, Cursor vs. Windsurf). Prioritize tweets where users are frustrated with 'lazy' code or hallucinations. Look for keywords: 'Claude is dumb today', 'Cursor hallucinating', 'Grok is better'."
+
+Reply Hook (Update to this):
+"Challenge them to test their assumption in the Arena. Position the Cage Match as the ultimate tie-breaker."
+
+Example Reply:
+"I noticed you're struggling with Claude today. 📉 I just ran a similar loop in the Cage Match, and Grok actually nailed the logic while Claude timed out. You should throw that prompt in the Arena to see who wins: [Link]"
+
+2. Strategy: Spaghetti Detective (Keep, but sharpen)
+Target: People crying about legacy code.
+The Problem: The current hook is too polite ("Share the pain").
+The Fix: Be the "Technomancer" who offers instant clarity.
+Search Prompt (Update to this):
+"Find developers complaining about 'spaghetti code', 'technical debt', 'legacy code', or 'refactoring hell'. Look for tweets expressing confusion about how a specific function works."
+
+Reply Hook (Update to this):
+"Don't just empathize—offer to visualize the mess instantly. Dare them to put the code in the Cage to generate a map."
+
+Example Reply:
+"The spirits are confused by this syntax. 🍝 I ran your snippet through the LogicArt Arena... looks like the logic creates an infinite loop in the second block. Check the blueprint here: [Link]"
+
+3. Strategy: Stack Overflow Visualizer (RENAME this)
+Target: People asking technical questions.
+The Change: Rename this strategy to "The Bug Hunter."
+The Problem: "Visualizing concepts" is vague. "Fixing bugs" is high value.
+Search Prompt (Update to this):
+"Find developers posting screenshots of error messages or asking 'why isn't this code working?'. Look for 'syntax error', 'undefined is not a function', or 'help me debug'."
+
+Reply Hook (Update to this):
+"Offer to act as the referee. Tell them you ran their broken code through the Arena to find the fix."
+
+Example Reply:
+"I threw your error into the AI Cage Match to see if Gemini could catch it. It flagged a type mismatch on line 14 immediately. Here is the logic map showing exactly where it breaks: [Link]"
+
+Summary Checklist for VibePost
+Rename "Stack Overflow Visualizer" to "The Bug Hunter".
+Paste the new Reply Hooks above into the "Reply Hook" fields shown in your screenshot.
+Upload your new images:
+Use the Winner Card (cropped) for "Vibe Coding Scout."
+Use the Flowchart Split-View (cropped) for "Spaghetti Detective" and "Bug Hunter."
