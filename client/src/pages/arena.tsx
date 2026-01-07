@@ -315,7 +315,7 @@ export default function ArenaPage() {
                       }
                     }
                     const encodedCode = encodeURIComponent(codeToVisualize);
-                    const logicartUrl = `https://logigo-studio-jpaulgrayson.replit.app?code=${encodedCode}&autorun=true`;
+                    const logicartUrl = `https://logic.art?code=${encodedCode}&autorun=true`;
                     window.open(logicartUrl, '_blank');
                   }}
                   className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-6 py-3"
