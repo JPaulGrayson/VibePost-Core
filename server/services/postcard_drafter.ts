@@ -135,13 +135,14 @@ export async function generateDraft(
     const drafter = new PostcardDrafter();
 
     // Intent verification RE-ENABLED for quality filtering
-    console.log(`Verifying ${config.name} intent...`);
+    console.log(`🔍 Verifying ${config.name} intent for @${authorHandle}...`);
+    console.log(`   Tweet: "${tweet.text.substring(0, 80)}..."`);
     const hasIntent = await verifyIntent(tweet.text, campaignType);
     if (!hasIntent) {
-        console.log(`❌ No ${config.name} intent detected. Skipping.`);
+        console.log(`❌ FILTERED: No ${config.name} intent - @${authorHandle}: "${tweet.text.substring(0, 50)}..."`);
         return false;
     }
-    console.log(`✅ ${config.name} intent verified.`);
+    console.log(`✅ ${config.name} intent verified for @${authorHandle}`);
 
     // 1. Extract context based on campaign type
     let contextInfo: string | null = null;
@@ -190,14 +191,15 @@ export async function generateDraft(
     );
     console.log(`Generated reply text: ${draftReplyText.substring(0, 20)}... (Score: ${score})`);
 
-    // Skip leads below 95% - not worth the API credits
-    // UNLESS it's a manual draft (force=true)
-    if (score < 95 && !force) {
-        console.log(`⏭️ Skipping lead (Score: ${score} < 95) - only processing top-tier leads`);
+    // Skip leads below threshold - LOWERED TO 70% FOR TESTING
+    // TODO: Raise back to 95% once search prompts are finalized
+    const SCORE_THRESHOLD = 70;
+    if (score < SCORE_THRESHOLD && !force) {
+        console.log(`⏭️ FILTERED: Low score (${score} < ${SCORE_THRESHOLD}) - @${authorHandle}: "${tweet.text.substring(0, 50)}..."`);
         return false;
     }
 
-    if (force && score < 95) {
+    if (force && score < SCORE_THRESHOLD) {
         console.log(`⚠️ Manual draft bypass: Saving lead with Score ${score}`);
     }
 
