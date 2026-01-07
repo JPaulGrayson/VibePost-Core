@@ -94,13 +94,13 @@ export class SniperManager {
         return { ...this.campaignPauseState };
     }
 
-    async forceHunt() {
+    async forceHunt(bypassPause: boolean = true) {
         if (this.isHunting) {
             console.log("⚠️ Sniper is already hunting. Skipping manual trigger.");
             return { draftsGenerated: 0, message: "Sniper is already running" };
         }
-        console.log("🎯 Manual Sniper Hunt Triggered");
-        const stats = await this.hunt();
+        console.log("🎯 Manual Sniper Hunt Triggered (bypass pause: " + bypassPause + ")");
+        const stats = await this.hunt(bypassPause);
         return {
             draftsGenerated: this.draftsGeneratedToday,
             stats
@@ -134,7 +134,7 @@ export class SniperManager {
         return true;
     }
 
-    private async hunt() {
+    private async hunt(bypassPause: boolean = false) {
         const stats = {
             keywordsSearched: 0,
             tweetsFound: 0,
@@ -168,8 +168,8 @@ export class SniperManager {
 
             const currentCampaign = getActiveCampaign();
             
-            // Check if this specific campaign is paused
-            if (this.isCampaignPaused(currentCampaign)) {
+            // Check if this specific campaign is paused (skip check for manual hunts)
+            if (!bypassPause && this.isCampaignPaused(currentCampaign)) {
                 console.log(`⏸️  ${currentCampaign} campaign is PAUSED, skipping hunt...`);
                 this.isHunting = false;
                 return stats;
