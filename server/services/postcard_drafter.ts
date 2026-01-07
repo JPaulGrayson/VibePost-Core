@@ -359,8 +359,9 @@ export class PostcardDrafter {
 
     // ===== LOGICART-SPECIFIC METHODS =====
 
-    // LogicArt deployed app URL (users paste their own code for visualization)
-    private static readonly LOGICART_LINK = "https://Logic.art";
+    // LogicArt deployed app URLs
+    private static readonly LOGICART_LINK = "https://Logic.art"; // Simple landing page
+    private static readonly LOGICART_EMBED_BASE = "https://logicart.replit.app"; // For embed links with code
 
     // Extract code snippet from a tweet
     extractCodeFromTweet(text: string): string | null {
@@ -398,11 +399,29 @@ export class PostcardDrafter {
         return null;
     }
 
-    // Generate a LogicArt URL - always use the deployed app where users paste their own code
+    // Generate a LogicArt URL - with code pre-loaded in clean embed view if we extracted code
     generateArenaUrl(code: string | null): string {
-        // Always return the deployed LogicArt app URL
-        // Users are encouraged to paste their own code for visualization
-        return PostcardDrafter.LOGICART_LINK;
+        if (!code) {
+            // No code extracted - link to main landing page
+            return PostcardDrafter.LOGICART_LINK;
+        }
+        
+        // Encode code for URL parameter
+        try {
+            const encodedCode = encodeURIComponent(code);
+            // If the encoded URL would be too long (>800 chars), fall back to simple landing
+            // Twitter has URL limits and very long URLs look spammy
+            if (encodedCode.length > 800) {
+                console.log("   ⚠️ Code too long for URL, using simple link");
+                return PostcardDrafter.LOGICART_LINK;
+            }
+            // Create embed URL with code pre-loaded in clean view
+            // embed=true gives clean fullscreen with code editor + flowchart
+            // autorun=true auto-starts the visualization
+            return `${PostcardDrafter.LOGICART_EMBED_BASE}/?embed=true&autorun=true&code=${encodedCode}`;
+        } catch (e) {
+            return PostcardDrafter.LOGICART_LINK;
+        }
     }
 
     // Extract coding context from a tweet (language, problem type, etc.)
@@ -523,10 +542,18 @@ Answer (one word only):` }]
 
     // LogicArt-specific reply generation
     async generateLogicArtReply(author: string, context: string, originalText: string, arenaUrl?: string): Promise<{ text: string; score: number }> {
-        // Always use the deployed LogicArt app - users paste their own code
-        const linkToUse = PostcardDrafter.LOGICART_LINK;
+        // Use the dynamic URL if we extracted code, otherwise use the simple landing page
+        const linkToUse = arenaUrl || PostcardDrafter.LOGICART_LINK;
+        const hasCodePreloaded = arenaUrl?.includes('code=');
         
         try {
+            // Adjust messaging based on whether we pre-loaded their code
+            const codeSpecificInstructions = hasCodePreloaded
+                ? `You have already extracted and visualized their code! The link will show them the flowchart of THEIR code instantly.
+                   Use phrases like "I visualized your code", "Check out what I found", "Look at the flow here"`
+                : `Encourage them to paste their code into the tool for instant visualization.
+                   Use phrases like "Paste your code into", "Try throwing your code into", "Drop your code here"`;
+            
             const systemPrompt = `
             You are "The Code Sage", a wise and friendly senior developer who helps fellow coders.
             
@@ -536,26 +563,29 @@ Answer (one word only):` }]
                - 60-79: Moderate Lead. General coding discussion, might need tools.
                - 0-59: Weak Lead. Promotional, hiring, or not actually seeking help.
             
-            2. Write a short, helpful reply that provides value AND invites them to try LogicArt.
+            2. Write a short, helpful reply that provides value AND includes the LogicArt link.
+            
+            ${codeSpecificInstructions}
             
             Rules:
             1. Tone: Friendly senior developer, empathetic, confident. Use emojis sparingly: 🧠, 💡, ⚡, 🔍, 📊
             2. Structure your reply:
                - Acknowledge their struggle (empathy first)
-               - Suggest visualizing their code as a flowchart to spot the issue
-               - Invite them to paste their code into LogicArt with the link
-            3. Example patterns:
-               - "I feel you! Debugging [X] is rough. Try pasting your code into [LINK] - seeing the flow as a chart makes issues pop out instantly 🧠"
-               - "That's a tricky one! Visualizing the logic really helps - paste it into [LINK] and the flowchart shows exactly where things break 💡"
-               - "Been there! Map it out visually - throw your code into [LINK] and watch the flow unfold. Saves hours of staring at text ⚡"
-            4. **CRITICAL**: You MUST include "[LINK]" placeholder - I will replace it with the actual URL (Logic.art).
-            5. **CRITICAL**: Be genuinely helpful. The suggestion is to paste THEIR code and get instant visualization.
+               - Mention how visualizing code as a flowchart helps spot issues
+               - Include the link naturally
+            3. Example patterns (adapt based on whether code is pre-loaded):
+               - WITH code: "I threw your code into a visualizer - look at the flow here: [LINK] 🧠"
+               - WITH code: "Interesting! I mapped out that logic - check the flowchart: [LINK] 💡"
+               - NO code: "Debugging [X] is rough. Try pasting your code into [LINK] - the chart shows exactly where things break 🧠"
+               - NO code: "Visualizing helps! Drop your code into [LINK] and watch the flow unfold ⚡"
+            4. **CRITICAL**: You MUST include "[LINK]" placeholder - I will replace it with the actual URL.
+            5. **CRITICAL**: Be genuinely helpful, not salesy.
             6. Length: Keep it under 240 characters (Twitter limit with link).
 
             Output Format: JSON
             {
                 "score": 85,
-                "reply": "Debugging async can be wild! 🧠 Paste your code into [LINK] - the flowchart shows exactly where the race condition hides"
+                "reply": "Your example reply with [LINK] placeholder"
             }
             `;
 
