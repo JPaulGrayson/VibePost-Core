@@ -1361,7 +1361,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       config: CAMPAIGN_CONFIGS[currentCampaign],
       activeStrategy: currentCampaign === 'logicart' ? getActiveLogicArtStrategy() : null,
       strategyConfig: currentCampaign === 'logicart' ? getActiveStrategyConfig() : null,
-      availableStrategies: currentCampaign === 'logicart' ? Object.values(LOGICART_STRATEGIES) : []
+      // Always return LogicArt strategies so frontend can display them when switching tabs
+      availableStrategies: Object.values(LOGICART_STRATEGIES)
     });
   });
 
