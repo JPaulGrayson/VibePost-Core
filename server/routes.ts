@@ -997,15 +997,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get current campaign configuration
-  app.get("/api/sniper/campaign", (req, res) => {
-    const activeCampaign = getActiveCampaign();
-    res.json({
-      currentCampaign: activeCampaign,
-      config: CAMPAIGN_CONFIGS[activeCampaign]
-    });
-  });
-
   // Analytics Dashboard API
   app.get("/api/analytics/dashboard", async (req, res) => {
     try {
@@ -1367,12 +1358,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { LOGICART_STRATEGIES, getActiveLogicArtStrategy, getActiveStrategyConfig } = require('./campaign-config');
     const currentCampaign = getActiveCampaign();
     
+    // Always return strategies so they're available when user switches to LogicArt
     res.json({
       currentCampaign,
       config: CAMPAIGN_CONFIGS[currentCampaign],
-      activeStrategy: currentCampaign === 'logicart' ? getActiveLogicArtStrategy() : null,
-      strategyConfig: currentCampaign === 'logicart' ? getActiveStrategyConfig() : null,
-      availableStrategies: currentCampaign === 'logicart' ? Object.values(LOGICART_STRATEGIES) : []
+      activeStrategy: getActiveLogicArtStrategy(),
+      strategyConfig: getActiveStrategyConfig(),
+      availableStrategies: Object.values(LOGICART_STRATEGIES)
     });
   });
 

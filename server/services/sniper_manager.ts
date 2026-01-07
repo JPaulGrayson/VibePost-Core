@@ -132,6 +132,7 @@ export class SniperManager {
             const currentCampaign = getActiveCampaign();
             const keywords = this.getKeywords();
             console.log(`   🎯 Hunting for ${currentCampaign} campaign (${keywords.length} keywords)`);
+            console.log(`   📋 Keywords: ${keywords.slice(0, 5).join(', ')}${keywords.length > 5 ? '...' : ''}`);
 
             for (const keyword of keywords) {
                 stats.keywordsSearched++;
