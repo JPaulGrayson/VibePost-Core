@@ -72,6 +72,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const sniperStatus = {
         isRunning: sniperManager.isRunning,
+        isPaused: sniperManager.paused,
         draftsGeneratedToday: sniperManager.todaysDrafts,
         dailyLimit: sniperManager.dailyDraftLimit
       };
@@ -1380,6 +1381,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       success: true,
       activeStrategy: getActiveLogicArtStrategy(),
       strategyConfig: getActiveStrategyConfig()
+    });
+  });
+
+  // Pause/Resume sniper auto-hunting
+  app.post("/api/sniper/pause", (req, res) => {
+    sniperManager.pause();
+    res.json({ success: true, isPaused: true, message: "Sniper auto-hunting paused" });
+  });
+
+  app.post("/api/sniper/resume", (req, res) => {
+    sniperManager.resume();
+    res.json({ success: true, isPaused: false, message: "Sniper auto-hunting resumed" });
+  });
+
+  app.get("/api/sniper/status", (req, res) => {
+    res.json({
+      isPaused: sniperManager.paused,
+      isRunning: sniperManager.isRunning,
+      draftsGeneratedToday: sniperManager.todaysDrafts,
+      dailyLimit: sniperManager.dailyDraftLimit
     });
   });
 
