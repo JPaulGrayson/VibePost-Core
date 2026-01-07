@@ -359,8 +359,8 @@ export class PostcardDrafter {
 
     // ===== LOGICART-SPECIFIC METHODS =====
 
-    // Base Arena URL for generating dynamic links
-    private static readonly ARENA_BASE_URL = "https://vibepost-jpaulgrayson.replit.app/arena";
+    // LogicArt deployed app URL (users paste their own code for visualization)
+    private static readonly LOGICART_LINK = "https://Logic.art";
 
     // Extract code snippet from a tweet
     extractCodeFromTweet(text: string): string | null {
@@ -398,23 +398,11 @@ export class PostcardDrafter {
         return null;
     }
 
-    // Generate a dynamic Arena URL with code pre-loaded
+    // Generate a LogicArt URL - always use the deployed app where users paste their own code
     generateArenaUrl(code: string | null): string {
-        if (!code) {
-            return PostcardDrafter.ARENA_LINK; // Use short link if no code
-        }
-        
-        // Encode code for URL parameter
-        try {
-            const encodedCode = encodeURIComponent(code);
-            // If the URL would be too long (>500 chars for code), use short link
-            if (encodedCode.length > 500) {
-                return PostcardDrafter.ARENA_LINK;
-            }
-            return `${PostcardDrafter.ARENA_BASE_URL}?code=${encodedCode}`;
-        } catch (e) {
-            return PostcardDrafter.ARENA_LINK;
-        }
+        // Always return the deployed LogicArt app URL
+        // Users are encouraged to paste their own code for visualization
+        return PostcardDrafter.LOGICART_LINK;
     }
 
     // Extract coding context from a tweet (language, problem type, etc.)
@@ -534,11 +522,9 @@ Answer (one word only):` }]
     }
 
     // LogicArt-specific reply generation
-    // Arena link to include in replies (must include https:// for Twitter to auto-link)
-    private static readonly ARENA_LINK = "https://rb.gy/9gu0uy"; // Short link to Arena
-    
     async generateLogicArtReply(author: string, context: string, originalText: string, arenaUrl?: string): Promise<{ text: string; score: number }> {
-        const linkToUse = arenaUrl || PostcardDrafter.ARENA_LINK;
+        // Always use the deployed LogicArt app - users paste their own code
+        const linkToUse = PostcardDrafter.LOGICART_LINK;
         
         try {
             const systemPrompt = `
@@ -550,26 +536,26 @@ Answer (one word only):` }]
                - 60-79: Moderate Lead. General coding discussion, might need tools.
                - 0-59: Weak Lead. Promotional, hiring, or not actually seeking help.
             
-            2. Write a short, helpful reply that provides value AND includes a direct link.
+            2. Write a short, helpful reply that provides value AND invites them to try LogicArt.
             
             Rules:
             1. Tone: Friendly senior developer, empathetic, confident. Use emojis sparingly: 🧠, 💡, ⚡, 🔍, 📊
             2. Structure your reply:
                - Acknowledge their struggle (empathy first)
-               - Offer a helpful observation about their specific problem
-               - Mention you ran/visualized it and include the link naturally
+               - Suggest visualizing their code as a flowchart to spot the issue
+               - Invite them to paste their code into LogicArt with the link
             3. Example patterns:
-               - "I feel you! Debugging [X] is tough. I threw similar logic into a visualizer and spotted the issue instantly: [LINK]"
-               - "That's a tricky one! I ran something like this through the Arena and [observation]. Check it out: [LINK]"
-               - "Been there! Visualizing the flow really helps - I mapped out a similar problem here: [LINK]"
-            4. **CRITICAL**: You MUST include "[LINK]" placeholder - I will replace it with the actual URL.
-            5. **CRITICAL**: Be genuinely helpful, the link is offering real value not spam.
+               - "I feel you! Debugging [X] is rough. Try pasting your code into [LINK] - seeing the flow as a chart makes issues pop out instantly 🧠"
+               - "That's a tricky one! Visualizing the logic really helps - paste it into [LINK] and the flowchart shows exactly where things break 💡"
+               - "Been there! Map it out visually - throw your code into [LINK] and watch the flow unfold. Saves hours of staring at text ⚡"
+            4. **CRITICAL**: You MUST include "[LINK]" placeholder - I will replace it with the actual URL (Logic.art).
+            5. **CRITICAL**: Be genuinely helpful. The suggestion is to paste THEIR code and get instant visualization.
             6. Length: Keep it under 240 characters (Twitter limit with link).
 
             Output Format: JSON
             {
                 "score": 85,
-                "reply": "Debugging async can be wild! 🧠 I ran similar code through the Arena and it showed exactly where the race condition hides: [LINK]"
+                "reply": "Debugging async can be wild! 🧠 Paste your code into [LINK] - the flowchart shows exactly where the race condition hides"
             }
             `;
 
@@ -593,7 +579,7 @@ Answer (one word only):` }]
             try {
                 const jsonStr = resultText?.replace(/```json/g, '').replace(/```/g, '').trim();
                 const parsed = JSON.parse(jsonStr || '{}');
-                let replyText = parsed.reply || `That's a tricky one, @${author}! I ran similar code through the Arena - check it out: [LINK]`;
+                let replyText = parsed.reply || `That's a tricky one, @${author}! Paste your code into [LINK] - the flowchart shows exactly where things break 🧠`;
                 
                 // Replace [LINK] placeholder with actual Arena URL
                 if (/\[LINK\]/gi.test(replyText)) {
@@ -611,7 +597,7 @@ Answer (one word only):` }]
             } catch (e) {
                 console.error("Failed to parse LogicArt AI JSON response:", resultText);
                 return {
-                    text: `That's a tricky one, @${author}! I threw similar logic into the Arena and it shows exactly where things break: ${linkToUse}`,
+                    text: `That's a tricky one, @${author}! Paste your code into ${linkToUse} - the flowchart shows exactly where things break 🧠`,
                     score: 50
                 };
             }
@@ -619,7 +605,7 @@ Answer (one word only):` }]
         } catch (error) {
             console.error("Error generating LogicArt reply:", error);
             return {
-                text: `That's a tricky one, @${author}! Sometimes visualizing your code flow helps - I use this: ${linkToUse}`,
+                text: `That's a tricky one, @${author}! Paste your code into ${linkToUse} - seeing the flow as a chart makes issues pop out 🧠`,
                 score: 50
             };
         }
