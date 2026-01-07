@@ -997,15 +997,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get current campaign configuration
-  app.get("/api/sniper/campaign", (req, res) => {
-    const activeCampaign = getActiveCampaign();
-    res.json({
-      currentCampaign: activeCampaign,
-      config: CAMPAIGN_CONFIGS[activeCampaign]
-    });
-  });
-
   // Analytics Dashboard API
   app.get("/api/analytics/dashboard", async (req, res) => {
     try {
