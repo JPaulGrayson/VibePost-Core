@@ -227,42 +227,42 @@ export default function ArenaPage() {
             </div>
 
             {/* Model Responses Grid - FIRST */}
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-2 gap-4">
               {result.responses.map((response, idx) => (
                 <Card
                   key={response.model}
-                  className={`bg-slate-800/50 border-slate-700 ${
+                  className={`bg-slate-800/50 border-slate-700 flex flex-col h-[320px] ${
                     response.model === result.winner ? "ring-2 ring-yellow-400" : ""
                   }`}
                   data-testid={`card-model-${idx}`}
                 >
-                  <CardHeader className="pb-2">
+                  <CardHeader className="pb-2 flex-shrink-0">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-2xl">{MODEL_ICONS[response.model] || "🤖"}</span>
-                        <CardTitle className="text-lg text-white">{response.model}</CardTitle>
+                        <span className="text-xl">{MODEL_ICONS[response.model] || "🤖"}</span>
+                        <CardTitle className="text-base text-white">{response.model}</CardTitle>
                         {response.model === result.winner && (
-                          <Badge className="bg-yellow-500 text-black">Winner</Badge>
+                          <Badge className="bg-yellow-500 text-black text-xs">Winner</Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 text-gray-400 text-sm">
-                        <Clock className="w-4 h-4" />
+                      <div className="flex items-center gap-1 text-gray-400 text-xs">
+                        <Clock className="w-3 h-3" />
                         {(response.responseTime / 1000).toFixed(1)}s
                       </div>
                     </div>
-                    <Badge variant="outline" className={`${MODEL_COLORS[response.model] || "bg-gray-500"} text-white border-0 w-fit`}>
+                    <Badge variant="outline" className={`${MODEL_COLORS[response.model] || "bg-gray-500"} text-white border-0 w-fit text-xs`}>
                       {response.provider}
                     </Badge>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="flex-1 overflow-hidden">
                     {response.error ? (
-                      <p className="text-red-400 flex items-center gap-2" data-testid={`text-model-error-${response.model.toLowerCase().replace(/\s+/g, '-')}`}>
+                      <p className="text-red-400 flex items-center gap-2 text-sm" data-testid={`text-model-error-${response.model.toLowerCase().replace(/\s+/g, '-')}`}>
                         <AlertCircle className="w-4 h-4" />
                         {response.error}
                       </p>
                     ) : (
-                      <div className="prose prose-invert prose-sm max-w-none">
-                        <pre className="bg-slate-900 p-4 rounded-lg overflow-x-auto text-xs text-gray-300 whitespace-pre-wrap">
+                      <div className="h-full overflow-y-auto">
+                        <pre className="bg-slate-900 p-3 rounded-lg text-xs text-gray-300 whitespace-pre-wrap">
                           {response.response || "No response"}
                         </pre>
                       </div>
