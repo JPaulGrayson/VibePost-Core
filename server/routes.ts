@@ -19,7 +19,7 @@ import { getThreadTourSchedulerStatus, setNextThreadDestination, clearNextThread
 import { autoPublisher } from "./services/auto_publisher";
 import { previewVideoPost, generateVideoPost, generateVideoCaption, refreshPreviewData } from "./services/video_post_generator";
 import { getDailyVideoSchedulerStatus, setNextVideoDestination, clearNextVideoDestination, triggerDailyVideoNow, getVideoDestinationQueue } from "./services/daily_video_scheduler";
-import { CAMPAIGN_CONFIGS, LOGICART_STRATEGIES, getActiveLogicArtStrategy, setActiveLogicArtStrategy, getActiveStrategyConfig } from "./campaign-config";
+import { CAMPAIGN_CONFIGS } from "./campaign-config";
 import { getActiveCampaign, setActiveCampaign, isValidCampaignType } from "./campaign-state";
 import { arenaService, type ArenaRequest, getRandomChallenge, getAllChallenges, runAutoArena } from "./services/arena_service";
 import { requireTier, checkFeature, getTierLimits, TIER_LIMITS } from "./middleware/tier-guard";
@@ -997,6 +997,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get current campaign configuration
+  app.get("/api/sniper/campaign", (req, res) => {
+    const activeCampaign = getActiveCampaign();
+    res.json({
+      currentCampaign: activeCampaign,
+      config: CAMPAIGN_CONFIGS[activeCampaign]
+    });
+  });
+
   // Analytics Dashboard API
   app.get("/api/analytics/dashboard", async (req, res) => {
     try {
@@ -1344,6 +1353,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get all available campaign configs
   app.get("/api/sniper/campaigns", (req, res) => {
+    const { LOGICART_STRATEGIES, getActiveLogicArtStrategy, getActiveStrategyConfig } = require('./campaign-config');
     res.json({
       campaigns: Object.values(CAMPAIGN_CONFIGS),
       currentCampaign: getActiveCampaign(),
@@ -1354,21 +1364,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get current campaign state (used by frontend)
   app.get("/api/sniper/campaign", (req, res) => {
+    const { LOGICART_STRATEGIES, getActiveLogicArtStrategy, getActiveStrategyConfig } = require('./campaign-config');
     const currentCampaign = getActiveCampaign();
     
-    // Always return strategies so they're available when user switches to LogicArt
     res.json({
       currentCampaign,
       config: CAMPAIGN_CONFIGS[currentCampaign],
-      activeStrategy: getActiveLogicArtStrategy(),
-      strategyConfig: getActiveStrategyConfig(),
-      availableStrategies: Object.values(LOGICART_STRATEGIES)
+      activeStrategy: currentCampaign === 'logicart' ? getActiveLogicArtStrategy() : null,
+      strategyConfig: currentCampaign === 'logicart' ? getActiveStrategyConfig() : null,
+      availableStrategies: currentCampaign === 'logicart' ? Object.values(LOGICART_STRATEGIES) : []
     });
   });
 
   // Switch LogicArt strategy
   app.post("/api/sniper/strategy", (req, res) => {
     const { strategy } = req.body;
+    const { setActiveLogicArtStrategy, getActiveLogicArtStrategy, getActiveStrategyConfig, LOGICART_STRATEGIES } = require('./campaign-config');
     
     if (!strategy || !['vibe_scout', 'spaghetti_detective', 'stack_visualizer'].includes(strategy)) {
       return res.status(400).json({ error: 'Invalid strategy. Choose: vibe_scout, spaghetti_detective, or stack_visualizer' });
