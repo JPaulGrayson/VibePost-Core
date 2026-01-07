@@ -9,7 +9,13 @@ import { CAMPAIGN_CONFIGS } from "../campaign-config";
 export class SniperManager {
     private isHunting = false;  // Tracks if a hunt is in progress
     private isStarted = false;  // Tracks if the auto-loop has been started
-    private isPaused = true;    // PAUSED BY DEFAULT - set to false to enable auto-hunting
+    
+    // Independent pause controls per campaign - both PAUSED by default
+    private campaignPauseState: Record<string, boolean> = {
+        turai: true,      // Turai Travel - PAUSED
+        logicart: true    // LogicArt Vibe Coding - PAUSED
+    };
+    
     private checkIntervalMs = 3 * 60 * 1000; // 3 Minutes (increased from 5 for more aggressive hunting)
     private replyToRepliesEnabled = true;  // Enable reply-to-replies feature
     private minScoreForReplyChain = 95;    // Only fetch replies for highest-quality tweets (≥95%)
@@ -41,30 +47,51 @@ export class SniperManager {
         replyTimingOptimizer.start();
         dmFollowUpService.start();
 
-        // Initial Run after 10 seconds (only if not paused)
+        // Initial Run after 10 seconds (only if at least one campaign is active)
         setTimeout(() => {
-            if (!this.isPaused) this.hunt();
+            if (!this.paused) this.hunt();
         }, 10000);
 
-        // Loop (checks pause state inside)
+        // Loop (checks pause state inside hunt())
         setInterval(() => {
-            if (!this.isPaused) this.hunt();
+            if (!this.paused) this.hunt();
         }, this.checkIntervalMs);
     }
 
-    // Pause/Resume controls
-    pause() {
-        this.isPaused = true;
-        console.log("⏸️  Sniper auto-hunting PAUSED");
+    // Pause/Resume controls - per campaign
+    pause(campaign?: string) {
+        if (campaign && this.campaignPauseState.hasOwnProperty(campaign)) {
+            this.campaignPauseState[campaign] = true;
+            console.log(`⏸️  ${campaign} campaign PAUSED`);
+        } else {
+            // Pause all
+            Object.keys(this.campaignPauseState).forEach(c => this.campaignPauseState[c] = true);
+            console.log("⏸️  All campaigns PAUSED");
+        }
     }
 
-    resume() {
-        this.isPaused = false;
-        console.log("▶️  Sniper auto-hunting RESUMED");
+    resume(campaign?: string) {
+        if (campaign && this.campaignPauseState.hasOwnProperty(campaign)) {
+            this.campaignPauseState[campaign] = false;
+            console.log(`▶️  ${campaign} campaign RESUMED`);
+        } else {
+            // Resume all
+            Object.keys(this.campaignPauseState).forEach(c => this.campaignPauseState[c] = false);
+            console.log("▶️  All campaigns RESUMED");
+        }
     }
 
     get paused(): boolean {
-        return this.isPaused;
+        // Returns true if ALL campaigns are paused
+        return Object.values(this.campaignPauseState).every(p => p === true);
+    }
+
+    isCampaignPaused(campaign: string): boolean {
+        return this.campaignPauseState[campaign] ?? true;
+    }
+
+    getCampaignPauseStates(): Record<string, boolean> {
+        return { ...this.campaignPauseState };
     }
 
     async forceHunt() {
@@ -140,6 +167,14 @@ export class SniperManager {
             }
 
             const currentCampaign = getActiveCampaign();
+            
+            // Check if this specific campaign is paused
+            if (this.isCampaignPaused(currentCampaign)) {
+                console.log(`⏸️  ${currentCampaign} campaign is PAUSED, skipping hunt...`);
+                this.isHunting = false;
+                return stats;
+            }
+            
             const keywords = this.getKeywords();
             console.log(`   🎯 Hunting for ${currentCampaign} campaign (${keywords.length} keywords)`);
 

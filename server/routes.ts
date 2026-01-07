@@ -1384,20 +1384,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Pause/Resume sniper auto-hunting
+  // Pause/Resume sniper auto-hunting - per campaign
   app.post("/api/sniper/pause", (req, res) => {
-    sniperManager.pause();
-    res.json({ success: true, isPaused: true, message: "Sniper auto-hunting paused" });
+    const { campaign } = req.body; // Optional: 'turai' or 'logicart'
+    sniperManager.pause(campaign);
+    res.json({ 
+      success: true, 
+      campaigns: sniperManager.getCampaignPauseStates(),
+      message: campaign ? `${campaign} campaign paused` : "All campaigns paused"
+    });
   });
 
   app.post("/api/sniper/resume", (req, res) => {
-    sniperManager.resume();
-    res.json({ success: true, isPaused: false, message: "Sniper auto-hunting resumed" });
+    const { campaign } = req.body; // Optional: 'turai' or 'logicart'
+    sniperManager.resume(campaign);
+    res.json({ 
+      success: true, 
+      campaigns: sniperManager.getCampaignPauseStates(),
+      message: campaign ? `${campaign} campaign resumed` : "All campaigns resumed"
+    });
   });
 
   app.get("/api/sniper/status", (req, res) => {
     res.json({
-      isPaused: sniperManager.paused,
+      campaigns: sniperManager.getCampaignPauseStates(),
+      allPaused: sniperManager.paused,
       isRunning: sniperManager.isRunning,
       draftsGeneratedToday: sniperManager.todaysDrafts,
       dailyLimit: sniperManager.dailyDraftLimit

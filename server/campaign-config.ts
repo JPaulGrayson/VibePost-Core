@@ -376,6 +376,7 @@ export interface StrategyConfig {
         hook: string;
         templateExample: string;
     };
+    replyImage?: string; // Optional image to attach to replies
 }
 
 export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
@@ -400,7 +401,8 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
             tone: 'Challenge them to test their assumption in the Arena',
             hook: 'Position the Cage Match as the ultimate tie-breaker between AI models',
             templateExample: "I noticed you're struggling with Claude today. 📉 I just ran a similar loop in the Cage Match, and Grok actually nailed the logic while Claude timed out. You should throw that prompt in the Arena to see who wins: [Link]"
-        }
+        },
+        replyImage: 'attached_assets/TheWinnerIs_1767810718250.jpg' // Winner Card screenshot
     },
 
     spaghetti_detective: {
@@ -424,7 +426,8 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
             tone: 'The Technomancer who offers instant clarity - not just empathy',
             hook: 'Dare them to put the code in the Cage to generate a visual map instantly',
             templateExample: "The spirits are confused by this syntax. 🍝 I ran your snippet through the LogicArt Arena... looks like the logic creates an infinite loop in the second block. Check the blueprint here: [Link]"
-        }
+        },
+        replyImage: 'attached_assets/image_1767810707484.png' // Flowchart Split-View screenshot
     },
 
     bug_hunter: {
@@ -448,7 +451,8 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
             tone: 'Act as the referee - you ran their code through the Arena to find the fix',
             hook: 'Tell them you threw their error into the Cage Match and found the issue',
             templateExample: "I threw your error into the AI Cage Match to see if Gemini could catch it. It flagged a type mismatch on line 14 immediately. Here is the logic map showing exactly where it breaks: [Link]"
-        }
+        },
+        replyImage: 'attached_assets/image_1767810707484.png' // Flowchart Split-View screenshot
     }
 };
 
