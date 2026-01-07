@@ -482,7 +482,7 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
     }
 };
 
-// State management for active strategy
+// State management for active strategy - defaults to Vibe Coding Scout
 let currentLogicArtStrategy: LogicArtStrategy = 'vibe_scout';
 
 export function getActiveLogicArtStrategy(): LogicArtStrategy {

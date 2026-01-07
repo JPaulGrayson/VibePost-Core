@@ -51,24 +51,23 @@ export class SniperManager {
     async startHunting() {
         if (this.isStarted) return;
         this.isStarted = true;
-        console.log("🎯 Sniper Manager Started (Auto-hunting PAUSED by default)");
+        console.log("🎯 Sniper Manager Started (Manual Hunt Mode - Auto-hunting DISABLED)");
         console.log("   ⏰ Reply timing optimizer: ENABLED (2-3h delay)");
         console.log("   📬 DM follow-ups: ENABLED (2h after reply)");
-        console.log("   ⏸️  Auto-hunt: PAUSED - Use API to resume");
+        console.log("   🛑 Auto-hunt: DISABLED - Use Manual Hunt button for testing");
 
         // Start supporting services
         replyTimingOptimizer.start();
         dmFollowUpService.start();
 
-        // Initial Run after 10 seconds (only if at least one campaign is active)
-        setTimeout(() => {
-            if (!this.paused) this.hunt();
-        }, 10000);
-
-        // Loop (checks pause state inside hunt())
-        setInterval(() => {
-            if (!this.paused) this.hunt();
-        }, this.checkIntervalMs);
+        // AUTO-HUNTING DISABLED FOR TESTING
+        // Uncomment below to re-enable automatic hunting:
+        // setTimeout(() => {
+        //     if (!this.paused) this.hunt();
+        // }, 10000);
+        // setInterval(() => {
+        //     if (!this.paused) this.hunt();
+        // }, this.checkIntervalMs);
     }
 
     // Pause/Resume controls - per campaign
