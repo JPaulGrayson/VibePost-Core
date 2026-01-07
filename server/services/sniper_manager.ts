@@ -4,7 +4,7 @@ import { storage } from "../storage";
 import { replyTimingOptimizer } from "./reply_timing_optimizer";
 import { dmFollowUpService } from "./dm_follow_up";
 import { getActiveCampaign } from "../campaign-state";
-import { CAMPAIGN_CONFIGS } from "../campaign-config";
+import { CAMPAIGN_CONFIGS, LOGICART_STRATEGIES, getActiveLogicArtStrategy } from "../campaign-config";
 
 export class SniperManager {
     private isHunting = false;  // Tracks if a hunt is in progress
@@ -21,12 +21,25 @@ export class SniperManager {
     private minScoreForReplyChain = 95;    // Only fetch replies for highest-quality tweets (≥95%)
     private dmFollowUpEnabled = true;      // Enable DM follow-ups after replies
 
-    // Keywords loaded dynamically from active campaign config
+    // Keywords loaded dynamically from active campaign/strategy config
     private getKeywords(): string[] {
         const campaign = getActiveCampaign();
-        const config = CAMPAIGN_CONFIGS[campaign];
+        
+        let allKeywords: string[];
+        
+        if (campaign === 'logicart') {
+            // For LogicArt: use the active strategy's keywords
+            const activeStrategy = getActiveLogicArtStrategy();
+            const strategyConfig = LOGICART_STRATEGIES[activeStrategy];
+            allKeywords = strategyConfig.keywords;
+            console.log(`   🎯 Using ${strategyConfig.name} strategy keywords (${allKeywords.length} total)`);
+        } else {
+            // For other campaigns: use the main campaign keywords
+            const config = CAMPAIGN_CONFIGS[campaign];
+            allKeywords = config.keywords;
+        }
+        
         // Return a subset of keywords to avoid rate limiting (rotate through them)
-        const allKeywords = config.keywords;
         // Use first 20 keywords per hunt cycle
         return allKeywords.slice(0, 20);
     }
