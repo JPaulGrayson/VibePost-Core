@@ -357,7 +357,65 @@ export class PostcardDrafter {
         }
     }
 
-    // ===== LOGIGO-SPECIFIC METHODS =====
+    // ===== LOGICART-SPECIFIC METHODS =====
+
+    // Base Arena URL for generating dynamic links
+    private static readonly ARENA_BASE_URL = "https://vibepost-jpaulgrayson.replit.app/arena";
+
+    // Extract code snippet from a tweet
+    extractCodeFromTweet(text: string): string | null {
+        // Try to find code blocks (```code```)
+        const codeBlockMatch = text.match(/```[\s\S]*?```/);
+        if (codeBlockMatch) {
+            return codeBlockMatch[0].replace(/```/g, '').trim();
+        }
+        
+        // Try to find inline code (`code`)
+        const inlineCodeMatch = text.match(/`[^`]+`/g);
+        if (inlineCodeMatch && inlineCodeMatch.length > 0) {
+            // Join multiple inline code segments
+            return inlineCodeMatch.map(c => c.replace(/`/g, '')).join('\n');
+        }
+        
+        // Look for common code patterns (function declarations, variable assignments, etc.)
+        const codePatterns = [
+            /(?:function|const|let|var|def|class|import|export|return|if|for|while)\s+\w+/,
+            /\w+\s*=\s*(?:function|\(|{|\[)/,
+            /\w+\.\w+\(/,
+            /=>\s*{/,
+        ];
+        
+        for (const pattern of codePatterns) {
+            if (pattern.test(text)) {
+                // The whole tweet might be code-like, return it
+                // But only if it looks code-ish (has brackets, semicolons, etc.)
+                if (/[{}\[\]();=]/.test(text)) {
+                    return text;
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    // Generate a dynamic Arena URL with code pre-loaded
+    generateArenaUrl(code: string | null): string {
+        if (!code) {
+            return PostcardDrafter.ARENA_LINK; // Use short link if no code
+        }
+        
+        // Encode code for URL parameter
+        try {
+            const encodedCode = encodeURIComponent(code);
+            // If the URL would be too long (>500 chars for code), use short link
+            if (encodedCode.length > 500) {
+                return PostcardDrafter.ARENA_LINK;
+            }
+            return `${PostcardDrafter.ARENA_BASE_URL}?code=${encodedCode}`;
+        } catch (e) {
+            return PostcardDrafter.ARENA_LINK;
+        }
+    }
 
     // Extract coding context from a tweet (language, problem type, etc.)
     async extractCodingContext(text: string): Promise<string | null> {
@@ -454,16 +512,34 @@ Answer (one word only):` }]
         context: string,
         originalText: string,
         campaignType: CampaignType
-    ): Promise<{ text: string; score: number }> {
+    ): Promise<{ text: string; score: number; extractedCode?: string; arenaUrl?: string }> {
         if (campaignType === 'logicart') {
-            return this.generateLogicArtReply(author, context, originalText);
+            // Extract code from the original tweet
+            const extractedCode = this.extractCodeFromTweet(originalText);
+            // Generate dynamic Arena URL with code pre-loaded (if found)
+            const arenaUrl = this.generateArenaUrl(extractedCode);
+            
+            console.log(`   📝 Code extraction: ${extractedCode ? `Found ${extractedCode.length} chars` : 'No code found'}`);
+            console.log(`   🔗 Arena URL: ${arenaUrl.length > 50 ? arenaUrl.substring(0, 50) + '...' : arenaUrl}`);
+            
+            const result = await this.generateLogicArtReply(author, context, originalText, arenaUrl);
+            return {
+                ...result,
+                extractedCode: extractedCode || undefined,
+                arenaUrl
+            };
         }
         // Default to Turai travel reply
         return this.generateReplyText(author, context, originalText);
     }
 
     // LogicArt-specific reply generation
-    async generateLogicArtReply(author: string, context: string, originalText: string): Promise<{ text: string; score: number }> {
+    // Arena link to include in replies (must include https:// for Twitter to auto-link)
+    private static readonly ARENA_LINK = "https://rb.gy/9gu0uy"; // Short link to Arena
+    
+    async generateLogicArtReply(author: string, context: string, originalText: string, arenaUrl?: string): Promise<{ text: string; score: number }> {
+        const linkToUse = arenaUrl || PostcardDrafter.ARENA_LINK;
+        
         try {
             const systemPrompt = `
             You are "The Code Sage", a wise and friendly senior developer who helps fellow coders.
@@ -474,29 +550,26 @@ Answer (one word only):` }]
                - 60-79: Moderate Lead. General coding discussion, might need tools.
                - 0-59: Weak Lead. Promotional, hiring, or not actually seeking help.
             
-            2. Write a short, helpful reply that subtly hints at visualization helping.
+            2. Write a short, helpful reply that provides value AND includes a direct link.
             
             Rules:
-            1. Tone: Friendly senior developer, empathetic, NOT salesy. Use emojis sparingly: 🧠, 💡, ⚡, 🔍, 📊
-            2. Vocabulary:
-               - "I feel you, debugging [X] can be tricky..."
-               - "Have you tried visualizing the flow?"
-               - "Sometimes a flowchart really helps see what's happening"
-               - "That's a tough one! Breaking it down step by step helps"
-               - NEVER sound like a bot or advertisement
-            3. **CRITICAL**: Do NOT include any URLs or links in the text.
-            4. **CRITICAL**: Be genuinely helpful first, product mention secondary.
-            5. Length: Keep it under 200 characters.
-            
-            Structure:
-            - Acknowledge their struggle (empathy first)
-            - Offer a helpful tip related to visualization/understanding code flow
-            - Optional: Very subtle mention that you use a tool for this
+            1. Tone: Friendly senior developer, empathetic, confident. Use emojis sparingly: 🧠, 💡, ⚡, 🔍, 📊
+            2. Structure your reply:
+               - Acknowledge their struggle (empathy first)
+               - Offer a helpful observation about their specific problem
+               - Mention you ran/visualized it and include the link naturally
+            3. Example patterns:
+               - "I feel you! Debugging [X] is tough. I threw similar logic into a visualizer and spotted the issue instantly: [LINK]"
+               - "That's a tricky one! I ran something like this through the Arena and [observation]. Check it out: [LINK]"
+               - "Been there! Visualizing the flow really helps - I mapped out a similar problem here: [LINK]"
+            4. **CRITICAL**: You MUST include "[LINK]" placeholder - I will replace it with the actual URL.
+            5. **CRITICAL**: Be genuinely helpful, the link is offering real value not spam.
+            6. Length: Keep it under 240 characters (Twitter limit with link).
 
             Output Format: JSON
             {
                 "score": 85,
-                "reply": "Debugging async can be wild! 🧠 Try mapping out the flow visually..."
+                "reply": "Debugging async can be wild! 🧠 I ran similar code through the Arena and it showed exactly where the race condition hides: [LINK]"
             }
             `;
 
@@ -520,14 +593,25 @@ Answer (one word only):` }]
             try {
                 const jsonStr = resultText?.replace(/```json/g, '').replace(/```/g, '').trim();
                 const parsed = JSON.parse(jsonStr || '{}');
+                let replyText = parsed.reply || `That's a tricky one, @${author}! I ran similar code through the Arena - check it out: [LINK]`;
+                
+                // Replace [LINK] placeholder with actual Arena URL
+                if (/\[LINK\]/gi.test(replyText)) {
+                    replyText = replyText.replace(/\[LINK\]/gi, linkToUse);
+                } else {
+                    // Safeguard: If Gemini omitted [LINK], append it
+                    console.log("   ⚠️ Gemini omitted [LINK] placeholder, appending URL");
+                    replyText = replyText.trim() + ` ${linkToUse}`;
+                }
+                
                 return {
-                    text: (parsed.reply || `That's a tricky one, @${author}! Sometimes visualizing the code flow helps a ton. 🧠`) + " (Check my pinned post for the tool I use! 📊)",
+                    text: replyText,
                     score: parsed.score || 50
                 };
             } catch (e) {
                 console.error("Failed to parse LogicArt AI JSON response:", resultText);
                 return {
-                    text: (resultText || `That's a tricky one, @${author}! Sometimes visualizing the code flow helps. 🧠`) + " (Check my pinned post for the tool I use! 📊)",
+                    text: `That's a tricky one, @${author}! I threw similar logic into the Arena and it shows exactly where things break: ${linkToUse}`,
                     score: 50
                 };
             }
@@ -535,7 +619,7 @@ Answer (one word only):` }]
         } catch (error) {
             console.error("Error generating LogicArt reply:", error);
             return {
-                text: `That's a tricky one, @${author}! Sometimes visualizing your code flow helps see where things go wrong. 🧠 (Check my pinned post! 📊)`,
+                text: `That's a tricky one, @${author}! Sometimes visualizing your code flow helps - I use this: ${linkToUse}`,
                 score: 50
             };
         }
