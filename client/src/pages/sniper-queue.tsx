@@ -225,13 +225,14 @@ export default function SniperQueue() {
                                     key={strategy.id}
                                     variant={campaignData.activeStrategy === strategy.id ? "default" : "outline"}
                                     size="sm"
-                                    className="flex flex-col items-start h-auto py-2 px-3"
+                                    className="flex flex-col items-start h-[72px] py-2 px-3 overflow-hidden"
                                     onClick={() => switchStrategy.mutate(strategy.id)}
                                     disabled={switchStrategy.isPending}
                                     data-testid={`strategy-${strategy.id}`}
+                                    title={strategy.description}
                                 >
-                                    <span className="font-medium">{strategy.emoji} {strategy.name}</span>
-                                    <span className="text-xs text-muted-foreground text-left line-clamp-2">{strategy.description}</span>
+                                    <span className="font-medium text-sm truncate w-full">{strategy.emoji} {strategy.name}</span>
+                                    <span className="text-xs text-muted-foreground text-left w-full overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{strategy.description}</span>
                                 </Button>
                             ))}
                         </div>
