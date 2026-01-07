@@ -4,7 +4,7 @@ import { storage } from "../storage";
 import { replyTimingOptimizer } from "./reply_timing_optimizer";
 import { dmFollowUpService } from "./dm_follow_up";
 import { getActiveCampaign } from "../campaign-state";
-import { CAMPAIGN_CONFIGS } from "../campaign-config";
+import { CAMPAIGN_CONFIGS, getActiveStrategyConfig } from "../campaign-config";
 
 export class SniperManager {
     private isHunting = false;  // Tracks if a hunt is in progress
@@ -14,11 +14,22 @@ export class SniperManager {
     private minScoreForReplyChain = 95;    // Only fetch replies for highest-quality tweets (≥95%)
     private dmFollowUpEnabled = true;      // Enable DM follow-ups after replies
 
-    // Keywords loaded dynamically from active campaign config
+    // Keywords loaded dynamically from active campaign config OR active LogicArt strategy
     private getKeywords(): string[] {
         const campaign = getActiveCampaign();
+        
+        // For LogicArt: Use the active strategy's keywords
+        if (campaign === 'logicart') {
+            const strategyConfig = getActiveStrategyConfig();
+            if (strategyConfig && strategyConfig.keywords && strategyConfig.keywords.length > 0) {
+                console.log(`   🎯 Using ${strategyConfig.emoji} ${strategyConfig.name} keywords (${strategyConfig.keywords.length} total)`);
+                // Use all strategy keywords (they're already focused)
+                return strategyConfig.keywords;
+            }
+        }
+        
+        // Fallback: Use generic campaign keywords
         const config = CAMPAIGN_CONFIGS[campaign];
-        // Return a subset of keywords to avoid rate limiting (rotate through them)
         const allKeywords = config.keywords;
         // Use first 20 keywords per hunt cycle
         return allKeywords.slice(0, 20);
