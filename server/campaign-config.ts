@@ -379,28 +379,38 @@ export interface StrategyConfig {
     replyImage?: string; // Optional image to attach to replies
 }
 
+// Global Safety Rules - tweets matching these patterns should be DISCARDED
+export const GLOBAL_SAFETY_FILTERS = {
+    // No hate/politics - if tweet involves race, politics, gender war -> DISCARD
+    hatePolitics: ["maga", "woke", "leftist", "rightist", "trump", "biden", "gender war", "pronouns", "racist", "fascist"],
+    // No crypto - if profile has .eth or discusses tokens -> DISCARD
+    crypto: [".eth", "crypto", "token", "nft", "blockchain", "web3", "defi", "hodl", "wagmi"],
+    // Expert detection for Agent 3 (don't use bootcamp tone for seniors)
+    expertSignals: ["staff engineer", "principal engineer", "tech lead", "CTO", "architect", "10+ years", "senior dev", "founding engineer"]
+};
+
 export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
     vibe_scout: {
         id: 'vibe_scout',
         name: 'Vibe Coding Scout',
         emoji: '🎯',
-        description: 'Find devs frustrated with AI models - challenge them to the Cage Match',
+        description: 'Find users debating AI model performance - Cage Match reply',
         keywords: [
-            "Claude vs GPT", "Cursor vs Windsurf", "Claude is dumb today", "Cursor hallucinating",
-            "Grok is better", "Claude lazy code", "GPT not working", "AI coding frustrating",
-            "which AI model", "best coding AI", "Claude timeout", "model comparison",
-            "Cursor ai", "Windsurf ai", "Replit agent", "Bolt ai", "lazy AI code",
-            "AI hallucinations", "model keeps failing", "tried Claude and", "switched to GPT"
+            "Claude vs GPT", "Cursor AI", "Grok code", "which model is best", "hallucination",
+            "Cursor vs Windsurf", "Claude is dumb", "Cursor hallucinating", "Grok is better",
+            "Claude lazy code", "GPT not working", "best coding AI", "model comparison",
+            "Windsurf ai", "Replit agent", "Bolt ai", "AI coding assistant",
+            "model keeps failing", "tried Claude and", "switched to GPT"
         ],
-        intentType: 'Model Comparison / Frustration',
+        intentType: 'Model Comparison / Debate',
         intentSignals: {
-            positive: ["frustrated", "dumb", "hallucinating", "lazy", "not working", "timeout", "better", "worse", "vs", "compared", "switched", "tried"],
-            negative: ["hiring", "job", "course", "tutorial", "sponsor", "discount", "affiliate"]
+            positive: ["vs", "better", "worse", "compared", "hallucinating", "frustrated", "dumb", "lazy", "not working", "which one"],
+            negative: ["hiring", "job", "course", "tutorial", "sponsor", "discount", "affiliate", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto]
         },
         replyPersona: {
-            tone: 'Challenge them to test their assumption in the Arena',
+            tone: 'Competitive, Fun - "Let\'s settle this in the Cage Match"',
             hook: 'Position the Cage Match as the ultimate tie-breaker between AI models',
-            templateExample: "I noticed you're struggling with Claude today. 📉 I just ran a similar loop in the Cage Match, and Grok actually nailed the logic while Claude timed out. You should throw that prompt in the Arena to see who wins: [Link]"
+            templateExample: "I noticed you're debating Claude vs GPT. 🥊 Why not settle it? I just ran a similar problem in the AI Cage Match - the results might surprise you: [Link]"
         },
         replyImage: 'attached_assets/TheWinnerIs_1767810718250.jpg' // Winner Card screenshot
     },
@@ -409,48 +419,47 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         id: 'spaghetti_detective',
         name: 'Spaghetti Detective',
         emoji: '🍝',
-        description: 'Find devs crying about legacy code - offer instant visual clarity',
+        description: 'Find senior devs suffering from legacy code complexity',
         keywords: [
-            "spaghetti code", "technical debt", "legacy code", "refactoring hell",
-            "inherited this codebase", "code archaeology", "who wrote this",
-            "wtf is this code", "unmaintainable code", "codebase is a mess",
-            "lost in the code", "debugging nightmare", "confusing function",
-            "how does this work", "can't understand this code"
+            "spaghetti code", "legacy codebase", "technical debt", "refactoring hell",
+            "can't understand this code", "inherited this codebase", "code archaeology",
+            "who wrote this", "wtf is this code", "unmaintainable code",
+            "codebase is a mess", "lost in the code", "debugging nightmare"
         ],
-        intentType: 'Complexity Pain / Confusion',
+        intentType: 'Complexity Pain / Suffering',
         intentSignals: {
-            positive: ["frustrated", "nightmare", "mess", "spaghetti", "legacy", "inherited", "refactor", "confusing", "complex", "debugging", "stuck", "lost", "wtf"],
-            negative: ["tutorial", "course", "hiring", "job posting", "meme", "joke"]
+            positive: ["nightmare", "mess", "spaghetti", "legacy", "inherited", "refactor", "confusing", "complex", "stuck", "lost", "wtf", "hate this code"],
+            negative: ["tutorial", "course", "hiring", "job posting", "meme", "joke", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto]
         },
         replyPersona: {
-            tone: 'The Technomancer who offers instant clarity - not just empathy',
-            hook: 'Dare them to put the code in the Cage to generate a visual map instantly',
-            templateExample: "The spirits are confused by this syntax. 🍝 I ran your snippet through the LogicArt Arena... looks like the logic creates an infinite loop in the second block. Check the blueprint here: [Link]"
+            tone: 'Professional - "Here is a map out of the woods"',
+            hook: 'Offer clarity through visualization - not just empathy',
+            templateExample: "I feel your pain with that legacy codebase. 🗺️ I threw a similar mess into LogicArt and it generated a visual map that made the logic crystal clear. Might help you find your way: [Link]"
         },
         replyImage: 'attached_assets/image_1767810707484.png' // Flowchart Split-View screenshot
     },
 
     bug_hunter: {
         id: 'bug_hunter',
-        name: 'The Bug Hunter',
-        emoji: '🐛',
-        description: 'Find devs posting errors or asking for debug help - act as the referee',
+        name: 'Bootcamp Savior',
+        emoji: '🎓',
+        description: 'Find beginners stuck on basic bugs - mentor with kindness [PRIORITY]',
         keywords: [
-            "syntax error", "undefined is not a function", "help me debug",
-            "why isn't this working", "error message", "bug in my code",
-            "TypeError", "ReferenceError", "cannot read property", "null pointer",
-            "code not working", "this should work but", "can someone help debug",
-            "what am I doing wrong", "stuck on this error", "screenshot of error"
+            "#100DaysOfCode", "#CodeNewbie", "stuck on loop", "why isn't this working",
+            "syntax error", "python help", "javascript help", "learning to code",
+            "first project", "beginner question", "new to programming", "help please",
+            "TypeError", "undefined is not a function", "can someone explain",
+            "what am I doing wrong", "stuck for hours", "coding bootcamp"
         ],
-        intentType: 'Active Debugging / Error Help',
+        intentType: 'Beginner Struggling / Asking for Help',
         intentSignals: {
-            positive: ["error", "bug", "debug", "not working", "undefined", "null", "TypeError", "help", "stuck", "wrong", "broken", "fix"],
-            negative: ["hiring", "job", "course ad", "promo", "tutorial sale"]
+            positive: ["stuck", "help", "beginner", "newbie", "learning", "first time", "don't understand", "confused", "error", "not working", "please"],
+            negative: ["hiring", "job", "course ad", "promo", "tutorial sale", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto, ...GLOBAL_SAFETY_FILTERS.expertSignals]
         },
         replyPersona: {
-            tone: 'Act as the referee - you ran their code through the Arena to find the fix',
-            hook: 'Tell them you threw their error into the Cage Match and found the issue',
-            templateExample: "I threw your error into the AI Cage Match to see if Gemini could catch it. It flagged a type mismatch on line 14 immediately. Here is the logic map showing exactly where it breaks: [Link]"
+            tone: 'Mentor, Kind - "I visualized your bug for you"',
+            hook: 'Offer to help them see their logic visually - no judgment',
+            templateExample: "Hey! I remember being stuck on loops too. 🎓 I dropped your code into LogicArt and it visualized exactly where the bug is hiding. Check it out - hope this helps: [Link]"
         },
         replyImage: 'attached_assets/image_1767810707484.png' // Flowchart Split-View screenshot
     }
