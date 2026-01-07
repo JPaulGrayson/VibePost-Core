@@ -117,43 +117,62 @@ export default function ArenaPage() {
         </div>
 
         {mode === "debug" ? (
-          <div className="grid lg:grid-cols-2 gap-8 mb-8">
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-yellow-400" />
+          <div className="flex items-stretch gap-4 mb-6">
+            <Card className="bg-slate-800/50 border-slate-700 flex-1">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-white flex items-center gap-2 text-base">
+                  <Zap className="w-4 h-4 text-yellow-400" />
                   Your Buggy Code
                 </CardTitle>
-                <CardDescription className="text-gray-400">
-                  Paste code with a bug you want the AI models to find
+                <CardDescription className="text-gray-400 text-sm">
+                  Paste code with a bug
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Textarea
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  className="min-h-[200px] font-mono text-sm bg-slate-900 border-slate-600 text-gray-100"
+                  className="min-h-[160px] font-mono text-sm bg-slate-900 border-slate-600 text-gray-100"
                   placeholder="Paste your buggy code here..."
                   data-testid="input-code"
                 />
               </CardContent>
             </Card>
 
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-400" />
+            <div className="flex items-center">
+              <Button
+                onClick={handleRunArena}
+                disabled={arenaMutation.isPending || !code.trim()}
+                size="lg"
+                className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-black font-bold text-lg px-6 py-8 h-auto"
+                data-testid="button-run-arena"
+              >
+                {arenaMutation.isPending ? (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                ) : (
+                  <span className="flex flex-col items-center gap-1">
+                    <span className="text-2xl">🥊</span>
+                    <span>FIGHT!</span>
+                  </span>
+                )}
+              </Button>
+            </div>
+
+            <Card className="bg-slate-800/50 border-slate-700 flex-1">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-white flex items-center gap-2 text-base">
+                  <AlertCircle className="w-4 h-4 text-red-400" />
                   Problem Description
                 </CardTitle>
-                <CardDescription className="text-gray-400">
-                  Describe the bug or error you're experiencing
+                <CardDescription className="text-gray-400 text-sm">
+                  Describe the bug or error
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Textarea
                   value={problem}
                   onChange={(e) => setProblem(e.target.value)}
-                  className="min-h-[200px] bg-slate-900 border-slate-600 text-gray-100"
+                  className="min-h-[160px] bg-slate-900 border-slate-600 text-gray-100"
                   placeholder="Describe what's going wrong..."
                   data-testid="input-problem"
                 />
@@ -161,51 +180,47 @@ export default function ArenaPage() {
             </Card>
           </div>
         ) : (
-          <div className="max-w-3xl mx-auto mb-8">
+          <div className="max-w-3xl mx-auto mb-6">
             <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-purple-400" />
+              <CardHeader className="pb-2">
+                <CardTitle className="text-white flex items-center gap-2 text-base">
+                  <MessageSquare className="w-4 h-4 text-purple-400" />
                   Your Question
                 </CardTitle>
-                <CardDescription className="text-gray-400">
-                  Ask anything - the AI models will compete to give you the best answer
+                <CardDescription className="text-gray-400 text-sm">
+                  Ask anything - the AI models will compete
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Textarea
                   value={question}
                   onChange={(e) => setQuestion(e.target.value)}
-                  className="min-h-[200px] bg-slate-900 border-slate-600 text-gray-100"
-                  placeholder="What's the best way to structure a React app? How do I optimize database queries? What's the difference between REST and GraphQL?"
+                  className="min-h-[120px] bg-slate-900 border-slate-600 text-gray-100"
+                  placeholder="What's the best way to structure a React app?"
                   data-testid="input-question"
                 />
               </CardContent>
             </Card>
+            <div className="text-center mt-4">
+              <Button
+                onClick={handleRunArena}
+                disabled={arenaMutation.isPending || !question.trim()}
+                size="lg"
+                className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-black font-bold text-lg px-8 py-4"
+                data-testid="button-run-arena"
+              >
+                {arenaMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Battling...
+                  </>
+                ) : (
+                  <>🥊 LET'S RUMBLE!</>
+                )}
+              </Button>
+            </div>
           </div>
         )}
-
-        <div className="text-center mb-12">
-          <Button
-            onClick={handleRunArena}
-            disabled={arenaMutation.isPending || (mode === "debug" ? !code.trim() : !question.trim())}
-            size="lg"
-            className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-black font-bold text-lg px-8 py-6"
-            data-testid="button-run-arena"
-          >
-            {arenaMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                The cage match is underway...
-              </>
-            ) : (
-              <>
-                🥊
-                {mode === "debug" ? "FIGHT!" : "LET'S RUMBLE!"}
-              </>
-            )}
-          </Button>
-        </div>
 
         {arenaMutation.isError && (
           <Card className="bg-red-900/30 border-red-700 mb-8" data-testid="status-arena-error">
