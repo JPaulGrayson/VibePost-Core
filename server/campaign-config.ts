@@ -380,6 +380,7 @@ export interface StrategyConfig {
 }
 
 // Global Safety Rules - tweets matching these patterns should be DISCARDED
+// Updated: Jan 7, 2026 - Bootcamp Savior strategy added
 export const GLOBAL_SAFETY_FILTERS = {
     // No hate/politics - if tweet involves race, politics, gender war -> DISCARD
     hatePolitics: ["maga", "woke", "leftist", "rightist", "trump", "biden", "gender war", "pronouns", "racist", "fascist"],
