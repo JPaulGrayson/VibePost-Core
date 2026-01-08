@@ -125,7 +125,7 @@ export class DMFollowUpService {
         const ready: ScheduledDM[] = [];
 
         // Find DMs ready to send
-        for (const [tweetId, dm] of this.pendingDMs.entries()) {
+        for (const [tweetId, dm] of Array.from(this.pendingDMs.entries())) {
             if (!dm.sent && dm.scheduledFor <= now) {
                 ready.push(dm);
             }
@@ -163,6 +163,11 @@ export class DMFollowUpService {
         console.log(`   📨 Sending DM to @${dm.recipientUsername}...`);
 
         const message = this.generateDMMessage(dm);
+
+        if (!this.client) {
+            console.log(`   ⚠️ Twitter client not available`);
+            return;
+        }
 
         try {
             // Send DM using Twitter API v2

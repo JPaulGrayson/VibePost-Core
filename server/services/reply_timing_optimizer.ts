@@ -88,7 +88,7 @@ export class ReplyTimingOptimizer {
         const ready: DelayedReplyFetch[] = [];
 
         // Find tweets ready to fetch
-        for (const [tweetId, fetch] of this.pendingFetches.entries()) {
+        for (const [tweetId, fetch] of Array.from(this.pendingFetches.entries())) {
             if (!fetch.processed && fetch.fetchRepliesAt <= now) {
                 ready.push(fetch);
             }

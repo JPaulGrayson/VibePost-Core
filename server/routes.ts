@@ -987,16 +987,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Manual Hunt Trigger (Debug)
   app.post("/api/debug/hunt", async (req, res) => {
     try {
+      const { forceReset = false } = req.body;
       const campaign = getActiveCampaign();
       const strategy = getActiveLogicArtStrategy();
       const strategyConfig = getActiveStrategyConfig();
       
-      console.log(`🎯 Manual hunt triggered via API`);
+      console.log(`🎯 Manual hunt triggered via API (forceReset: ${forceReset})`);
       console.log(`   Campaign: ${campaign}`);
       console.log(`   Strategy: ${strategy} (${strategyConfig.name})`);
       console.log(`   Keywords (first 5): ${strategyConfig.keywords.slice(0, 5).join(', ')}`);
       
-      const result = await sniperManager.forceHunt();
+      const result = await sniperManager.forceHunt(true, forceReset);
       
       res.json({ 
         success: true, 

@@ -106,7 +106,11 @@ export class SniperManager {
         return { ...this.campaignPauseState };
     }
 
-    async forceHunt(bypassPause: boolean = true) {
+    async forceHunt(bypassPause: boolean = true, forceReset: boolean = false) {
+        if (forceReset) {
+            console.log("🔄 Force reset: clearing isHunting flag");
+            this.isHunting = false;
+        }
         if (this.isHunting) {
             console.log("⚠️ Sniper is already hunting. Skipping manual trigger.");
             return { draftsGenerated: 0, message: "Sniper is already running" };
@@ -117,6 +121,12 @@ export class SniperManager {
             draftsGenerated: this.draftsGeneratedToday,
             stats
         };
+    }
+
+    // Reset the isHunting flag if stuck
+    resetHuntingFlag() {
+        console.log("🔄 Resetting isHunting flag (was: " + this.isHunting + ")");
+        this.isHunting = false;
     }
 
     // Expose state for health checks

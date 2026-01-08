@@ -45,12 +45,12 @@ export async function generateElevenLabsTTS(
         // Generate audio stream
         const audioStream = await client.textToSpeech.convert(voiceId, {
             text: text,
-            model_id: "eleven_multilingual_v2",
-            voice_settings: {
+            modelId: "eleven_multilingual_v2",
+            voiceSettings: {
                 stability: 0.5,        // Balanced (0.0-1.0)
-                similarity_boost: 0.75, // High similarity to voice
+                similarityBoost: 0.75, // High similarity to voice
                 style: 0.5,            // Moderate expressiveness
-                use_speaker_boost: true
+                useSpeakerBoost: true
             }
         });
 
