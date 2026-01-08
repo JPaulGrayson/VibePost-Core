@@ -1457,7 +1457,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       allPaused: sniperManager.paused,
       isRunning: sniperManager.isRunning,
       draftsGeneratedToday: sniperManager.todaysDrafts,
-      dailyLimit: sniperManager.dailyDraftLimit
+      dailyLimit: sniperManager.dailyDraftLimit,
+      activeCampaign: getActiveCampaign(),
+      activeStrategy: getActiveLogicArtStrategy(),
+      strategyName: getActiveStrategyConfig().name
+    });
+  });
+
+  // Reset stuck hunting flag
+  app.post("/api/sniper/reset", (req, res) => {
+    sniperManager.resetHuntingFlag();
+    res.json({ 
+      success: true, 
+      message: "Hunting flag reset",
+      isRunning: sniperManager.isRunning
     });
   });
 

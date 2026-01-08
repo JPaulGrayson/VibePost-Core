@@ -40,8 +40,8 @@ export class SniperManager {
         }
         
         // Return a subset of keywords to avoid rate limiting (rotate through them)
-        // Use first 20 keywords per hunt cycle
-        return allKeywords.slice(0, 20);
+        // Use first 5 keywords per hunt cycle for faster testing
+        return allKeywords.slice(0, 5);
     }
 
     private dailyLimit = 500;

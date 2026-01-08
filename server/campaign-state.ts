@@ -1,6 +1,7 @@
 import { CampaignType } from "./campaign-config";
 
-let activeCampaign: CampaignType = 'turai';
+// Default to LogicArt campaign (Vibe Coding)
+let activeCampaign: CampaignType = 'logicart';
 
 export function getActiveCampaign(): CampaignType {
   return activeCampaign;
