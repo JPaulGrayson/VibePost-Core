@@ -37,18 +37,19 @@ async function verifyIntent(tweetText: string, campaignType: CampaignType = 'tur
         let prompt: string;
 
         if (campaignType === 'logicart') {
-            prompt = `Analyze this social media post and determine if it's a GENUINE coding/development inquiry where someone is:
-- Struggling with code or debugging
-- Asking for help understanding code
-- Frustrated with a programming problem
-- Looking for coding tools or visualization help
-- Learning to code and stuck
+            prompt = `Analyze this social media post and determine if it's relevant for a coding/developer audience where someone is:
+- Discussing AI coding tools (Cursor, Windsurf, Copilot, Claude, v0, Replit, Lovable, Bolt, etc.)
+- Talking about "vibe coding" or AI-assisted development
+- Comparing AI models for coding (Claude vs GPT, etc.)
+- Having issues with AI-generated code or debugging
+- Sharing coding experiences, struggles, or wins
+- Learning to code or discussing programming
 
 Post: "${tweetText}"
 
 Answer with ONLY "YES" or "NO":
-- YES = They genuinely need coding help, are struggling with code, or looking for developer tools
-- NO = Job posting, promotional content, hiring announcement, course advertisement, or not actually seeking help
+- YES = Developer/coder discussing coding, AI tools, vibe coding, or programming experiences
+- NO = Pure job posting, spam, promotional ads, unrelated content, or just a retweet with no commentary
 
 Answer:`;
         } else {
@@ -134,15 +135,19 @@ export async function generateDraft(
 
     const drafter = new PostcardDrafter();
 
-    // Intent verification RE-ENABLED for quality filtering
-    console.log(`🔍 Verifying ${config.name} intent for @${authorHandle}...`);
-    console.log(`   Tweet: "${tweet.text.substring(0, 80)}..."`);
-    const hasIntent = await verifyIntent(tweet.text, campaignType);
-    if (!hasIntent) {
-        console.log(`❌ FILTERED: No ${config.name} intent - @${authorHandle}: "${tweet.text.substring(0, 50)}..."`);
-        return false;
+    // Intent verification - SKIPPED for force=true (manual sends from Topic Search)
+    if (force) {
+        console.log(`⚡ Skipping intent verification (force=true) for @${authorHandle}`);
+    } else {
+        console.log(`🔍 Verifying ${config.name} intent for @${authorHandle}...`);
+        console.log(`   Tweet: "${tweet.text.substring(0, 80)}..."`);
+        const hasIntent = await verifyIntent(tweet.text, campaignType);
+        if (!hasIntent) {
+            console.log(`❌ FILTERED: No ${config.name} intent - @${authorHandle}: "${tweet.text.substring(0, 50)}..."`);
+            return false;
+        }
+        console.log(`✅ ${config.name} intent verified for @${authorHandle}`);
     }
-    console.log(`✅ ${config.name} intent verified for @${authorHandle}`);
 
     // 1. Extract context based on campaign type
     let contextInfo: string | null = null;

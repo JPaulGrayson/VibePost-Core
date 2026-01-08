@@ -2474,13 +2474,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const campaign = validCampaigns.includes(campaignType) ? campaignType : getActiveCampaign();
       console.log(`📝 Creating draft from search for ${campaign} campaign`);
 
-      // Trigger the drafter
-      await generateDraft({
+      // Return immediately, process in background (AI calls take 10-30s)
+      res.json({ success: true, message: "Draft creation started", campaign });
+
+      // Trigger the drafter in background (don't await)
+      generateDraft({
         id: tweetId,
         text: text
-      }, authorHandle, campaign, true);
-
-      res.json({ success: true, message: "Draft creation started", campaign });
+      }, authorHandle, campaign, true).then(created => {
+        if (created) {
+          console.log(`✅ Draft created for tweet ${tweetId}`);
+        } else {
+          console.log(`⏭️ Draft skipped for tweet ${tweetId} (filtered or duplicate)`);
+        }
+      }).catch(err => {
+        console.error(`❌ Draft creation failed for tweet ${tweetId}:`, err);
+      });
     } catch (error) {
       console.error("Error creating draft from search:", error);
       res.status(500).json({ error: "Failed to create draft" });

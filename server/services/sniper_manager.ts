@@ -206,10 +206,11 @@ export class SniperManager {
                         const existing = await storage.getDraftByOriginalTweetId(result.id);
                         if (existing) {
                             stats.duplicatesSkipped++;
+                            console.log(`   ⏭️ Duplicate skipped: ${result.id}`);
                             continue;
                         }
 
-                        console.log(`   ✨ Generating draft for @${result.author}: "${result.content.substring(0, 40)}..."`);
+                        console.log(`   ✨ Generating draft for @${result.author}: "${result.content.substring(0, 60)}..."`);
 
                         // Adapt result to generic format expected by generateDraft
                         const postObj = {
@@ -223,6 +224,9 @@ export class SniperManager {
                         if (created) {
                             this.draftsGeneratedToday++;
                             stats.draftsCreated++;
+                            console.log(`   ✅ Draft created for @${result.author}`);
+                        } else {
+                            console.log(`   ❌ Draft NOT created for @${result.author} (filtered by intent/spam check)`);
                         }
 
                         // Reply-to-Replies: Schedule delayed fetch for better quality replies
