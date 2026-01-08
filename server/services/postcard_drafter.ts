@@ -769,9 +769,23 @@ Answer (one word only):` }]
         });
 
         if (!draft) throw new Error("Draft not found");
-        if (!draft.detectedLocation) throw new Error("Location not detected for this draft");
 
-        const { imageUrl, attribution } = await this.generateTuraiImage(draft.detectedLocation);
+        let imageUrl: string;
+        let attribution: string | null = null;
+
+        // Generate appropriate image based on campaign type
+        if (draft.campaignType === 'turai') {
+            if (!draft.detectedLocation) throw new Error("Location not detected for this draft");
+            const imageResult = await this.generateTuraiImage(draft.detectedLocation);
+            imageUrl = imageResult.imageUrl;
+            attribution = imageResult.attribution;
+        } else if (draft.strategy === 'arena_referee') {
+            // Arena Referee: AI debate themed image
+            imageUrl = await this.generateArenaRefereeImage(draft.detectedLocation || 'AI models');
+        } else {
+            // LogicArt: coding/flowchart themed image
+            imageUrl = await this.generateLogicArtImage(draft.detectedLocation || 'code debugging');
+        }
 
         await db.update(postcardDrafts)
             .set({
@@ -781,6 +795,34 @@ Answer (one word only):` }]
             .where(eq(postcardDrafts.id, draftId));
 
         return imageUrl;
+    }
+
+    // Generate AI debate/cage match themed image for Arena Referee
+    async generateArenaRefereeImage(winnerModel: string): Promise<string> {
+        try {
+            // AI debate themed image - robots battling, AI cage match, no travel imagery
+            const imagePrompt = `dramatic AI battle arena, two robots facing off, digital cage match, glowing circuits and data streams, futuristic colosseum, ${winnerModel} champion, neon blue and purple lighting, technology battle, no text, no letters, cyberpunk aesthetic`;
+            const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true`;
+
+            console.log("Generating Arena Referee image via Pollinations...");
+            const response = await fetch(pollinationsUrl, {
+                method: 'GET',
+                signal: AbortSignal.timeout(45000)
+            });
+
+            if (response.ok) {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.startsWith('image/')) {
+                    console.log("Arena Referee image generated successfully");
+                    return pollinationsUrl;
+                }
+            }
+        } catch (error) {
+            console.error("Error generating Arena Referee image:", error);
+        }
+
+        // Fallback: AI battle placeholder
+        return `https://placehold.co/800x800/1a1a2e/ff6b6b?text=AI+Cage+Match`;
     }
 }
 
