@@ -2463,19 +2463,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/sniper/draft-from-search", async (req, res) => {
     try {
-      const { tweetId, authorHandle, text } = req.body;
+      const { tweetId, authorHandle, text, campaignType } = req.body;
 
       if (!tweetId || !authorHandle || !text) {
         return res.status(400).json({ error: "Missing required fields" });
       }
 
+      // Validate campaign type if provided
+      const validCampaigns = ['logicart', 'turai'];
+      const campaign = validCampaigns.includes(campaignType) ? campaignType : getActiveCampaign();
+      console.log(`📝 Creating draft from search for ${campaign} campaign`);
+
       // Trigger the drafter
       await generateDraft({
         id: tweetId,
         text: text
-      }, authorHandle, 'turai', true);
+      }, authorHandle, campaign, true);
 
-      res.json({ success: true, message: "Draft creation started" });
+      res.json({ success: true, message: "Draft creation started", campaign });
     } catch (error) {
       console.error("Error creating draft from search:", error);
       res.status(500).json({ error: "Failed to create draft" });

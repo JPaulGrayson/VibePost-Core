@@ -50,6 +50,12 @@ export default function TopicSearch() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const { toast } = useToast();
 
+  // Get active campaign from server
+  const { data: campaignData } = useQuery<{ activeCampaign: string }>({
+    queryKey: ["/api/sniper/campaign"],
+  });
+  const activeCampaign = campaignData?.activeCampaign || 'logicart';
+
   const searchMutation = useMutation({
     mutationFn: async ({ keyword, platforms, strictMode }: { keyword: string; platforms: string[], strictMode: boolean }) => {
       const response = await fetch("/api/keywords/search", {
@@ -84,13 +90,13 @@ export default function TopicSearch() {
   });
 
   const sniperMutation = useMutation({
-    mutationFn: async ({ tweetId, authorHandle, text }: { tweetId: string; authorHandle: string; text: string }) => {
+    mutationFn: async ({ tweetId, authorHandle, text, campaignType }: { tweetId: string; authorHandle: string; text: string; campaignType: string }) => {
       const response = await fetch("/api/sniper/draft-from-search", {
         method: "POST",
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ tweetId, authorHandle, text }),
+        body: JSON.stringify({ tweetId, authorHandle, text, campaignType }),
       });
       if (!response.ok) {
         const error = await response.json();
@@ -98,10 +104,10 @@ export default function TopicSearch() {
       }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Sent to Sniper Queue",
-        description: "Draft is being generated. Check the Review Queue shortly.",
+        description: `Draft for ${data.campaign === 'logicart' ? 'LogicArt' : 'Turai'} is being generated.`,
       });
     },
     onError: (error: Error) => {
@@ -137,7 +143,7 @@ export default function TopicSearch() {
 
   const handleSendToSniper = (platform: string, postId: string, author: string, content: string) => {
     if (platform !== 'twitter') return;
-    sniperMutation.mutate({ tweetId: postId, authorHandle: author, text: content });
+    sniperMutation.mutate({ tweetId: postId, authorHandle: author, text: content, campaignType: activeCampaign });
   };
 
   const getPlatformIcon = (platform: string) => {
