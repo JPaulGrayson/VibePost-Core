@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { PostcardDraft } from "@shared/schema";
+import type { PostcardDraft, ArenaVerdict } from "@shared/schema";
 import { RefreshCw, Plane, Code2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -312,6 +312,10 @@ function DraftCard({ draft, campaignType = 'turai' }: { draft: PostcardDraft; ca
     const [text, setText] = useState(draft.draftReplyText || "");
     const score = draft.score || 0;
     const { toast } = useToast();
+    
+    // Check if this is a Quote Tweet draft (Arena Referee)
+    const isQuoteTweet = draft.actionType === 'quote_tweet';
+    const arenaVerdict = draft.arenaVerdict as ArenaVerdict | null;
 
     // Score Color Logic
     let scoreColor = "bg-gray-500";
@@ -382,7 +386,26 @@ function DraftCard({ draft, campaignType = 'turai' }: { draft: PostcardDraft; ca
                     </div>
                     <p className="text-sm text-muted-foreground mb-4 border-l-2 pl-2">"{draft.originalTweetText}"</p>
 
-                    <label className="text-xs font-bold">Draft Reply:</label>
+                    {/* Arena Referee Verdict Display */}
+                    {isQuoteTweet && arenaVerdict && (
+                        <div className="mb-3 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="text-lg">🏛️</span>
+                                <span className="font-bold text-purple-400">Arena Referee Verdict</span>
+                                <Badge className="bg-purple-600 text-white">Quote Tweet</Badge>
+                            </div>
+                            <p className="text-sm">
+                                <span className="font-medium">🏆 Winner:</span> {arenaVerdict.winner || 'Pending'}
+                            </p>
+                            {arenaVerdict.reasoning && (
+                                <p className="text-xs text-muted-foreground mt-1 italic">
+                                    "{arenaVerdict.reasoning.substring(0, 150)}..."
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    <label className="text-xs font-bold">{isQuoteTweet ? "Quote Tweet Text:" : "Draft Reply:"}</label>
                     <Textarea
                         value={text}
                         onChange={(e) => setText(e.target.value)}
@@ -424,9 +447,29 @@ function DraftCard({ draft, campaignType = 'turai' }: { draft: PostcardDraft; ca
                 <Button variant="ghost" onClick={() => reject.mutate()} disabled={reject.isPending}>
                     Reject
                 </Button>
-                <Button onClick={() => approve.mutate()} disabled={approve.isPending}>
-                    {approve.isPending ? "Publishing..." : "Approve & Send 🚀"}
-                </Button>
+                {isQuoteTweet ? (
+                    <Button 
+                        onClick={() => {
+                            // Open Twitter Quote Tweet intent with pre-filled text
+                            const originalUrl = `https://twitter.com/${draft.originalAuthorHandle}/status/${draft.originalTweetId}`;
+                            const encodedText = encodeURIComponent(text);
+                            const encodedUrl = encodeURIComponent(originalUrl);
+                            window.open(`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`, '_blank');
+                            toast({
+                                title: "Quote Tweet Window Opened! 🏛️",
+                                description: "Paste your verdict and hit Tweet when ready.",
+                            });
+                        }}
+                        className="bg-purple-600 hover:bg-purple-700"
+                        data-testid="btn-quote-tweet"
+                    >
+                        Quote Tweet 🏛️
+                    </Button>
+                ) : (
+                    <Button onClick={() => approve.mutate()} disabled={approve.isPending}>
+                        {approve.isPending ? "Publishing..." : "Approve & Send 🚀"}
+                    </Button>
+                )}
             </CardFooter>
         </Card>
     );

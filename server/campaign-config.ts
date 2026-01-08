@@ -358,7 +358,7 @@ export function calculateCampaignScore(
 export default CAMPAIGN_CONFIGS;
 
 // ============= LOGICART STRATEGY SYSTEM =============
-export type LogicArtStrategy = 'vibe_scout' | 'spaghetti_detective' | 'bug_hunter';
+export type LogicArtStrategy = 'vibe_scout' | 'spaghetti_detective' | 'bug_hunter' | 'arena_referee';
 
 export interface StrategyConfig {
     id: string;
@@ -377,6 +377,7 @@ export interface StrategyConfig {
         templateExample: string;
     };
     replyImage?: string; // Optional image to attach to replies
+    actionType?: 'reply' | 'quote_tweet'; // Default is 'reply', 'quote_tweet' triggers Quote Tweet flow
 }
 
 // Global Safety Rules - tweets matching these patterns should be DISCARDED
@@ -479,6 +480,48 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
             templateExample: "Hey! I remember being stuck on loops too. 🎓 I dropped your code into LogicArt and it visualized exactly where the bug is hiding. Check it out - hope this helps: [Link]"
         },
         replyImage: 'attached_assets/image_1767810707484.png' // Flowchart Split-View screenshot
+    },
+
+    arena_referee: {
+        id: 'arena_referee',
+        name: 'Arena Referee',
+        emoji: '🏛️',
+        description: 'Find viral AI debates & broadcast the verdict via Quote Tweet',
+        keywords: [
+            // ===== AI MODEL DEBATES =====
+            "which ai is better", "which AI is best",
+            "grok vs claude", "claude vs grok", "grok vs gpt", "gpt vs claude",
+            "claude vs chatgpt", "chatgpt vs grok", "gemini vs claude", "gemini vs gpt",
+            "is grok better", "is claude better", "is chatgpt better",
+            "grok is smarter", "claude is smarter", "gpt is smarter",
+            
+            // ===== AI TRUTH / HALLUCINATION =====
+            "is grok true", "is claude true", "AI hallucination",
+            "grok lies", "claude lies", "chatgpt lies", "AI lying",
+            "grok making things up", "claude making things up",
+            "which AI is more accurate", "AI accuracy",
+            
+            // ===== AI CODING DEBATES =====
+            "best coding AI", "best AI for coding", "AI code comparison",
+            "cursor vs windsurf", "copilot vs cursor", "which AI codes best",
+            "AI coding battle", "coding AI showdown",
+            
+            // ===== GENERAL AI OPINIONS =====
+            "grok is overrated", "claude is overrated", "chatgpt is overrated",
+            "grok is underrated", "best LLM", "worst LLM",
+            "AI comparison", "LLM comparison"
+        ],
+        intentType: 'AI Model Debate / Comparison',
+        intentSignals: {
+            positive: ["vs", "better", "worse", "smarter", "compared", "comparison", "which one", "battle", "showdown", "debate", "true", "lies", "accurate", "overrated", "underrated", "best", "worst"],
+            negative: ["hiring", "job", "sponsor", "discount", "affiliate", "founder", "CEO", "we're building", "launching", "promo", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto]
+        },
+        replyPersona: {
+            tone: 'Competitive, Fun - "Let\'s settle this in the Arena"',
+            hook: 'Run the debate through our AI Council and deliver the official verdict',
+            templateExample: "We ran this debate through the AI Council. 🏛️\n\nThe verdict? [Summary]\n\nHere's the full breakdown 👇"
+        },
+        actionType: 'quote_tweet' // Triggers Quote Tweet flow instead of Reply
     }
 };
 

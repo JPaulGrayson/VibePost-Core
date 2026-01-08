@@ -1,10 +1,10 @@
 import { keywordSearchEngine } from "../keyword-search";
-import { generateDraft } from "./postcard_drafter";
+import { generateDraft, generateArenaRefereeDraft } from "./postcard_drafter";
 import { storage } from "../storage";
 import { replyTimingOptimizer } from "./reply_timing_optimizer";
 import { dmFollowUpService } from "./dm_follow_up";
 import { getActiveCampaign } from "../campaign-state";
-import { CAMPAIGN_CONFIGS, LOGICART_STRATEGIES, getActiveLogicArtStrategy } from "../campaign-config";
+import { CAMPAIGN_CONFIGS, LOGICART_STRATEGIES, getActiveLogicArtStrategy, LogicArtStrategy } from "../campaign-config";
 
 export class SniperManager {
     private isHunting = false;  // Tracks if a hunt is in progress
@@ -229,8 +229,18 @@ export class SniperManager {
                             author_id: "unknown"
                         };
 
-                        // Pass the active campaign type to generateDraft
-                        const created = await generateDraft(postObj, result.author, currentCampaign);
+                        // Check if we're using Arena Referee strategy (special Quote Tweet flow)
+                        const activeStrategy = currentCampaign === 'logicart' ? getActiveLogicArtStrategy() : null;
+                        let created = false;
+                        
+                        if (activeStrategy === 'arena_referee') {
+                            // Use Arena Referee special handler (runs through AI Council)
+                            created = await generateArenaRefereeDraft(postObj, result.author);
+                        } else {
+                            // Standard reply draft generation
+                            created = await generateDraft(postObj, result.author, currentCampaign);
+                        }
+                        
                         if (created) {
                             this.draftsGeneratedToday++;
                             stats.draftsCreated++;

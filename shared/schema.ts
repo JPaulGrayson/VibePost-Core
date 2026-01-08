@@ -148,6 +148,9 @@ export const postcardDrafts = pgTable("postcard_drafts", {
 
   // Campaign Type (turai = travel, logicart = coding)
   campaignType: text("campaign_type").default("turai"),
+  
+  // Strategy (for logicart campaign - vibe_scout, spaghetti_detective, bug_hunter, arena_referee)
+  strategy: text("strategy"),
 
   // Origin Data (The User's Tweet)
   originalTweetId: text("original_tweet_id").notNull().unique(),
@@ -161,6 +164,16 @@ export const postcardDrafts = pgTable("postcard_drafts", {
 
   // The Draft Content
   draftReplyText: text("draft_reply_text"),
+  
+  // Action Type - determines how the draft is published
+  actionType: text("action_type").default("reply"), // reply or quote_tweet
+
+  // Arena Referee specific data (for quote tweets)
+  arenaVerdict: jsonb("arena_verdict").$type<{
+    winner: string;
+    reasoning: string;
+    responses?: Array<{ model: string; response: string; responseTime: number }>;
+  }>(),
 
   // Targeting
   targetCommunityId: text("target_community_id"), // Null = Main Timeline
@@ -284,3 +297,13 @@ export type PostcardDraft = typeof postcardDrafts.$inferSelect;
 
 export const PostcardDraftStatus = z.enum(["pending_review", "approved", "rejected", "published", "failed", "pending_retry"]);
 export type PostcardDraftStatus = z.infer<typeof PostcardDraftStatus>;
+
+// Arena Referee specific types
+export interface ArenaVerdict {
+  winner: string;
+  reasoning: string;
+  responses?: Array<{ model: string; response: string; responseTime: number }>;
+}
+
+export const ActionType = z.enum(["reply", "quote_tweet"]);
+export type ActionType = z.infer<typeof ActionType>;

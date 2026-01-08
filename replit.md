@@ -175,6 +175,11 @@ Changelog:
 - January 6, 2026. FEATURE: Added "Visualize" button in Arena that opens LogicArt with encoded winner code via URL parameter
 - January 6, 2026. UPDATED: Arena footer now shows "Powered by LogicArt - The Art of Logic"
 - January 6, 2026. INTEGRATION: LogicArt URL accepts ?code= parameter for code transfer from Arena
+- January 8, 2026. FEATURE: Arena Referee strategy - 4th sniper strategy that finds AI debate tweets and runs them through Arena
+- January 8, 2026. NEW: Quote Tweet drafts with AI verdict (winner + reasoning) for Arena Referee
+- January 8, 2026. SCHEMA: Added strategy, actionType, arenaVerdict fields to postcardDrafts table
+- January 8, 2026. UI: Quote Tweet button and verdict display in sniper queue for Arena Referee drafts
+- January 8, 2026. TYPES: ArenaVerdict interface and ActionType enum exported from shared/schema.ts
 ```
 
 ## User Preferences

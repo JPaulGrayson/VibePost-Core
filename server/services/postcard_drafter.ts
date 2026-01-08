@@ -2,7 +2,8 @@ import { db } from "../db";
 import { postcardDrafts } from "@shared/schema";
 import { GoogleGenAI } from "@google/genai";
 import { eq } from "drizzle-orm";
-import { CampaignType, CAMPAIGN_CONFIGS } from "../campaign-config";
+import { CampaignType, CAMPAIGN_CONFIGS, LogicArtStrategy, getActiveLogicArtStrategy, LOGICART_STRATEGIES } from "../campaign-config";
+import { runArena } from "./arena_service";
 
 // Initialize Gemini
 // Ensure API key is present
@@ -210,9 +211,14 @@ export async function generateDraft(
 
     // 5. Save to DB with campaign type
     console.log("Saving draft to DB...");
+    
+    // Determine strategy for LogicArt campaigns (default to current active strategy)
+    const activeStrategy = campaignType === 'logicart' ? getActiveLogicArtStrategy() : null;
+    
     try {
         await db.insert(postcardDrafts).values({
             campaignType: campaignType,
+            strategy: activeStrategy, // Track which strategy generated this draft
             originalTweetId: tweet.id,
             originalAuthorHandle: authorHandle,
             originalTweetText: tweet.text,
@@ -221,9 +227,10 @@ export async function generateDraft(
             draftReplyText: draftReplyText,
             turaiImageUrl: imageUrl,
             imageAttribution: imageAttribution,
+            actionType: "reply", // Standard reply action
             score: score,
         });
-        console.log(`✅ ${config.emoji} Draft saved for ${contextInfo} (Score: ${score}, Campaign: ${campaignType})`);
+        console.log(`✅ ${config.emoji} Draft saved for ${contextInfo} (Score: ${score}, Campaign: ${campaignType}, Strategy: ${activeStrategy || 'n/a'})`);
         return true;
     } catch (error) {
         console.error("Error saving draft to DB:", error);
@@ -775,6 +782,133 @@ Answer (one word only):` }]
 
         return imageUrl;
     }
+}
+
+/**
+ * Arena Referee Strategy - Generate Quote Tweet drafts with AI verdicts
+ * 
+ * Flow:
+ * 1. Find viral AI debate tweet (e.g., "Grok vs Claude")
+ * 2. Run the debate through our Arena (4 AI models respond)
+ * 3. Get the Chairman's verdict
+ * 4. Generate a Quote Tweet draft with the verdict
+ */
+export async function generateArenaRefereeDraft(
+    tweet: { id: string; text: string; author_id?: string },
+    authorHandle: string,
+    force: boolean = false
+): Promise<boolean> {
+    const strategy = LOGICART_STRATEGIES.arena_referee;
+    console.log(`${strategy.emoji} Arena Referee: Processing debate tweet ${tweet.id} from @${authorHandle}`);
+
+    // Check if draft already exists
+    const existing = await db.query.postcardDrafts.findFirst({
+        where: eq(postcardDrafts.originalTweetId, tweet.id),
+    });
+
+    if (existing) {
+        console.log(`Draft already exists for tweet ${tweet.id}. Skipping.`);
+        return false;
+    }
+
+    try {
+        // Extract the debate question/topic from the tweet
+        const debateTopic = tweet.text;
+        
+        console.log(`🏛️ Running debate through Arena: "${debateTopic.substring(0, 80)}..."`);
+        
+        // Run through the Arena - use "question" mode for debates
+        let arenaResult;
+        try {
+            arenaResult = await runArena({
+                problemDescription: debateTopic,
+                mode: "question"  // Use question mode for AI debates
+            });
+        } catch (arenaError) {
+            console.error(`❌ Arena service failed for tweet ${tweet.id}:`, arenaError);
+            return false;
+        }
+        
+        if (!arenaResult || !arenaResult.winner || arenaResult.winner === "None") {
+            console.log(`❌ Arena failed to produce verdict. Skipping draft.`);
+            return false;
+        }
+        
+        console.log(`🏆 Arena Winner: ${arenaResult.winner}`);
+        console.log(`📝 Reasoning: ${arenaResult.winnerReason?.substring(0, 100)}...`);
+        
+        // Generate the Quote Tweet text
+        const quoteText = generateArenaVerdictText({
+            winner: arenaResult.winner,
+            winnerReason: arenaResult.winnerReason,
+            responses: arenaResult.responses
+        }, authorHandle);
+        
+        // Calculate a score based on engagement potential
+        // High engagement topics (model debates) get higher scores
+        const validResponses = arenaResult.responses.filter(r => !r.error).length;
+        const score = Math.min(95, 70 + (validResponses * 5)); // 70-95 range based on response quality
+        
+        // Save the draft
+        await db.insert(postcardDrafts).values({
+            campaignType: "logicart",
+            strategy: "arena_referee",
+            originalTweetId: tweet.id,
+            originalAuthorHandle: authorHandle,
+            originalTweetText: tweet.text,
+            detectedLocation: arenaResult.winner, // Reusing field for "winner model"
+            status: "pending_review",
+            draftReplyText: quoteText,
+            turaiImageUrl: "", // No image for Quote Tweets (optional: add scorecard)
+            actionType: "quote_tweet",
+            arenaVerdict: {
+                winner: arenaResult.winner,
+                reasoning: arenaResult.winnerReason || "",
+                responses: arenaResult.responses.map(r => ({
+                    model: r.model,
+                    response: r.response.substring(0, 500), // Truncate for storage
+                    responseTime: r.responseTime
+                }))
+            },
+            score: score,
+        });
+        
+        console.log(`✅ ${strategy.emoji} Arena Referee draft saved! Winner: ${arenaResult.winner}, Score: ${score}`);
+        return true;
+        
+    } catch (error) {
+        console.error(`❌ Arena Referee draft failed:`, error);
+        return false;
+    }
+}
+
+/**
+ * Generate the Quote Tweet text for an Arena verdict
+ */
+function generateArenaVerdictText(
+    arenaResult: { winner: string; winnerReason?: string; responses: any[] },
+    authorHandle: string
+): string {
+    const winner = arenaResult.winner;
+    const reasoning = arenaResult.winnerReason || "Based on clarity, accuracy, and helpfulness.";
+    
+    // Get response times for fun stats
+    const validResponses = arenaResult.responses.filter(r => !r.error);
+    const fastestTime = Math.min(...validResponses.map(r => r.responseTime));
+    const fastestModel = validResponses.find(r => r.responseTime === fastestTime)?.model || "Unknown";
+    
+    // Build the Quote Tweet text
+    // Twitter's Quote Tweet UI shows the original tweet, so we just need our commentary
+    const templates = [
+        `We ran this through the AI Council. 🏛️\n\nThe verdict? ${winner} wins!\n\n${reasoning.length > 150 ? reasoning.substring(0, 147) + "..." : reasoning}\n\n🏆 Try your own debate: https://logic.art`,
+        `🏟️ AI CAGE MATCH VERDICT 🏟️\n\n@${authorHandle} asked, we delivered!\n\n🏆 Winner: ${winner}\n\n"${reasoning.length > 120 ? reasoning.substring(0, 117) + "..." : reasoning}"\n\n⚡ Fastest: ${fastestModel} (${fastestTime}ms)`,
+        `The AI Council has spoken! 🏛️\n\n${winner} takes this round. Here's why:\n\n${reasoning.length > 140 ? reasoning.substring(0, 137) + "..." : reasoning}\n\n👉 Run your own AI battle: logic.art`,
+    ];
+    
+    // Pick a random template for variety
+    const template = templates[Math.floor(Math.random() * templates.length)];
+    
+    return template;
 }
 
 export const postcardDrafter = new PostcardDrafter();
