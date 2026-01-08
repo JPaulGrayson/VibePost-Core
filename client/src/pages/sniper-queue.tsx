@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { PostcardDraft, ArenaVerdict } from "@shared/schema";
-import { RefreshCw, Plane, Code2 } from "lucide-react";
+import { RefreshCw, Plane, Code2, Quote } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface CampaignConfig {
@@ -52,21 +52,38 @@ export default function SniperQueue() {
 
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState("");
-    const [activeCampaign, setActiveCampaign] = useState<string>("turai");
+    const [activeCampaign, setActiveCampaign] = useState<string>("logicart"); // Default to LogicArt
 
-    // Sync local state when campaign data loads from server
+    // Sync local state when campaign data loads from server (only on initial load)
+    const [hasInitialized, setHasInitialized] = useState(false);
     useEffect(() => {
-        if (campaignData?.currentCampaign && campaignData.currentCampaign !== activeCampaign) {
-            setActiveCampaign(campaignData.currentCampaign);
+        if (campaignData?.currentCampaign && !hasInitialized) {
+            // Map server campaign to UI campaign (quote_tweet is logicart with arena_referee strategy)
+            if (campaignData.currentCampaign === 'logicart' && campaignData.activeStrategy === 'arena_referee') {
+                setActiveCampaign('quote_tweet');
+            } else {
+                setActiveCampaign(campaignData.currentCampaign);
+            }
+            setHasInitialized(true);
         }
-    }, [campaignData?.currentCampaign]);
+    }, [campaignData?.currentCampaign, campaignData?.activeStrategy, hasInitialized]);
 
     const filteredDrafts = drafts?.filter(draft => {
-        // Filter by campaign type first
-        const campaignMatch = (draft as any).campaignType === activeCampaign || 
-            (!((draft as any).campaignType) && activeCampaign === 'turai'); // Legacy drafts default to turai
+        // Filter by campaign type and strategy
+        if (activeCampaign === 'quote_tweet') {
+            // Show only arena_referee drafts (Quote Tweets)
+            return draft.strategy === 'arena_referee' || draft.actionType === 'quote_tweet';
+        }
+        
+        const campaignMatch = draft.campaignType === activeCampaign || 
+            (!(draft.campaignType) && activeCampaign === 'turai'); // Legacy drafts default to turai
         
         if (!campaignMatch) return false;
+        
+        // For logicart, exclude arena_referee drafts (they show in Quote Tweet)
+        if (activeCampaign === 'logicart' && (draft.strategy === 'arena_referee' || draft.actionType === 'quote_tweet')) {
+            return false;
+        }
         
         // Then filter by search query
         return draft.originalAuthorHandle.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -77,6 +94,17 @@ export default function SniperQueue() {
     // Switch campaign mutation with optimistic updates
     const switchCampaign = useMutation({
         mutationFn: async (campaignType: string) => {
+            // Quote Tweet uses logicart campaign + arena_referee strategy
+            if (campaignType === 'quote_tweet') {
+                // First switch to logicart, then switch strategy to arena_referee
+                await apiRequest("POST", "/api/sniper/campaign", { campaignType: 'logicart' });
+                const strategyRes = await apiRequest("POST", "/api/sniper/strategy", { strategy: 'arena_referee' });
+                return { 
+                    config: { emoji: '💬', name: 'Quote Tweet (Arena Referee)' },
+                    isQuoteTweet: true,
+                    ...(await strategyRes.json())
+                };
+            }
             const res = await apiRequest("POST", "/api/sniper/campaign", { campaignType });
             return res.json();
         },
@@ -108,7 +136,15 @@ export default function SniperQueue() {
 
     const manualHunt = useMutation({
         mutationFn: async () => {
-            const res = await apiRequest("POST", "/api/debug/hunt", { campaignType: activeCampaign });
+            // Quote Tweet uses logicart campaign + arena_referee strategy
+            if (activeCampaign === 'quote_tweet') {
+                // Ensure we're on logicart with arena_referee before hunting
+                await apiRequest("POST", "/api/sniper/campaign", { campaignType: 'logicart' });
+                await apiRequest("POST", "/api/sniper/strategy", { strategy: 'arena_referee' });
+            }
+            // Send the actual backend campaign type
+            const backendCampaign = activeCampaign === 'quote_tweet' ? 'logicart' : activeCampaign;
+            const res = await apiRequest("POST", "/api/debug/hunt", { campaignType: backendCampaign });
             return res.json();
         },
         onSuccess: (data) => {
@@ -191,41 +227,61 @@ export default function SniperQueue() {
 
             {/* Campaign Selector */}
             <div className="mb-6 p-4 bg-card rounded-lg border">
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">Active Campaign</label>
-                <Tabs
-                    value={activeCampaign}
-                    onValueChange={(value) => switchCampaign.mutate(value)}
-                    className="w-full"
-                >
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="turai" className="flex items-center gap-2" data-testid="tab-turai">
-                            <Plane className="h-4 w-4" />
-                            <span>✈️ Turai Travel</span>
-                            <Badge variant="secondary" className="ml-1 text-xs">
-                                {drafts?.filter(d => (d as any).campaignType === 'turai' || !(d as any).campaignType).length || 0}
-                            </Badge>
-                        </TabsTrigger>
-                        <TabsTrigger value="logicart" className="flex items-center gap-2" data-testid="tab-logicart">
-                            <Code2 className="h-4 w-4" />
-                            <span>🧠 LogicArt Vibe Coding</span>
-                            <Badge variant="secondary" className="ml-1 text-xs">
-                                {drafts?.filter(d => (d as any).campaignType === 'logicart').length || 0}
-                            </Badge>
-                        </TabsTrigger>
-                    </TabsList>
-                </Tabs>
+                <div className="flex items-center gap-4">
+                    <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">Active Campaign</label>
+                    <Select
+                        value={activeCampaign}
+                        onValueChange={(value) => switchCampaign.mutate(value)}
+                        disabled={switchCampaign.isPending}
+                    >
+                        <SelectTrigger className="w-[280px]" data-testid="campaign-selector">
+                            <SelectValue placeholder="Select campaign" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="turai" data-testid="campaign-turai">
+                                <div className="flex items-center gap-2">
+                                    <Plane className="h-4 w-4" />
+                                    <span>✈️ Turai Travel</span>
+                                    <Badge variant="secondary" className="ml-1 text-xs">
+                                        {drafts?.filter(d => d.campaignType === 'turai' || !d.campaignType).length || 0}
+                                    </Badge>
+                                </div>
+                            </SelectItem>
+                            <SelectItem value="logicart" data-testid="campaign-logicart">
+                                <div className="flex items-center gap-2">
+                                    <Code2 className="h-4 w-4" />
+                                    <span>🧠 LogicArt Replies</span>
+                                    <Badge variant="secondary" className="ml-1 text-xs">
+                                        {drafts?.filter(d => d.campaignType === 'logicart' && d.strategy !== 'arena_referee' && d.actionType !== 'quote_tweet').length || 0}
+                                    </Badge>
+                                </div>
+                            </SelectItem>
+                            <SelectItem value="quote_tweet" data-testid="campaign-quote-tweet">
+                                <div className="flex items-center gap-2">
+                                    <Quote className="h-4 w-4" />
+                                    <span>💬 Quote Tweet (Arena)</span>
+                                    <Badge variant="secondary" className="ml-1 text-xs">
+                                        {drafts?.filter(d => d.strategy === 'arena_referee' || d.actionType === 'quote_tweet').length || 0}
+                                    </Badge>
+                                </div>
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
                 <p className="text-xs text-muted-foreground mt-2">
                     {activeCampaign === 'turai' 
                         ? 'Hunting for travelers planning trips - promoting AI Tour Guide'
+                        : activeCampaign === 'quote_tweet'
+                        ? 'Finding AI debates, running through Arena, generating Quote Tweets with verdicts'
                         : 'Hunting for developers with coding questions - promoting AI Debug Arena'}
                 </p>
 
-                {/* Strategy Selector (LogicArt only) */}
+                {/* Strategy Selector (LogicArt only - exclude arena_referee as it's a separate campaign) */}
                 {activeCampaign === 'logicart' && campaignData?.availableStrategies && campaignData.availableStrategies.length > 0 && (
                     <div className="mt-4 pt-4 border-t">
                         <label className="text-sm font-medium text-muted-foreground mb-2 block">Active Strategy</label>
                         <div className="grid grid-cols-3 gap-2">
-                            {campaignData.availableStrategies.map((strategy) => (
+                            {campaignData.availableStrategies.filter(s => s.id !== 'arena_referee').map((strategy) => (
                                 <Button
                                     key={strategy.id}
                                     variant={campaignData.activeStrategy === strategy.id ? "default" : "outline"}
