@@ -114,14 +114,19 @@ export default function SniperQueue() {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] });
             const stats = data.result?.stats;
+            const debug = data.debug;
+            
+            // Show strategy being used
+            const strategyInfo = debug ? `[${debug.strategyName}]` : '';
+            
             if (stats) {
                 toast({
-                    title: `Hunt Complete! ${activeCampaign === 'logicart' ? '🧠' : '🧙‍♂️'}`,
-                    description: `Found ${stats.tweetsFound} tweets, created ${stats.draftsCreated} new drafts.`,
+                    title: `Hunt Complete! ${strategyInfo}`,
+                    description: `Searched ${stats.keywordsSearched} keywords, found ${stats.tweetsFound} tweets, created ${stats.draftsCreated} drafts, skipped ${stats.duplicatesSkipped} duplicates.`,
                 });
             } else {
                 toast({
-                    title: "Hunt Complete!",
+                    title: `Hunt Complete! ${strategyInfo}`,
                     description: `Generated ${data.result?.draftsGenerated || 0} new drafts.`,
                 });
             }

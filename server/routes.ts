@@ -987,11 +987,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Manual Hunt Trigger (Debug)
   app.post("/api/debug/hunt", async (req, res) => {
     try {
+      const campaign = getActiveCampaign();
+      const strategy = getActiveLogicArtStrategy();
+      const strategyConfig = getActiveStrategyConfig();
+      
       console.log(`🎯 Manual hunt triggered via API`);
+      console.log(`   Campaign: ${campaign}`);
+      console.log(`   Strategy: ${strategy} (${strategyConfig.name})`);
+      console.log(`   Keywords (first 5): ${strategyConfig.keywords.slice(0, 5).join(', ')}`);
+      
       const result = await sniperManager.forceHunt();
-      res.json({ success: true, message: "Hunt completed", result });
+      
+      res.json({ 
+        success: true, 
+        message: "Hunt completed", 
+        result,
+        debug: {
+          campaign,
+          strategy,
+          strategyName: strategyConfig.name,
+          keywordsSample: strategyConfig.keywords.slice(0, 5)
+        }
+      });
     } catch (error) {
-      console.error("Manual hunt failed:", error);
       console.error("Manual hunt failed:", error);
       fs.appendFileSync('diagnostic.log', `[${new Date().toISOString()}] Hunt Error: ${error}\n${error instanceof Error ? error.stack : ''}\n`);
       res.status(500).json({ success: false, error: String(error) });
