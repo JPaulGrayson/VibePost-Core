@@ -998,6 +998,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Debug: Test Twitter search with specific keyword
+  app.get("/api/debug/test-search", async (req, res) => {
+    try {
+      const keyword = (req.query.keyword as string) || "vibe coding";
+      console.log(`🔬 Debug: Testing Twitter search for "${keyword}"...`);
+      
+      const results = await keywordSearchEngine.searchTwitter(keyword, 10, false);
+      
+      res.json({
+        success: true,
+        keyword,
+        resultsCount: results.length,
+        results: results.slice(0, 5).map(r => ({
+          id: r.id,
+          author: r.author,
+          content: r.content.substring(0, 200),
+          score: r.score,
+          platform: r.platform
+        }))
+      });
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Debug search failed:", errorMsg);
+      res.status(500).json({ success: false, error: errorMsg });
+    }
+  });
+
   // Analytics Dashboard API
   app.get("/api/analytics/dashboard", async (req, res) => {
     try {
