@@ -1,0 +1,177 @@
+Here is a complete design and implementation specification file. You can save this as `ARENA_INTEGRATION_SPEC.md` and drop it directly into your VibePost Replit chat.
+
+It contains the **Concept**, the **Strategy Configuration**, and the **JavaScript Logic** to connect the two apps.
+
+---
+
+### 📄 File Content: `ARENA_INTEGRATION_SPEC.md`
+
+```markdown
+# VibePost x LogicArt Integration: "The Arena Referee"
+
+## 1. Concept Overview
+We are implementing a **"Cyborg" Workflow** for the VibePost lead generation tool.
+* **Goal:** Automatically generate "Draft Replies" for incoming leads so the user only has to click "Approve/Quote Tweet."
+* **The Flow:**
+    1.  **Hunter (VibePost):** Finds a viral tweet about "Grok vs Claude" or "AI Truth."
+    2.  **Brain (LogicArt):** VibePost sends the tweet text to LogicArt's "Council" API.
+    3.  **Drafter (Automation):** LogicArt returns a verdict and a "Scorecard Image." VibePost saves this as a draft.
+    4.  **Broadcaster (User):** User clicks "Approve" -> Opens X Quote Tweet with text/image pre-filled.
+
+## 2. Configuration Update (strategies.js)
+Add this new strategy to the VibePost configuration. This tells the "Hunter" what to look for and which processing logic to use.
+
+```javascript
+// config/strategies.js
+
+export const STRATEGIES = [
+  // ... existing strategies ...
+  {
+    id: 'arena_referee',
+    name: '🏛️ Arena Referee',
+    description: 'Find viral AI debates & broadcast the verdict',
+    // Query: High engagement, debate keywords, no links (spam filter)
+    query: '("which ai is better" OR "grok vs" OR "claude vs" OR "is grok true" OR "ai hallucination") min_faves:25 -filter:links lang:en',
+    color: '#8b5cf6', // Purple
+    actionType: 'quote_tweet', // UI triggers Quote Tweet flow
+    processor: 'run_arena_debate' // Trigger for background job
+  }
+];
+
+```
+
+## 3. Implementation: The Draft Generator (Step 2)
+
+This is the core backend logic. It sits in VibePost and talks to the LogicArt API.
+
+**Task for Agent:**
+Create or update `services/LeadProcessor.js` (or equivalent) with this logic.
+
+```javascript
+// services/LeadProcessor.js
+
+import { db } from '../db'; // Pseudo-import: Your DB connection
+import fetch from 'node-fetch';
+
+const LOGICART_API_URL = process.env.LOGICART_API_URL || '[https://logicart.replit.app/api](https://logicart.replit.app/api)';
+const LOGICART_API_KEY = process.env.LOGICART_API_KEY;
+
+/**
+ * Main entry point when a new lead is found by the Hunter
+ */
+export async function processNewLead(lead) {
+  console.log(`[LeadProcessor] Processing lead ${lead.id} with strategy ${lead.strategyId}`);
+
+  try {
+    let draftResult = null;
+
+    // Route to the correct "Brain" based on strategy
+    if (lead.strategyId === 'arena_referee') {
+      draftResult = await generateArenaDraft(lead.text);
+    } else if (lead.strategyId === 'bootcamp_savior') {
+      draftResult = await generateCodeHelpDraft(lead.text);
+    }
+
+    // If we got a result, save it as a draft
+    if (draftResult) {
+      await db.leads.update(lead.id, {
+        draft_text: draftResult.text,
+        draft_image_url: draftResult.image,
+        status: 'ready_for_review' // Moves it to "Wizard's Tower"
+      });
+      console.log(`[LeadProcessor] Draft generated for ${lead.id}`);
+    }
+
+  } catch (error) {
+    console.error(`[LeadProcessor] Failed to process lead ${lead.id}:`, error);
+    // Mark as manual review needed if automation fails
+    await db.leads.update(lead.id, { status: 'manual_review' });
+  }
+}
+
+/**
+ * STRATEGY: Arena Referee
+ * Hits the LogicArt "Council" API to get a verdict on the debate.
+ */
+async function generateArenaDraft(tweetText) {
+  // 1. Ask the LogicArt Council for a verdict
+  // Uses the "Verdict" endpoint from AGENT_API.md
+  const response = await fetch(`${LOGICART_API_URL}/arena/verdict`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${LOGICART_API_KEY}`
+    },
+    body: JSON.stringify({
+      mode: 'debate', // Tell Council this is a general debate, not code gen
+      chairman: 'gpt-4o', // The judge
+      originalPrompt: tweetText
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`LogicArt API Error: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  
+  // 2. Format the output for a Quote Tweet
+  // data.verdict should contain the summary
+  // data.scorecardUrl should contain the generated image
+  
+  const draftText = `We ran this debate through the Council. 🏛️\n\n` +
+    `${data.verdict_short}\n\n` + // "Grok says X, but Claude disagrees..."
+    `Here is the consensus breakdown. 👇`;
+
+  return {
+    text: draftText,
+    image: data.scorecardUrl // URL to the generated "Winner Card" image
+  };
+}
+
+/**
+ * STRATEGY: Bootcamp Savior (Bonus)
+ * Standard LogicArt visualization help
+ */
+async function generateCodeHelpDraft(codeSnippet) {
+  // ... existing logic for spaghetti code ...
+  return {
+    text: "I visualized your loop logic to see where it breaks. 🪄 map below 👇",
+    image: "[https://logicart.app/placeholder-flowchart.png](https://logicart.app/placeholder-flowchart.png)" // Placeholder until fully connected
+  };
+}
+
+```
+
+## 4. UI Update: The Quote Tweet Action
+
+**Task for Agent:**
+Update the `LeadCard.tsx` component to handle the `quote_tweet` action type.
+
+```javascript
+// Inside your LeadCard component
+const handleApprove = () => {
+  if (strategy.actionType === 'quote_tweet') {
+    // Generate Twitter Intent URL for Quote Tweet
+    // Format: [https://twitter.com/intent/tweet?text=](https://twitter.com/intent/tweet?text=){text}&url={original_tweet_url}
+    
+    const originalUrl = `https://twitter.com/${lead.username}/status/${lead.tweetId}`;
+    const encodedText = encodeURIComponent(lead.draft_text);
+    const encodedUrl = encodeURIComponent(originalUrl);
+    
+    // Note: Twitter Intent doesn't support pre-filling images via URL API.
+    // The user will need to drag/drop the image from the VibePost dashboard 
+    // OR we use the X API v2 (if available) to upload media.
+    // For MVP: We copy text/URL to clipboard and open the window.
+    
+    window.open(`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`, '_blank');
+  } else {
+    // Standard Reply logic
+  }
+};
+
+```
+
+```
+
+```
