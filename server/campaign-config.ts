@@ -554,7 +554,12 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
             // ===== LANGUAGE-SPECIFIC HELP =====
             "python help", "javascript help", "typescript help",
             "react component", "async await", "promise chain",
-            "list comprehension", "lambda function", "callback hell"
+            "list comprehension", "lambda function", "callback hell",
+            
+            // ===== REPLIT & VIBE CODING =====
+            "replit code", "replit error", "replit help",
+            "my replit project", "replit agent", "replit bug",
+            "vibe coding", "vibe coded", "cursor bug", "cursor error"
         ],
         intentType: 'Code Snippet Shared / Help Needed',
         intentSignals: {
