@@ -575,6 +575,39 @@ Answer (one word only):` }]
         }
     }
 
+    // Extract a visual theme from AI debate tweets for image generation variety
+    async extractDebateVisualTheme(tweetText: string): Promise<string> {
+        try {
+            const response = await genAI.models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: [{
+                    role: 'user',
+                    parts: [{
+                        text: `Extract the visual theme/topic from this AI debate tweet for image generation.
+                        
+Return a short 2-5 word description of the visual concept, like:
+- "code generation battle"
+- "creative writing showdown"  
+- "medical diagnosis competition"
+- "legal reasoning duel"
+- "math problem solving"
+- "philosophical debate"
+- "image recognition contest"
+- "language translation match"
+
+Tweet: "${tweetText.substring(0, 500)}"
+
+Visual theme (2-5 words):` }]
+                }]
+            });
+            const result = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            return result || "AI intelligence showdown";
+        } catch (error) {
+            console.error("Error extracting debate visual theme:", error);
+            return "AI intelligence showdown";
+        }
+    }
+
     // Generate campaign-specific reply
     async generateCampaignReply(
         author: string,
@@ -830,8 +863,11 @@ Answer (one word only):` }]
             imageUrl = imageResult.imageUrl;
             attribution = imageResult.attribution;
         } else if (draft.strategy === 'arena_referee') {
-            // Arena Referee: AI debate themed image
-            imageUrl = await this.generateArenaRefereeImage(draft.detectedLocation || 'AI models');
+            // Arena Referee: AI debate themed image - pass tweet content for variety
+            imageUrl = await this.generateArenaRefereeImage(
+                draft.detectedLocation || 'AI models',
+                draft.originalTweetText || undefined
+            );
         } else {
             // LogicArt: coding/flowchart themed image
             imageUrl = await this.generateLogicArtImage(draft.detectedLocation || 'code debugging');
@@ -858,14 +894,33 @@ Answer (one word only):` }]
     ];
     
     // Generate AI debate/cage match themed image using Gemini AI
-    async generateArenaRefereeImage(winnerModel: string): Promise<string> {
+    async generateArenaRefereeImage(winnerModel: string, tweetContent?: string): Promise<string> {
         try {
-            const imagePrompt = `Create a dramatic AI battle arena image.
-Theme: ${winnerModel} as the winning AI champion
-Style: Two robots or AI entities facing off in a futuristic digital colosseum. 
-Colors: Neon blue, purple, and red lighting. Cyberpunk aesthetic.
-Must include: Glowing circuits, data streams, holographic displays, dramatic battle atmosphere.
-No text, no letters, no words - pure visual spectacle.`;
+            // Extract a topic from the tweet for visual variety
+            const topicContext = tweetContent 
+                ? await this.extractDebateVisualTheme(tweetContent)
+                : "artificial intelligence debate";
+            
+            // Vary the visual style based on a random seed for uniqueness
+            const visualStyles = [
+                "futuristic neon colosseum with floating holographic screens",
+                "cyberpunk arena with glowing circuit board floor",
+                "ethereal digital battleground with particle effects",
+                "high-tech stadium with laser light show",
+                "abstract data visualization showing competing algorithms",
+                "crystalline cyber arena with prismatic light refractions"
+            ];
+            const randomStyle = visualStyles[Math.floor(Math.random() * visualStyles.length)];
+            
+            const imagePrompt = `Create a unique, dramatic AI competition image.
+Topic being debated: ${topicContext}
+Winner: ${winnerModel}
+Visual setting: ${randomStyle}
+Style: Two distinct AI entities (robots, holograms, or abstract digital beings) in competition. One clearly victorious.
+Colors: Neon accents (pick 2-3: blue, purple, red, cyan, gold, green based on topic).
+Mood: Epic, dramatic, technological triumph.
+Must include: Dynamic energy effects, digital particles, sense of motion and victory.
+No text, no letters, no words, no writing - pure visual art.`;
 
             console.log("Generating Arena Referee image via Gemini...");
             const response = await imageGenAI.models.generateContent({
