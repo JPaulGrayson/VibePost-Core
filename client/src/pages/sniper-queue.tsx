@@ -53,14 +53,17 @@ export default function SniperQueue() {
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState("");
     const [activeCampaign, setActiveCampaign] = useState<string>("logicart"); // Default to LogicArt
+    const [quoteStrategy, setQuoteStrategy] = useState<'arena_referee' | 'code_flowchart'>('arena_referee'); // Sub-strategy for Quote Tweets
 
     // Sync local state when campaign data loads from server (only on initial load)
     const [hasInitialized, setHasInitialized] = useState(false);
     useEffect(() => {
         if (campaignData?.currentCampaign && !hasInitialized) {
-            // Map server campaign to UI campaign (quote_tweet is logicart with arena_referee strategy)
-            if (campaignData.currentCampaign === 'logicart' && campaignData.activeStrategy === 'arena_referee') {
+            // Map server campaign to UI campaign (quote_tweet uses special strategies)
+            if (campaignData.currentCampaign === 'logicart' && 
+                ['arena_referee', 'code_flowchart'].includes(campaignData.activeStrategy || '')) {
                 setActiveCampaign('quote_tweet');
+                setQuoteStrategy(campaignData.activeStrategy as 'arena_referee' | 'code_flowchart');
             } else {
                 setActiveCampaign(campaignData.currentCampaign);
             }
@@ -94,13 +97,14 @@ export default function SniperQueue() {
     // Switch campaign mutation with optimistic updates
     const switchCampaign = useMutation({
         mutationFn: async (campaignType: string) => {
-            // Quote Tweet uses logicart campaign + arena_referee strategy
+            // Quote Tweet uses logicart campaign + selected quote strategy
             if (campaignType === 'quote_tweet') {
-                // First switch to logicart, then switch strategy to arena_referee
+                // First switch to logicart, then switch to selected quote strategy
                 await apiRequest("POST", "/api/sniper/campaign", { campaignType: 'logicart' });
-                const strategyRes = await apiRequest("POST", "/api/sniper/strategy", { strategy: 'arena_referee' });
+                const strategyRes = await apiRequest("POST", "/api/sniper/strategy", { strategy: quoteStrategy });
+                const strategyName = quoteStrategy === 'arena_referee' ? 'Arena Referee' : 'Code Flowchart';
                 return { 
-                    config: { emoji: '💬', name: 'Quote Tweet (Arena Referee)' },
+                    config: { emoji: '💬', name: `Quote Tweet (${strategyName})` },
                     isQuoteTweet: true,
                     ...(await strategyRes.json())
                 };
@@ -136,11 +140,11 @@ export default function SniperQueue() {
 
     const manualHunt = useMutation({
         mutationFn: async () => {
-            // Quote Tweet uses logicart campaign + arena_referee strategy
+            // Quote Tweet uses logicart campaign + selected quote strategy
             if (activeCampaign === 'quote_tweet') {
-                // Ensure we're on logicart with arena_referee before hunting
+                // Ensure we're on logicart with selected quote strategy before hunting
                 await apiRequest("POST", "/api/sniper/campaign", { campaignType: 'logicart' });
-                await apiRequest("POST", "/api/sniper/strategy", { strategy: 'arena_referee' });
+                await apiRequest("POST", "/api/sniper/strategy", { strategy: quoteStrategy });
             }
             // Send the actual backend campaign type
             const backendCampaign = activeCampaign === 'quote_tweet' ? 'logicart' : activeCampaign;
@@ -272,9 +276,44 @@ export default function SniperQueue() {
                     {activeCampaign === 'turai' 
                         ? 'Hunting for travelers planning trips - promoting AI Tour Guide'
                         : activeCampaign === 'quote_tweet'
-                        ? 'Quote Tweets: AI debates (Arena Referee) + code snippets (Code Flowchart) - driving traffic to logic.art/x'
+                        ? `Quote Tweets: ${quoteStrategy === 'arena_referee' ? 'AI debates → Arena verdict' : 'Code snippets → Flowchart visualization'}`
                         : 'Hunting for developers with coding questions - promoting AI Debug Arena'}
                 </p>
+
+                {/* Quote Tweet Strategy Selector */}
+                {activeCampaign === 'quote_tweet' && (
+                    <div className="mt-4 pt-4 border-t">
+                        <label className="text-sm font-medium text-muted-foreground mb-2 block">Quote Tweet Strategy</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <Button
+                                variant={quoteStrategy === 'arena_referee' ? "default" : "outline"}
+                                size="sm"
+                                className="flex flex-col items-start h-[72px] py-2 px-3"
+                                onClick={() => {
+                                    setQuoteStrategy('arena_referee');
+                                    switchCampaign.mutate('quote_tweet');
+                                }}
+                                disabled={switchCampaign.isPending}
+                            >
+                                <span className="font-medium text-sm">🏛️ Arena Referee</span>
+                                <span className="text-xs text-muted-foreground text-left">AI debates → Run through Arena → Quote with verdict</span>
+                            </Button>
+                            <Button
+                                variant={quoteStrategy === 'code_flowchart' ? "default" : "outline"}
+                                size="sm"
+                                className="flex flex-col items-start h-[72px] py-2 px-3"
+                                onClick={() => {
+                                    setQuoteStrategy('code_flowchart');
+                                    switchCampaign.mutate('quote_tweet');
+                                }}
+                                disabled={switchCampaign.isPending}
+                            >
+                                <span className="font-medium text-sm">📊 Code Flowchart</span>
+                                <span className="text-xs text-muted-foreground text-left">Code snippets → Generate flowchart → Quote with CTA</span>
+                            </Button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Strategy Selector (LogicArt only - exclude quote tweet strategies) */}
                 {activeCampaign === 'logicart' && campaignData?.availableStrategies && campaignData.availableStrategies.length > 0 && (
