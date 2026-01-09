@@ -531,7 +531,7 @@ No text, no letters, no words - pure visual art.`;
     }
     
     // Save a base64 image to disk and return the URL
-    private async saveGeneratedImage(base64Data: string, prefix: string): Promise<string> {
+    async saveGeneratedImage(base64Data: string, prefix: string): Promise<string> {
         const imagesDir = path.join(process.cwd(), "public", "generated-images");
         if (!fs.existsSync(imagesDir)) {
             fs.mkdirSync(imagesDir, { recursive: true });

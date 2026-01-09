@@ -1,5 +1,5 @@
 import { keywordSearchEngine } from "../keyword-search";
-import { generateDraft, generateArenaRefereeDraft } from "./postcard_drafter";
+import { generateDraft, generateArenaRefereeDraft, generateCodeFlowchartDraft } from "./postcard_drafter";
 import { storage } from "../storage";
 import { replyTimingOptimizer } from "./reply_timing_optimizer";
 import { dmFollowUpService } from "./dm_follow_up";
@@ -245,13 +245,16 @@ export class SniperManager {
                             author_id: "unknown"
                         };
 
-                        // Check if we're using Arena Referee strategy (special Quote Tweet flow)
+                        // Check if we're using a special Quote Tweet strategy
                         const activeStrategy = currentCampaign === 'logicart' ? getActiveLogicArtStrategy() : null;
                         let created = false;
                         
                         if (activeStrategy === 'arena_referee') {
                             // Use Arena Referee special handler (runs through AI Council)
                             created = await generateArenaRefereeDraft(postObj, result.author);
+                        } else if (activeStrategy === 'code_flowchart') {
+                            // Use Code Flowchart handler (generates flowchart image)
+                            created = await generateCodeFlowchartDraft(postObj, result.author);
                         } else {
                             // Standard reply draft generation
                             created = await generateDraft(postObj, result.author, currentCampaign);

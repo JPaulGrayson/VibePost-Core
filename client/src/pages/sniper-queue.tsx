@@ -71,8 +71,8 @@ export default function SniperQueue() {
     const filteredDrafts = drafts?.filter(draft => {
         // Filter by campaign type and strategy
         if (activeCampaign === 'quote_tweet') {
-            // Show only arena_referee drafts (Quote Tweets)
-            return draft.strategy === 'arena_referee' || draft.actionType === 'quote_tweet';
+            // Show all Quote Tweet strategies (arena_referee, code_flowchart)
+            return ['arena_referee', 'code_flowchart'].includes(draft.strategy || '') || draft.actionType === 'quote_tweet';
         }
         
         const campaignMatch = draft.campaignType === activeCampaign || 
@@ -80,8 +80,8 @@ export default function SniperQueue() {
         
         if (!campaignMatch) return false;
         
-        // For logicart, exclude arena_referee drafts (they show in Quote Tweet)
-        if (activeCampaign === 'logicart' && (draft.strategy === 'arena_referee' || draft.actionType === 'quote_tweet')) {
+        // For logicart, exclude Quote Tweet strategies (they show in Quote Tweet tab)
+        if (activeCampaign === 'logicart' && (['arena_referee', 'code_flowchart'].includes(draft.strategy || '') || draft.actionType === 'quote_tweet')) {
             return false;
         }
         
@@ -252,16 +252,16 @@ export default function SniperQueue() {
                                     <Code2 className="h-4 w-4" />
                                     <span>🧠 LogicArt Replies</span>
                                     <Badge variant="secondary" className="ml-1 text-xs">
-                                        {drafts?.filter(d => d.campaignType === 'logicart' && d.strategy !== 'arena_referee' && d.actionType !== 'quote_tweet').length || 0}
+                                        {drafts?.filter(d => d.campaignType === 'logicart' && !['arena_referee', 'code_flowchart'].includes(d.strategy || '') && d.actionType !== 'quote_tweet').length || 0}
                                     </Badge>
                                 </div>
                             </SelectItem>
                             <SelectItem value="quote_tweet" data-testid="campaign-quote-tweet">
                                 <div className="flex items-center gap-2">
                                     <Quote className="h-4 w-4" />
-                                    <span>💬 Quote Tweet (Arena)</span>
+                                    <span>💬 Quote Tweets</span>
                                     <Badge variant="secondary" className="ml-1 text-xs">
-                                        {drafts?.filter(d => d.strategy === 'arena_referee' || d.actionType === 'quote_tweet').length || 0}
+                                        {drafts?.filter(d => ['arena_referee', 'code_flowchart'].includes(d.strategy || '') || d.actionType === 'quote_tweet').length || 0}
                                     </Badge>
                                 </div>
                             </SelectItem>
@@ -272,16 +272,16 @@ export default function SniperQueue() {
                     {activeCampaign === 'turai' 
                         ? 'Hunting for travelers planning trips - promoting AI Tour Guide'
                         : activeCampaign === 'quote_tweet'
-                        ? 'Finding AI debates, running through Arena, generating Quote Tweets with verdicts'
+                        ? 'Quote Tweets: AI debates (Arena Referee) + code snippets (Code Flowchart) - driving traffic to logic.art/x'
                         : 'Hunting for developers with coding questions - promoting AI Debug Arena'}
                 </p>
 
-                {/* Strategy Selector (LogicArt only - exclude arena_referee as it's a separate campaign) */}
+                {/* Strategy Selector (LogicArt only - exclude quote tweet strategies) */}
                 {activeCampaign === 'logicart' && campaignData?.availableStrategies && campaignData.availableStrategies.length > 0 && (
                     <div className="mt-4 pt-4 border-t">
                         <label className="text-sm font-medium text-muted-foreground mb-2 block">Active Strategy</label>
                         <div className="grid grid-cols-3 gap-2">
-                            {campaignData.availableStrategies.filter(s => s.id !== 'arena_referee').map((strategy) => (
+                            {campaignData.availableStrategies.filter(s => !['arena_referee', 'code_flowchart'].includes(s.id)).map((strategy) => (
                                 <Button
                                     key={strategy.id}
                                     variant={campaignData.activeStrategy === strategy.id ? "default" : "outline"}
