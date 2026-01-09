@@ -1123,7 +1123,8 @@ export const postcardDrafter = new PostcardDrafter();
 // ============= CODE FLOWCHART STRATEGY =============
 
 /**
- * Detect if a tweet contains actual code (not just mentions of programming)
+ * Detect if a tweet contains actual code OR discusses a code problem worth visualizing
+ * More lenient detection to catch tweets with error messages or debugging discussions
  */
 export function detectCodeInTweet(tweetText: string): boolean {
     // Check for code fences (strongest signal)
@@ -1152,10 +1153,39 @@ export function detectCodeInTweet(tweetText: string): boolean {
         /\[\s*\d+\s*\]/,                 // array indexing
         /\.map\(|\.filter\(|\.reduce\(/, // array methods
         /try\s*{|catch\s*\(/,            // try/catch
-        /TypeError:|SyntaxError:|ReferenceError:/, // error messages
     ];
     
     for (const pattern of codePatterns) {
+        if (pattern.test(tweetText)) return true;
+    }
+    
+    // Check for error messages (strong signal of debugging tweet)
+    const errorPatterns = [
+        /TypeError:/i, /SyntaxError:/i, /ReferenceError:/i,
+        /undefined is not/i, /null reference/i, /segfault/i,
+        /stack overflow/i, /index out of bounds/i,
+        /cannot read property/i, /is not defined/i,
+        /expected.*but got/i, /invalid syntax/i,
+        /Uncaught Error:/i, /Exception:/i, /Traceback:/i,
+    ];
+    
+    for (const pattern of errorPatterns) {
+        if (pattern.test(tweetText)) return true;
+    }
+    
+    // Check for code discussion signals (lenient - may discuss code without inline)
+    const discussionPatterns = [
+        /my (code|function|loop|array|class|method)/i,
+        /why (isn't|doesn't|won't|is) (this|my|the) (code|function|working)/i,
+        /what('s|s) wrong with (this|my) (code|function)/i,
+        /can someone (help|explain)/i,
+        /stuck on (a|this|my) (bug|error|loop|function)/i,
+        /debug(ging)? (this|my)/i,
+        /how (do I|to) (fix|solve|implement)/i,
+        /for loop|while loop|recursive|algorithm/i,
+    ];
+    
+    for (const pattern of discussionPatterns) {
         if (pattern.test(tweetText)) return true;
     }
     
@@ -1163,16 +1193,17 @@ export function detectCodeInTweet(tweetText: string): boolean {
     const symbolCount = (tweetText.match(/[{}()\[\];=><+\-*/&|!]/g) || []).length;
     const wordCount = tweetText.split(/\s+/).length;
     
-    // If more than 30% symbols to words ratio, likely code
-    if (wordCount > 5 && symbolCount / wordCount > 0.3) return true;
+    // If more than 20% symbols to words ratio, likely code-related
+    if (wordCount > 5 && symbolCount / wordCount > 0.2) return true;
     
     return false;
 }
 
 /**
- * Extract code from a tweet (handles code fences and inline code)
+ * Extract code from a tweet (handles code fences, inline code, and problem descriptions)
+ * For tweets without literal code, returns the problem description for conceptual flowchart
  */
-export function extractCodeFromTweet(tweetText: string): { code: string; language: string } | null {
+export function extractCodeFromTweet(tweetText: string): { code: string; language: string; isDescription?: boolean } | null {
     // Try to extract fenced code block first
     const fenceMatch = tweetText.match(/```(\w*)\n?([\s\S]*?)```/);
     if (fenceMatch) {
@@ -1200,6 +1231,18 @@ export function extractCodeFromTweet(tweetText: string): { code: string; languag
     
     if (codeLines.length >= 2) {
         return { code: codeLines.join('\n'), language: 'unknown' };
+    }
+    
+    // Fallback: Use the problem description for conceptual flowchart
+    // This handles tweets that discuss code problems without inline code
+    const cleanText = tweetText
+        .replace(/@\w+/g, '') // Remove mentions
+        .replace(/https?:\/\/\S+/g, '') // Remove URLs
+        .replace(/RT\s+/g, '') // Remove RT prefix
+        .trim();
+    
+    if (cleanText.length > 20) {
+        return { code: cleanText, language: 'description', isDescription: true };
     }
     
     return null;
@@ -1237,13 +1280,31 @@ export function detectLanguage(code: string): string {
 
 /**
  * Generate a flowchart image from code using Gemini
+ * Handles both literal code and problem descriptions
  */
-async function generateCodeFlowchartImage(code: string, language: string): Promise<string> {
+async function generateCodeFlowchartImage(code: string, language: string, isDescription: boolean = false): Promise<string> {
     try {
-        console.log(`📊 Generating flowchart for ${language} code...`);
+        console.log(`📊 Generating flowchart for ${isDescription ? 'problem description' : language + ' code'}...`);
         
-        // First, use Gemini to analyze the code and describe its flow
-        const analysisPrompt = `Analyze this ${language} code and describe its logical flow in simple terms for a flowchart visualization:
+        // Different prompts for actual code vs problem descriptions
+        let analysisPrompt: string;
+        
+        if (isDescription || language === 'description') {
+            // For problem descriptions, create a conceptual debugging flowchart
+            analysisPrompt = `A developer is asking about this coding problem:
+
+"${code.substring(0, 500)}"
+
+Create a simple debugging/solution flowchart in 3-5 steps:
+- Problem identification
+- Possible causes
+- Debug approach
+- Solution path
+
+Keep it simple and visual-friendly for a flowchart.`;
+        } else {
+            // For actual code, analyze the logic flow
+            analysisPrompt = `Analyze this ${language} code and describe its logical flow in simple terms for a flowchart visualization:
 
 \`\`\`${language}
 ${code.substring(0, 500)}
@@ -1255,6 +1316,7 @@ Describe in 3-5 bullet points:
 - Key steps/operations
 
 Keep it simple and visual-friendly.`;
+        }
 
         const analysisResult = await genAI.models.generateContent({
             model: "gemini-2.0-flash",
@@ -1365,12 +1427,12 @@ export async function generateCodeFlowchartDraft(
             ? extracted.language 
             : detectLanguage(extracted.code);
         
-        console.log(`📊 Extracted ${language} code (${extracted.code.length} chars)`);
+        console.log(`📊 Extracted ${language} ${extracted.isDescription ? 'problem description' : 'code'} (${extracted.code.length} chars)`);
         
         // Generate flowchart image
         let imageUrl = "";
         try {
-            imageUrl = await generateCodeFlowchartImage(extracted.code, language);
+            imageUrl = await generateCodeFlowchartImage(extracted.code, language, extracted.isDescription);
             console.log(`✅ Flowchart generated: ${imageUrl}`);
         } catch (imgError) {
             console.error(`⚠️ Flowchart generation failed:`, imgError);
