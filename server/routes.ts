@@ -5,8 +5,11 @@ import * as path from "path";
 import * as fs from "fs";
 import { z } from "zod";
 import { TwitterApi } from "twitter-api-v2";
+import { eq, and, or, isNull } from "drizzle-orm";
 import { storage } from "./storage";
 import { pool } from "./db";
+import { db } from "./db";
+import { postcardDrafts } from "@shared/schema";
 import { insertPostSchema, insertPlatformConnectionSchema, insertCampaignSchema, Platform, PostStatus } from "@shared/schema";
 import { keywordSearchEngine } from "./keyword-search";
 import { postcardDrafter, generateDraft } from "./services/postcard_drafter";
@@ -2500,6 +2503,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Regenerate image error:", error);
       res.status(500).json({ error: "Failed to regenerate image" });
+    }
+  });
+
+  app.post("/api/postcard-drafts/backfill-images", async (req, res) => {
+    try {
+      const draftsWithoutImages = await db.query.postcardDrafts.findMany({
+        where: and(
+          eq(postcardDrafts.status, "pending_review"),
+          or(
+            eq(postcardDrafts.turaiImageUrl, ""),
+            isNull(postcardDrafts.turaiImageUrl)
+          )
+        ),
+      });
+
+      console.log(`🎨 Backfilling images for ${draftsWithoutImages.length} drafts...`);
+      res.json({ 
+        success: true, 
+        message: `Started backfilling ${draftsWithoutImages.length} drafts`,
+        count: draftsWithoutImages.length
+      });
+
+      let completed = 0;
+      let failed = 0;
+      for (const draft of draftsWithoutImages) {
+        try {
+          await postcardDrafter.regenerateImage(draft.id);
+          completed++;
+          console.log(`✅ Backfill ${completed}/${draftsWithoutImages.length}: Draft ${draft.id}`);
+        } catch (err) {
+          failed++;
+          console.error(`❌ Backfill failed for draft ${draft.id}:`, err);
+        }
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      console.log(`🎨 Backfill complete: ${completed} success, ${failed} failed`);
+    } catch (error) {
+      console.error("Backfill images error:", error);
+      res.status(500).json({ error: "Failed to start backfill" });
     }
   });
 

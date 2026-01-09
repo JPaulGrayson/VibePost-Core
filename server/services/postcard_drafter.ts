@@ -883,14 +883,14 @@ Visual theme (2-5 words):` }]
         return imageUrl;
     }
 
-    // Fallback curated Arena Referee images (AI, robots, futuristic battle)
+    // Fallback curated Arena Referee images (variety of competition themes)
     private static readonly ARENA_IMAGES = [
-        "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=800&fit=crop", // AI brain concept
-        "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800&h=800&fit=crop", // Robot face
-        "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800&h=800&fit=crop", // Humanoid robot
-        "https://images.unsplash.com/photo-1531746790731-6c087fecd65a?w=800&h=800&fit=crop", // AI visualization
-        "https://images.unsplash.com/photo-1555255707-c07966088b7b?w=800&h=800&fit=crop", // Tech abstract
-        "https://images.unsplash.com/photo-1673187789243-c09d2c91b7f0?w=800&h=800&fit=crop", // Futuristic AI
+        "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=800&fit=crop", // Chess pieces
+        "https://images.unsplash.com/photo-1517649763962-0c623066013b?w=800&h=800&fit=crop", // Cyclists racing
+        "https://images.unsplash.com/photo-1552072092-7f9b8d63efcb?w=800&h=800&fit=crop", // Boxing
+        "https://images.unsplash.com/photo-1547347298-4074fc3086f0?w=800&h=800&fit=crop", // Runners
+        "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=800&h=800&fit=crop", // Medieval castle
+        "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&h=800&fit=crop", // Gym competition
     ];
     
     // Generate AI debate/cage match themed image using Gemini AI
@@ -901,26 +901,53 @@ Visual theme (2-5 words):` }]
                 ? await this.extractDebateVisualTheme(tweetContent)
                 : "artificial intelligence debate";
             
-            // Vary the visual style based on a random seed for uniqueness
-            const visualStyles = [
-                "futuristic neon colosseum with floating holographic screens",
-                "cyberpunk arena with glowing circuit board floor",
-                "ethereal digital battleground with particle effects",
-                "high-tech stadium with laser light show",
-                "abstract data visualization showing competing algorithms",
-                "crystalline cyber arena with prismatic light refractions"
+            // Wide variety of visual metaphors - not just futuristic!
+            const visualScenes = [
+                // Western
+                { scene: "Old West high noon gunfight showdown", style: "two gunslingers facing off in a dusty frontier town, dramatic shadows, sepia and golden tones", subjects: "cowboys with distinctive hats" },
+                { scene: "Wild West saloon poker game climax", style: "tense card game moment, whiskey glasses, dramatic lighting through swinging doors", subjects: "frontier gamblers" },
+                
+                // Medieval
+                { scene: "Medieval knights jousting tournament", style: "armored knights on horseback charging with lances, royal banners flying, castle in background", subjects: "knights in shining armor" },
+                { scene: "Epic sword duel in a stone castle courtyard", style: "two warriors clashing swords, sparks flying, torchlit medieval atmosphere", subjects: "medieval swordsmen" },
+                { scene: "Chess masters in a grand medieval hall", style: "giant chess pieces, dramatic overhead lighting, strategic intensity", subjects: "robed scholars or kings" },
+                
+                // Sports & Competition
+                { scene: "Olympic sprint finish line moment", style: "runners breaking the tape, stadium crowd blur, freeze-frame action", subjects: "athletes in motion" },
+                { scene: "Boxing championship final round", style: "two boxers in the ring, dramatic spotlights, sweat and determination", subjects: "heavyweight champions" },
+                { scene: "Formula 1 race photo finish", style: "two race cars neck and neck, speed blur, checkered flag waving", subjects: "racing machines" },
+                { scene: "Tennis grand slam match point", style: "player mid-serve, packed stadium, intense concentration", subjects: "tennis champions" },
+                
+                // Nature & Animals
+                { scene: "Lions facing off on African savanna", style: "two majestic lions, golden hour lighting, dramatic tension", subjects: "king of beasts" },
+                { scene: "Eagles soaring and competing in mountain peaks", style: "majestic birds of prey, snow-capped mountains, blue sky drama", subjects: "powerful eagles" },
+                { scene: "Wolves in a snowy forest standoff", style: "alpha wolves, winter forest, moonlit atmosphere", subjects: "noble wolves" },
+                
+                // Classical & Historical
+                { scene: "Roman gladiators in the Colosseum", style: "ancient arena, roaring crowd, sand and blood, classical architecture", subjects: "legendary warriors" },
+                { scene: "Samurai duel at cherry blossom shrine", style: "Japanese garden, falling petals, katanas drawn, zen intensity", subjects: "honorable samurai" },
+                { scene: "Greek philosophers debating in the Agora", style: "marble columns, togas, animated discussion, Athenian architecture", subjects: "wise thinkers" },
+                
+                // Modern & Urban
+                { scene: "Courtroom drama verdict moment", style: "wood-paneled courtroom, gavel raised, tense anticipation", subjects: "lawyers in suits" },
+                { scene: "Corporate boardroom power negotiation", style: "glass skyscraper, city views, intense business meeting", subjects: "executives" },
+                
+                // Mythical & Fantasy
+                { scene: "Dragons battling over a mountain fortress", style: "fire and ice dragons, epic fantasy, stormy skies", subjects: "mythical beasts" },
+                { scene: "Wizard duel with magical energy", style: "robed mages, colorful spell effects, mystical arena", subjects: "powerful sorcerers" }
             ];
-            const randomStyle = visualStyles[Math.floor(Math.random() * visualStyles.length)];
             
-            const imagePrompt = `Create a unique, dramatic AI competition image.
-Topic being debated: ${topicContext}
-Winner: ${winnerModel}
-Visual setting: ${randomStyle}
-Style: Two distinct AI entities (robots, holograms, or abstract digital beings) in competition. One clearly victorious.
-Colors: Neon accents (pick 2-3: blue, purple, red, cyan, gold, green based on topic).
-Mood: Epic, dramatic, technological triumph.
-Must include: Dynamic energy effects, digital particles, sense of motion and victory.
-No text, no letters, no words, no writing - pure visual art.`;
+            const randomScene = visualScenes[Math.floor(Math.random() * visualScenes.length)];
+            
+            const imagePrompt = `Create a dramatic competition image representing an intellectual debate.
+Scene: ${randomScene.scene}
+Visual style: ${randomScene.style}
+Subjects: ${randomScene.subjects}
+Context: This represents a debate about "${topicContext}" - use this to influence color choices or subtle details.
+Winner energy: One side should appear victorious or dominant.
+Mood: Epic, dramatic, the thrill of competition and victory.
+Quality: Cinematic, high contrast, professional photography or illustration style.
+IMPORTANT: No text, no letters, no words, no logos, no writing anywhere - pure visual art only.`;
 
             console.log("Generating Arena Referee image via Gemini...");
             const response = await imageGenAI.models.generateContent({
@@ -1013,6 +1040,16 @@ export async function generateArenaRefereeDraft(
             responses: arenaResult.responses
         }, authorHandle);
         
+        // Generate Arena battle image for the Quote Tweet
+        console.log(`🎨 Generating Arena Referee image...`);
+        let imageUrl = "";
+        try {
+            imageUrl = await postcardDrafter.generateArenaRefereeImage(arenaResult.winner, tweet.text);
+            console.log(`✅ Arena image generated: ${imageUrl}`);
+        } catch (imgError) {
+            console.error(`⚠️ Image generation failed, continuing without image:`, imgError);
+        }
+        
         // Calculate a score based on engagement potential
         // High engagement topics (model debates) get higher scores
         const validResponses = arenaResult.responses.filter(r => !r.error).length;
@@ -1028,7 +1065,7 @@ export async function generateArenaRefereeDraft(
             detectedLocation: arenaResult.winner, // Reusing field for "winner model"
             status: "pending_review",
             draftReplyText: quoteText,
-            turaiImageUrl: "", // No image for Quote Tweets (optional: add scorecard)
+            turaiImageUrl: imageUrl, // AI-generated battle image
             actionType: "quote_tweet",
             arenaVerdict: {
                 winner: arenaResult.winner,
