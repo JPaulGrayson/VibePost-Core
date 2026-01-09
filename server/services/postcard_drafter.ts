@@ -375,8 +375,8 @@ export class PostcardDrafter {
     private static readonly LOGICART_LINK = "https://Logic.art"; // Simple landing page
     private static readonly LOGICART_EMBED_BASE = "https://logicart.replit.app"; // For embed links with code
     
-    // Arena URL for Quote Tweets - the VibePost Arena page
-    public static readonly ARENA_URL = "https://vibepost.replit.app/arena";
+    // Arena URL for Quote Tweets - logic.art/arena landing page
+    public static readonly ARENA_URL = "https://logic.art/arena";
 
     // Extract code snippet from a tweet
     extractCodeFromTweet(text: string): string | null {
@@ -946,10 +946,11 @@ function generateArenaVerdictText(
     
     // Build the Quote Tweet text
     // Twitter's Quote Tweet UI shows the original tweet, so we just need our commentary
+    const arenaUrl = PostcardDrafter.ARENA_URL;
     const templates = [
-        `We ran this through the AI Council. 🏛️\n\nThe verdict? ${winner} wins!\n\n${reasoning.length > 150 ? reasoning.substring(0, 147) + "..." : reasoning}\n\n🏆 Try your own debate: https://logic.art`,
-        `🏟️ AI CAGE MATCH VERDICT 🏟️\n\n@${authorHandle} asked, we delivered!\n\n🏆 Winner: ${winner}\n\n"${reasoning.length > 120 ? reasoning.substring(0, 117) + "..." : reasoning}"\n\n⚡ Fastest: ${fastestModel} (${fastestTime}ms)`,
-        `The AI Council has spoken! 🏛️\n\n${winner} takes this round. Here's why:\n\n${reasoning.length > 140 ? reasoning.substring(0, 137) + "..." : reasoning}\n\n👉 Run your own AI battle: logic.art`,
+        `We ran this through the AI Council. 🏛️\n\nThe verdict? ${winner} wins!\n\n${reasoning.length > 150 ? reasoning.substring(0, 147) + "..." : reasoning}\n\n🏆 Try your own debate: ${arenaUrl}`,
+        `🏟️ AI CAGE MATCH VERDICT 🏟️\n\n@${authorHandle} asked, we delivered!\n\n🏆 Winner: ${winner}\n\n"${reasoning.length > 120 ? reasoning.substring(0, 117) + "..." : reasoning}"\n\n⚡ Fastest: ${fastestModel} (${fastestTime}ms)\n\n🔗 ${arenaUrl}`,
+        `The AI Council has spoken! 🏛️\n\n${winner} takes this round. Here's why:\n\n${reasoning.length > 140 ? reasoning.substring(0, 137) + "..." : reasoning}\n\n👉 Run your own AI battle: ${arenaUrl}`,
     ];
     
     // Pick a random template for variety
