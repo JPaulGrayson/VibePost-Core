@@ -473,32 +473,13 @@ Answer (1-4 words only):` }]
 
     // Generate a LogicArt-themed image (flowchart visualization style)
     async generateLogicArtImage(context: string): Promise<string> {
-        try {
-            // Use Pollinations AI to generate a code visualization themed image
-            const imagePrompt = `clean modern code flowchart diagram visualization, ${context}, dark theme IDE aesthetic, abstract geometric shapes and lines, glowing nodes, technology concept art, no text, no letters, no words, minimalist design`;
-            // Add timestamp for cache busting
-            const cacheBuster = Date.now();
-            const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true&seed=${cacheBuster}`;
-
-            console.log("Generating LogicArt image via Pollinations...");
-            const response = await fetch(pollinationsUrl, {
-                method: 'GET',
-                signal: AbortSignal.timeout(45000)
-            });
-
-            if (response.ok) {
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.startsWith('image/')) {
-                    console.log("LogicArt image generated successfully");
-                    return pollinationsUrl;
-                }
-            }
-        } catch (error) {
-            console.error("Error generating LogicArt image:", error);
-        }
-
-        // Fallback: Generic code visualization placeholder
-        return `https://placehold.co/800x800/1a1a2e/00ff88?text=LogicArt+Visualization`;
+        // Use picsum.photos for reliable random images with consistent seed
+        const seed = `logicart-${context.replace(/\s+/g, '-')}-${Date.now()}`;
+        const picsumUrl = `https://picsum.photos/seed/${encodeURIComponent(seed)}/800/800`;
+        
+        console.log("Generating LogicArt image via Picsum...");
+        // Picsum is very reliable - just return the URL directly
+        return picsumUrl;
     }
 
     // Extract coding theme (for categorization)
@@ -804,32 +785,13 @@ Answer (one word only):` }]
 
     // Generate AI debate/cage match themed image for Arena Referee
     async generateArenaRefereeImage(winnerModel: string): Promise<string> {
-        try {
-            // AI debate themed image - robots battling, AI cage match, no travel imagery
-            const imagePrompt = `dramatic AI battle arena, two robots facing off, digital cage match, glowing circuits and data streams, futuristic colosseum, ${winnerModel} champion, neon blue and purple lighting, technology battle, no text, no letters, cyberpunk aesthetic`;
-            // Add timestamp for cache busting
-            const cacheBuster = Date.now();
-            const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true&seed=${cacheBuster}`;
-
-            console.log("Generating Arena Referee image via Pollinations...");
-            const response = await fetch(pollinationsUrl, {
-                method: 'GET',
-                signal: AbortSignal.timeout(45000)
-            });
-
-            if (response.ok) {
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.startsWith('image/')) {
-                    console.log("Arena Referee image generated successfully");
-                    return pollinationsUrl;
-                }
-            }
-        } catch (error) {
-            console.error("Error generating Arena Referee image:", error);
-        }
-
-        // Fallback: AI battle placeholder
-        return `https://placehold.co/800x800/1a1a2e/ff6b6b?text=AI+Cage+Match`;
+        // Use picsum.photos for reliable random images with AI/arena themed seed
+        const seed = `arena-${winnerModel.replace(/\s+/g, '-')}-${Date.now()}`;
+        const picsumUrl = `https://picsum.photos/seed/${encodeURIComponent(seed)}/800/800`;
+        
+        console.log("Generating Arena Referee image via Picsum...");
+        // Picsum is very reliable - just return the URL directly
+        return picsumUrl;
     }
 }
 
