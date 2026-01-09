@@ -1119,3 +1119,318 @@ function generateArenaVerdictText(
 }
 
 export const postcardDrafter = new PostcardDrafter();
+
+// ============= CODE FLOWCHART STRATEGY =============
+
+/**
+ * Detect if a tweet contains actual code (not just mentions of programming)
+ */
+export function detectCodeInTweet(tweetText: string): boolean {
+    // Check for code fences (strongest signal)
+    if (tweetText.includes('```')) return true;
+    
+    // Check for common syntax patterns
+    const codePatterns = [
+        /function\s+\w+\s*\(/,           // function declarations
+        /const\s+\w+\s*=/,               // const declarations
+        /let\s+\w+\s*=/,                 // let declarations
+        /var\s+\w+\s*=/,                 // var declarations
+        /def\s+\w+\s*\(/,                // Python function
+        /class\s+\w+/,                   // class declarations
+        /import\s+\w+/,                  // imports
+        /from\s+\w+\s+import/,           // Python imports
+        /if\s*\(.+\)\s*{/,               // if statements
+        /for\s*\(.+\)\s*{/,              // for loops
+        /while\s*\(.+\)\s*{/,            // while loops
+        /=>\s*{/,                        // arrow functions
+        /\)\s*:\s*\w+\s*{/,              // TypeScript return type
+        /async\s+function/,              // async functions
+        /await\s+\w+/,                   // await statements
+        /return\s+.+;/,                  // return statements
+        /console\.log\(/,                // console.log
+        /print\(.+\)/,                   // Python print
+        /\[\s*\d+\s*\]/,                 // array indexing
+        /\.map\(|\.filter\(|\.reduce\(/, // array methods
+        /try\s*{|catch\s*\(/,            // try/catch
+        /TypeError:|SyntaxError:|ReferenceError:/, // error messages
+    ];
+    
+    for (const pattern of codePatterns) {
+        if (pattern.test(tweetText)) return true;
+    }
+    
+    // Check for high symbol density (code has lots of brackets, semicolons, etc.)
+    const symbolCount = (tweetText.match(/[{}()\[\];=><+\-*/&|!]/g) || []).length;
+    const wordCount = tweetText.split(/\s+/).length;
+    
+    // If more than 30% symbols to words ratio, likely code
+    if (wordCount > 5 && symbolCount / wordCount > 0.3) return true;
+    
+    return false;
+}
+
+/**
+ * Extract code from a tweet (handles code fences and inline code)
+ */
+export function extractCodeFromTweet(tweetText: string): { code: string; language: string } | null {
+    // Try to extract fenced code block first
+    const fenceMatch = tweetText.match(/```(\w*)\n?([\s\S]*?)```/);
+    if (fenceMatch) {
+        const language = fenceMatch[1] || 'unknown';
+        const code = fenceMatch[2].trim();
+        if (code.length > 10) { // Minimum code length
+            return { code, language };
+        }
+    }
+    
+    // Try to extract inline code patterns
+    // Look for lines that look like code (indentation, semicolons, brackets)
+    const lines = tweetText.split('\n');
+    const codeLines = lines.filter(line => {
+        const trimmed = line.trim();
+        return (
+            trimmed.includes(';') ||
+            trimmed.includes('{') ||
+            trimmed.includes('}') ||
+            trimmed.match(/^\s*(const|let|var|function|def|class|if|for|while|return|import|from)\s/) ||
+            trimmed.match(/^\s*\w+\s*=\s*/) ||
+            trimmed.match(/^\s*\w+\(.*\)/)
+        );
+    });
+    
+    if (codeLines.length >= 2) {
+        return { code: codeLines.join('\n'), language: 'unknown' };
+    }
+    
+    return null;
+}
+
+/**
+ * Detect the programming language from code snippet
+ */
+export function detectLanguage(code: string): string {
+    const patterns: { [key: string]: RegExp[] } = {
+        python: [/def\s+\w+\(/, /print\(/, /import\s+\w+/, /from\s+\w+\s+import/, /:\s*$/, /elif\s+/],
+        javascript: [/const\s+\w+/, /let\s+\w+/, /var\s+\w+/, /=>\s*{/, /console\.log/, /require\(/, /module\.exports/],
+        typescript: [/:\s*(string|number|boolean|any|void)/, /interface\s+\w+/, /<\w+>/, /as\s+\w+/],
+        java: [/public\s+class/, /public\s+static\s+void\s+main/, /System\.out\.print/],
+        rust: [/fn\s+\w+/, /let\s+mut/, /impl\s+\w+/, /pub\s+fn/, /::new\(\)/],
+        go: [/func\s+\w+/, /package\s+main/, /fmt\.Print/],
+        ruby: [/def\s+\w+/, /end\s*$/, /puts\s+/, /@\w+\s*=/],
+        php: [/<\?php/, /\$\w+\s*=/, /echo\s+/],
+        sql: [/SELECT\s+/i, /FROM\s+/i, /WHERE\s+/i, /INSERT\s+INTO/i],
+    };
+    
+    let maxMatches = 0;
+    let detectedLang = 'unknown';
+    
+    for (const [lang, regexes] of Object.entries(patterns)) {
+        const matches = regexes.filter(r => r.test(code)).length;
+        if (matches > maxMatches) {
+            maxMatches = matches;
+            detectedLang = lang;
+        }
+    }
+    
+    return detectedLang;
+}
+
+/**
+ * Generate a flowchart image from code using Gemini
+ */
+async function generateCodeFlowchartImage(code: string, language: string): Promise<string> {
+    try {
+        console.log(`📊 Generating flowchart for ${language} code...`);
+        
+        // First, use Gemini to analyze the code and describe its flow
+        const analysisPrompt = `Analyze this ${language} code and describe its logical flow in simple terms for a flowchart visualization:
+
+\`\`\`${language}
+${code.substring(0, 500)}
+\`\`\`
+
+Describe in 3-5 bullet points:
+- What the code does
+- The main control flow (loops, conditions, branches)
+- Key steps/operations
+
+Keep it simple and visual-friendly.`;
+
+        const analysisResult = await genAI.models.generateContent({
+            model: "gemini-2.0-flash",
+            contents: analysisPrompt,
+        });
+        
+        const flowDescription = analysisResult.text || "A code flowchart showing program logic";
+        
+        // Now generate the flowchart image
+        const imagePrompt = `Create a clean, professional flowchart diagram visualizing this code logic:
+
+${flowDescription}
+
+Style:
+- Clean, modern flowchart with boxes, diamonds (decisions), and arrows
+- Use standard flowchart shapes: rectangles for processes, diamonds for conditions, ovals for start/end
+- Color scheme: Professional blue and white, subtle gradients
+- Clear directional arrows showing flow
+- Minimal text labels inside shapes
+- Dark background with light elements OR light background with dark elements
+- High contrast for readability
+
+DO NOT include any actual code text - just the visual flowchart diagram.
+NO text, letters, or words that could be misread - use icons/symbols where needed.`;
+
+        const imageGenAI = new GoogleGenAI({
+            apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || "dummy",
+            httpOptions: {
+                apiVersion: "",
+                baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+            },
+        });
+
+        const response = await imageGenAI.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: [{ role: "user", parts: [{ text: imagePrompt }] }],
+            config: {
+                responseModalities: [Modality.TEXT, Modality.IMAGE],
+            },
+        });
+
+        const candidate = response.candidates?.[0];
+        const imagePart = candidate?.content?.parts?.find(
+            (part: { inlineData?: { data?: string; mimeType?: string } }) => part.inlineData
+        );
+
+        if (imagePart?.inlineData?.data) {
+            const imageUrl = await postcardDrafter.saveGeneratedImage(imagePart.inlineData.data, "flowchart");
+            console.log("📊 Flowchart image generated successfully:", imageUrl);
+            return imageUrl;
+        }
+    } catch (error) {
+        console.error("Error generating flowchart image:", error);
+    }
+
+    // Fallback to a curated flowchart image
+    console.log("Falling back to curated flowchart image");
+    const fallbackImages = [
+        "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&h=800&fit=crop", // Tech diagram
+        "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=800&fit=crop", // Data flow
+    ];
+    return fallbackImages[Math.floor(Math.random() * fallbackImages.length)];
+}
+
+/**
+ * Code Flowchart Strategy - Generate Quote Tweet drafts with flowchart visualizations
+ * 
+ * Flow:
+ * 1. Find tweet containing code snippet
+ * 2. Extract and analyze the code
+ * 3. Generate a flowchart visualization
+ * 4. Create a Quote Tweet draft with the flowchart + Arena CTA
+ */
+export async function generateCodeFlowchartDraft(
+    tweet: { id: string; text: string; author_id?: string },
+    authorHandle: string,
+    force: boolean = false
+): Promise<boolean> {
+    const strategy = LOGICART_STRATEGIES.code_flowchart;
+    console.log(`${strategy.emoji} Code Flowchart: Processing tweet ${tweet.id} from @${authorHandle}`);
+
+    // Check if draft already exists
+    const existing = await db.query.postcardDrafts.findFirst({
+        where: eq(postcardDrafts.originalTweetId, tweet.id),
+    });
+
+    if (existing) {
+        console.log(`Draft already exists for tweet ${tweet.id}. Skipping.`);
+        return false;
+    }
+
+    // Verify tweet actually contains code
+    if (!detectCodeInTweet(tweet.text)) {
+        console.log(`No code detected in tweet ${tweet.id}. Skipping.`);
+        return false;
+    }
+
+    try {
+        // Extract code from the tweet
+        const extracted = extractCodeFromTweet(tweet.text);
+        if (!extracted) {
+            console.log(`Could not extract code from tweet ${tweet.id}. Skipping.`);
+            return false;
+        }
+        
+        // Detect language if not specified
+        const language = extracted.language !== 'unknown' 
+            ? extracted.language 
+            : detectLanguage(extracted.code);
+        
+        console.log(`📊 Extracted ${language} code (${extracted.code.length} chars)`);
+        
+        // Generate flowchart image
+        let imageUrl = "";
+        try {
+            imageUrl = await generateCodeFlowchartImage(extracted.code, language);
+            console.log(`✅ Flowchart generated: ${imageUrl}`);
+        } catch (imgError) {
+            console.error(`⚠️ Flowchart generation failed:`, imgError);
+        }
+        
+        // Generate the Quote Tweet text
+        const quoteText = generateFlowchartQuoteText(language, authorHandle);
+        
+        // Calculate score based on code complexity/interest
+        const codeLength = extracted.code.length;
+        const hasQuestion = tweet.text.includes('?');
+        let score = 70;
+        if (codeLength > 100) score += 5;
+        if (codeLength > 200) score += 5;
+        if (hasQuestion) score += 10;
+        if (language !== 'unknown') score += 5;
+        score = Math.min(95, score);
+        
+        // Save the draft
+        await db.insert(postcardDrafts).values({
+            campaignType: "logicart",
+            strategy: "code_flowchart",
+            originalTweetId: tweet.id,
+            originalAuthorHandle: authorHandle,
+            originalTweetText: tweet.text,
+            detectedLocation: language, // Reusing field for detected language
+            status: "pending_review",
+            draftReplyText: quoteText,
+            turaiImageUrl: imageUrl,
+            actionType: "quote_tweet",
+            arenaVerdict: {
+                winner: language,
+                reasoning: `Detected ${language} code snippet (${codeLength} chars)`,
+                responses: [] // No model responses for flowchart strategy
+            },
+            score: score,
+        });
+        
+        console.log(`✅ ${strategy.emoji} Code Flowchart draft saved! Language: ${language}, Score: ${score}`);
+        return true;
+        
+    } catch (error) {
+        console.error(`❌ Code Flowchart draft failed:`, error);
+        return false;
+    }
+}
+
+/**
+ * Generate the Quote Tweet text for a code flowchart
+ */
+function generateFlowchartQuoteText(language: string, authorHandle: string): string {
+    const arenaUrl = PostcardDrafter.ARENA_URL;
+    const langDisplay = language !== 'unknown' ? language.charAt(0).toUpperCase() + language.slice(1) : 'Your';
+    
+    const templates = [
+        `Your code mapped out 📊\n\nHere's the logic flow visualized.\n\nWant 4 AI models to analyze this? Run it through the gauntlet 👉 ${arenaUrl}`,
+        `${langDisplay} logic flow 📊\n\nSometimes seeing the big picture helps!\n\n🤖 Want multiple AI opinions on your code? → ${arenaUrl}`,
+        `Here's your code as a flowchart 📊\n\nLogic never looked so clear.\n\nNeed AI-powered debugging? Try the Arena → ${arenaUrl}`,
+        `Code → Flowchart 📊\n\n@${authorHandle} sometimes visualization helps spot the issue!\n\n🏟️ Run it through 4 AIs: ${arenaUrl}`,
+    ];
+    
+    return templates[Math.floor(Math.random() * templates.length)];
+}
