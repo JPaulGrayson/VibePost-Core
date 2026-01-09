@@ -5,10 +5,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { PostcardDraft, ArenaVerdict } from "@shared/schema";
-import { RefreshCw, Plane, Code2, Quote } from "lucide-react";
+import { RefreshCw, Plane, Code2, Quote, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface CampaignConfig {
@@ -407,14 +408,117 @@ export default function SniperQueue() {
     );
 }
 
+function MiniArenaDisplay({ arenaVerdict }: { arenaVerdict: ArenaVerdict }) {
+    const responses = arenaVerdict.responses || [];
+    const winner = arenaVerdict.winner;
+    
+    // Model color mapping (matching Arena page design)
+    const modelColors: Record<string, { bg: string; border: string; text: string; badge: string }> = {
+        'Gemini 3 Flash': { bg: 'bg-blue-900/30', border: 'border-blue-500/50', text: 'text-blue-400', badge: 'bg-blue-600' },
+        'Gemini 2.5 Pro': { bg: 'bg-blue-900/30', border: 'border-blue-500/50', text: 'text-blue-400', badge: 'bg-blue-600' },
+        'GPT-4o': { bg: 'bg-emerald-900/30', border: 'border-emerald-500/50', text: 'text-emerald-400', badge: 'bg-emerald-600' },
+        'Claude Sonnet 4': { bg: 'bg-orange-900/30', border: 'border-orange-500/50', text: 'text-orange-400', badge: 'bg-orange-600' },
+        'Grok-4': { bg: 'bg-slate-800/50', border: 'border-slate-500/50', text: 'text-slate-300', badge: 'bg-slate-600' },
+    };
+    
+    const getModelStyle = (modelName: string) => {
+        return modelColors[modelName] || { bg: 'bg-gray-800/30', border: 'border-gray-500/50', text: 'text-gray-400', badge: 'bg-gray-600' };
+    };
+    
+    // Find the exact winning response by matching the winner string
+    // Returns true only for the first response that matches the winner
+    const winnerIndex = (() => {
+        if (!winner) return -1;
+        const normalizedWinner = winner.toLowerCase().trim();
+        return responses.findIndex(r => {
+            const normalizedModel = r.model.toLowerCase().trim();
+            // Exact match
+            if (normalizedModel === normalizedWinner) return true;
+            // Winner fully contains model name (e.g., winner="Gemini 3 Flash" matches model="Gemini 3 Flash")
+            if (normalizedWinner.includes(normalizedModel) && normalizedModel.length > 3) return true;
+            // Model fully contains winner (e.g., model="GPT-4o" matches winner="GPT-4o")
+            if (normalizedModel.includes(normalizedWinner) && normalizedWinner.length > 3) return true;
+            return false;
+        });
+    })();
+    
+    const isWinner = (modelName: string, idx: number) => idx === winnerIndex;
+
+    return (
+        <div className="mb-4">
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-3">
+                <span className="text-lg">🏆</span>
+                <span className="font-bold text-amber-400">The Contenders Have Spoken!</span>
+                <Badge className="bg-purple-600 text-white">Quote Tweet</Badge>
+            </div>
+            
+            {/* 2x2 Grid of AI Responses */}
+            {responses.length > 0 ? (
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                    {responses.map((r, idx) => {
+                        const style = getModelStyle(r.model);
+                        const wonMatch = isWinner(r.model, idx);
+                        
+                        return (
+                            <div
+                                key={idx}
+                                className={`rounded-lg p-2 ${style.bg} ${wonMatch ? 'border-2 border-amber-400 ring-2 ring-amber-400/30' : `border ${style.border}`}`}
+                            >
+                                <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-1">
+                                        <span className={`text-xs font-bold ${style.text}`}>{r.model}</span>
+                                        {wonMatch && <Badge className="bg-amber-500 text-black text-[10px] px-1">Winner</Badge>}
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground">{r.responseTime}ms</span>
+                                </div>
+                                <Badge className={`${style.badge} text-white text-[9px] mb-1`}>
+                                    {r.model.includes('Gemini') ? 'Google' : 
+                                     r.model.includes('GPT') ? 'OpenAI' : 
+                                     r.model.includes('Claude') ? 'Anthropic' : 'xAI'}
+                                </Badge>
+                                <div className="max-h-20 overflow-y-auto text-[10px] text-gray-300 leading-snug pr-1 custom-scrollbar">
+                                    {r.response.substring(0, 300)}{r.response.length > 300 && '...'}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            ) : (
+                <p className="text-xs text-muted-foreground mb-3">No model responses recorded</p>
+            )}
+            
+            {/* Winner Verdict Box - Gold Frame */}
+            <div className="p-3 bg-gradient-to-r from-amber-900/20 to-yellow-900/20 border-2 border-amber-400 rounded-lg">
+                <div className="flex items-center gap-2 mb-1">
+                    <span className="text-lg">🏆</span>
+                    <span className="font-bold text-amber-300">AND THE WINNER IS... {arenaVerdict.winner}!</span>
+                </div>
+                <p className="text-xs text-gray-400 mb-1">Official ruling by AI Council</p>
+                {arenaVerdict.reasoning && (
+                    <p className="text-xs text-gray-300 italic leading-snug">
+                        "{arenaVerdict.reasoning}"
+                    </p>
+                )}
+            </div>
+        </div>
+    );
+}
+
 function DraftCard({ draft, campaignType = 'turai' }: { draft: PostcardDraft; campaignType?: string }) {
     const [text, setText] = useState(draft.draftReplyText || "");
+    const [showPreview, setShowPreview] = useState(false);
     const score = draft.score || 0;
     const { toast } = useToast();
     
     // Check if this is a Quote Tweet draft (Arena Referee)
     const isQuoteTweet = draft.actionType === 'quote_tweet';
     const arenaVerdict = draft.arenaVerdict as ArenaVerdict | null;
+    
+    // Character count for tweet preview
+    const charCount = text.length;
+    const maxChars = 280;
+    const isOverLimit = charCount > maxChars;
 
     // Score Color Logic
     let scoreColor = "bg-gray-500";
@@ -499,23 +603,9 @@ function DraftCard({ draft, campaignType = 'turai' }: { draft: PostcardDraft; ca
                     </div>
                     <p className="text-sm text-muted-foreground mb-4 border-l-2 pl-2">"{draft.originalTweetText}"</p>
 
-                    {/* Arena Referee Verdict Display */}
+                    {/* Arena Referee Verdict Display - Full Mini-Arena */}
                     {isQuoteTweet && arenaVerdict && (
-                        <div className="mb-3 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="text-lg">🏛️</span>
-                                <span className="font-bold text-purple-400">Arena Referee Verdict</span>
-                                <Badge className="bg-purple-600 text-white">Quote Tweet</Badge>
-                            </div>
-                            <p className="text-sm">
-                                <span className="font-medium">🏆 Winner:</span> {arenaVerdict.winner || 'Pending'}
-                            </p>
-                            {arenaVerdict.reasoning && (
-                                <p className="text-xs text-muted-foreground mt-1 italic">
-                                    "{arenaVerdict.reasoning.substring(0, 150)}..."
-                                </p>
-                            )}
-                        </div>
+                        <MiniArenaDisplay arenaVerdict={arenaVerdict} />
                     )}
 
                     <label className="text-xs font-bold">{isQuoteTweet ? "Quote Tweet Text:" : "Draft Reply:"}</label>
@@ -556,34 +646,131 @@ function DraftCard({ draft, campaignType = 'turai' }: { draft: PostcardDraft; ca
                 </div>
             </CardContent>
 
-            <CardFooter className="flex justify-end gap-2 bg-muted/50 p-4">
-                <Button variant="ghost" onClick={() => reject.mutate()} disabled={reject.isPending}>
-                    Reject
-                </Button>
-                {isQuoteTweet ? (
+            <CardFooter className="flex justify-between items-center bg-muted/50 p-4">
+                <div className="flex items-center gap-2">
+                    <span className={`text-xs ${isOverLimit ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
+                        {charCount}/{maxChars}
+                    </span>
                     <Button 
-                        onClick={() => {
-                            // Open Twitter Quote Tweet intent with pre-filled text
-                            const originalUrl = `https://twitter.com/${draft.originalAuthorHandle}/status/${draft.originalTweetId}`;
-                            const encodedText = encodeURIComponent(text);
-                            const encodedUrl = encodeURIComponent(originalUrl);
-                            window.open(`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`, '_blank');
-                            toast({
-                                title: "Quote Tweet Window Opened! 🏛️",
-                                description: "Paste your verdict and hit Tweet when ready.",
-                            });
-                        }}
-                        className="bg-purple-600 hover:bg-purple-700"
-                        data-testid="btn-quote-tweet"
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setShowPreview(true)}
+                        className="gap-1"
                     >
-                        Quote Tweet 🏛️
+                        <Eye className="h-3 w-3" />
+                        Preview
                     </Button>
-                ) : (
-                    <Button onClick={() => approve.mutate()} disabled={approve.isPending}>
-                        {approve.isPending ? "Publishing..." : "Approve & Send 🚀"}
+                </div>
+                <div className="flex gap-2">
+                    <Button variant="ghost" onClick={() => reject.mutate()} disabled={reject.isPending}>
+                        Reject
                     </Button>
-                )}
+                    {isQuoteTweet ? (
+                        <Button 
+                            onClick={() => {
+                                // Open Twitter Quote Tweet intent with pre-filled text
+                                const originalUrl = `https://twitter.com/${draft.originalAuthorHandle}/status/${draft.originalTweetId}`;
+                                const encodedText = encodeURIComponent(text);
+                                const encodedUrl = encodeURIComponent(originalUrl);
+                                window.open(`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`, '_blank');
+                                toast({
+                                    title: "Quote Tweet Window Opened! 🏛️",
+                                    description: "Paste your verdict and hit Tweet when ready.",
+                                });
+                            }}
+                            className="bg-purple-600 hover:bg-purple-700"
+                            data-testid="btn-quote-tweet"
+                            disabled={isOverLimit}
+                        >
+                            Quote Tweet 🏛️
+                        </Button>
+                    ) : (
+                        <Button onClick={() => approve.mutate()} disabled={approve.isPending || isOverLimit}>
+                            {approve.isPending ? "Publishing..." : "Approve & Send 🚀"}
+                        </Button>
+                    )}
+                </div>
             </CardFooter>
+            
+            {/* Tweet Preview Modal */}
+            <Dialog open={showPreview} onOpenChange={setShowPreview}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Eye className="h-5 w-5" />
+                            Tweet Preview
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        {/* Mock Tweet Display */}
+                        <div className="bg-black/80 border border-gray-700 rounded-xl p-4">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
+                                    V
+                                </div>
+                                <div>
+                                    <p className="font-bold text-white text-sm">VibePost</p>
+                                    <p className="text-gray-500 text-xs">@vibepost</p>
+                                </div>
+                            </div>
+                            <p className="text-white text-sm whitespace-pre-wrap leading-relaxed mb-3">
+                                {text}
+                            </p>
+                            {isQuoteTweet && (
+                                <div className="border border-gray-700 rounded-lg p-3 mt-2">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className="w-5 h-5 rounded-full bg-gray-600"></div>
+                                        <span className="text-gray-400 text-xs">@{draft.originalAuthorHandle}</span>
+                                    </div>
+                                    <p className="text-gray-400 text-xs line-clamp-2">
+                                        {draft.originalTweetText}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* Character Count Warning */}
+                        <div className="flex justify-between items-center">
+                            <span className={`text-sm font-medium ${isOverLimit ? 'text-red-500' : 'text-muted-foreground'}`}>
+                                {charCount} / {maxChars} characters
+                            </span>
+                            {isOverLimit && (
+                                <Badge variant="destructive">Over limit by {charCount - maxChars}</Badge>
+                            )}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowPreview(false)}>
+                            Edit
+                        </Button>
+                        {isQuoteTweet ? (
+                            <Button 
+                                onClick={() => {
+                                    const originalUrl = `https://twitter.com/${draft.originalAuthorHandle}/status/${draft.originalTweetId}`;
+                                    const encodedText = encodeURIComponent(text);
+                                    const encodedUrl = encodeURIComponent(originalUrl);
+                                    window.open(`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`, '_blank');
+                                    setShowPreview(false);
+                                }}
+                                className="bg-purple-600 hover:bg-purple-700"
+                                disabled={isOverLimit}
+                            >
+                                Open Quote Tweet 🏛️
+                            </Button>
+                        ) : (
+                            <Button 
+                                onClick={() => {
+                                    approve.mutate();
+                                    setShowPreview(false);
+                                }} 
+                                disabled={approve.isPending || isOverLimit}
+                            >
+                                Send Tweet 🚀
+                            </Button>
+                        )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }
