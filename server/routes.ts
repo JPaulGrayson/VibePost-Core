@@ -3132,6 +3132,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Top 10 Drafts - Returns highest scoring pending drafts
+  app.get("/api/postcard-drafts/top", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 10;
+      const drafts = await storage.getPostcardDrafts();
+      
+      // Filter for pending drafts and sort by score descending
+      const topDrafts = drafts
+        .filter(d => d.status === "pending_review" || d.status === "pending_retry")
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .slice(0, limit);
+      
+      res.json(topDrafts);
+    } catch (error) {
+      console.error("Error fetching top drafts:", error);
+      res.status(500).json({ message: "Failed to fetch top drafts" });
+    }
+  });
+
+  // Bulk Approve - Publish multiple drafts at once
+  app.post("/api/postcard-drafts/bulk-approve", async (req, res) => {
+    try {
+      const { ids } = req.body;
+      
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "ids array is required" });
+      }
+      
+      const results: { id: number; success: boolean; tweetId?: string; error?: string }[] = [];
+      
+      for (const id of ids) {
+        try {
+          const draft = await storage.getPostcardDraft(id);
+          
+          if (!draft) {
+            results.push({ id, success: false, error: "Draft not found" });
+            continue;
+          }
+          
+          if (draft.status !== "pending_review" && draft.status !== "pending_retry") {
+            results.push({ id, success: false, error: "Draft is not pending" });
+            continue;
+          }
+          
+          // Publish the draft
+          const result = await publishDraft(draft);
+          
+          if (result.success) {
+            await storage.updatePostcardDraft(id, {
+              status: "published",
+              publishedAt: new Date(),
+              tweetId: result.tweetId,
+            });
+            
+            // Create a record in the main posts table for history
+            await storage.createPost({
+              userId: "system",
+              content: draft.draftReplyText || "",
+              platforms: ["twitter"],
+              status: "published",
+              publishedAt: new Date(),
+              platformData: {
+                twitter: {
+                  url: `https://twitter.com/user/status/${result.tweetId}`,
+                  tweetId: result.tweetId,
+                  replyingTo: draft.originalAuthorHandle
+                }
+              } as any
+            } as any);
+            
+            results.push({ id, success: true, tweetId: result.tweetId });
+          } else {
+            await storage.updatePostcardDraft(id, {
+              status: "failed",
+              lastError: result.error
+            });
+            results.push({ id, success: false, error: result.error });
+          }
+          
+          // Small delay between publishes to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+        } catch (err) {
+          results.push({ id, success: false, error: err instanceof Error ? err.message : "Unknown error" });
+        }
+      }
+      
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.filter(r => !r.success).length;
+      
+      res.json({
+        message: `Published ${successCount} drafts, ${failCount} failed`,
+        results,
+        successCount,
+        failCount
+      });
+    } catch (error) {
+      console.error("Error bulk approving drafts:", error);
+      res.status(500).json({ message: "Failed to bulk approve drafts" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
