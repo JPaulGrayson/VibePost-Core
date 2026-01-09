@@ -1,5 +1,7 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
+import * as path from "path";
+import * as fs from "fs";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -117,6 +119,18 @@ import { twitterListener } from "./services/twitter_listener";
     res.status(status).json({ message });
     // Note: Removed 'throw err' which was crashing the server!
   });
+
+  // Serve generated images BEFORE Vite setup to prevent SPA catch-all from intercepting
+  const generatedImagesDir = path.join(process.cwd(), "public", "generated-images");
+  if (!fs.existsSync(generatedImagesDir)) {
+    fs.mkdirSync(generatedImagesDir, { recursive: true });
+  }
+  app.use("/generated-images", express.static(generatedImagesDir, {
+    setHeaders: (res) => {
+      res.setHeader('Content-Type', 'image/png');
+    }
+  }));
+  console.log("📸 Serving generated images from:", generatedImagesDir);
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
