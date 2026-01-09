@@ -358,7 +358,7 @@ export function calculateCampaignScore(
 export default CAMPAIGN_CONFIGS;
 
 // ============= LOGICART STRATEGY SYSTEM =============
-export type LogicArtStrategy = 'vibe_scout' | 'spaghetti_detective' | 'bug_hunter' | 'arena_referee';
+export type LogicArtStrategy = 'vibe_scout' | 'spaghetti_detective' | 'bug_hunter' | 'arena_referee' | 'code_flowchart';
 
 export interface StrategyConfig {
     id: string;
@@ -522,6 +522,51 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
             templateExample: "We ran this debate through the AI Council. 🏛️\n\nThe verdict? [Summary]\n\nHere's the full breakdown 👇"
         },
         actionType: 'quote_tweet' // Triggers Quote Tweet flow instead of Reply
+    },
+
+    code_flowchart: {
+        id: 'code_flowchart',
+        name: 'Code Flowchart',
+        emoji: '📊',
+        description: 'Find tweets with code snippets & generate flowcharts to drive Arena traffic',
+        keywords: [
+            // ===== CODE FENCES & SYNTAX =====
+            "```python", "```javascript", "```js", "```typescript", "```ts",
+            "```java", "```c", "```cpp", "```rust", "```go", "```ruby",
+            "```swift", "```kotlin", "```php", "```sql", "```bash", "```sh",
+            
+            // ===== CODE SHARING SIGNALS =====
+            "here's my code", "here is my code", "check out this code",
+            "this code doesn't work", "why isn't this working",
+            "what's wrong with this code", "can someone explain this",
+            "code review please", "rate my code", "roast my code",
+            
+            // ===== ALGORITHM & LOGIC =====
+            "algorithm for", "how to implement", "recursive function",
+            "sorting algorithm", "binary search", "linked list",
+            "for loop not working", "while loop stuck", "infinite loop",
+            
+            // ===== BUG SHARING =====
+            "TypeError:", "SyntaxError:", "ReferenceError:", "undefined is not",
+            "null reference", "segfault", "stack overflow",
+            "off by one", "index out of bounds",
+            
+            // ===== LANGUAGE-SPECIFIC HELP =====
+            "python help", "javascript help", "typescript help",
+            "react component", "async await", "promise chain",
+            "list comprehension", "lambda function", "callback hell"
+        ],
+        intentType: 'Code Snippet Shared / Help Needed',
+        intentSignals: {
+            positive: ["code", "function", "error", "bug", "help", "working", "fix", "debug", "explain", "algorithm", "loop", "array", "object", "class", "method", "return", "async", "await"],
+            negative: ["hiring", "job", "sponsor", "discount", "affiliate", "course sale", "tutorial for sale", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto]
+        },
+        replyPersona: {
+            tone: 'Helpful Developer - "Here\'s your logic mapped out"',
+            hook: 'Provide instant value with a flowchart, then drive to Arena for deeper analysis',
+            templateExample: "Your code mapped out 📊\n\n[flowchart image]\n\nWant 4 AI models to debug this? → logic.art/x"
+        },
+        actionType: 'quote_tweet' // Quote Tweet with flowchart image
     }
 };
 
