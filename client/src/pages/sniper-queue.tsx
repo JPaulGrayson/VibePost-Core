@@ -95,27 +95,37 @@ export default function SniperQueue() {
     }).sort((a, b) => (b.score || 0) - (a.score || 0)); // Sort by Score DESC
 
     // Switch campaign mutation with optimistic updates
+    // Accepts either string (campaignType) or object with campaignType and strategy
     const switchCampaign = useMutation({
-        mutationFn: async (campaignType: string) => {
+        mutationFn: async (input: string | { campaignType: string; strategy?: 'arena_referee' | 'code_flowchart' }) => {
+            const campaignType = typeof input === 'string' ? input : input.campaignType;
+            const selectedStrategy = typeof input === 'object' ? input.strategy : quoteStrategy;
+            
             // Quote Tweet uses logicart campaign + selected quote strategy
             if (campaignType === 'quote_tweet') {
                 // First switch to logicart, then switch to selected quote strategy
                 await apiRequest("POST", "/api/sniper/campaign", { campaignType: 'logicart' });
-                const strategyRes = await apiRequest("POST", "/api/sniper/strategy", { strategy: quoteStrategy });
-                const strategyName = quoteStrategy === 'arena_referee' ? 'Arena Referee' : 'Code Flowchart';
+                const strategyRes = await apiRequest("POST", "/api/sniper/strategy", { strategy: selectedStrategy });
+                const strategyName = selectedStrategy === 'arena_referee' ? 'Arena Referee' : 'Code Flowchart';
                 return { 
                     config: { emoji: '💬', name: `Quote Tweet (${strategyName})` },
                     isQuoteTweet: true,
+                    selectedStrategy,
                     ...(await strategyRes.json())
                 };
             }
             const res = await apiRequest("POST", "/api/sniper/campaign", { campaignType });
             return res.json();
         },
-        onMutate: async (campaignType: string) => {
+        onMutate: async (input: string | { campaignType: string; strategy?: 'arena_referee' | 'code_flowchart' }) => {
             // Optimistically update local state immediately
+            const campaignType = typeof input === 'string' ? input : input.campaignType;
             const previousCampaign = activeCampaign;
             setActiveCampaign(campaignType);
+            // Update quoteStrategy if provided
+            if (typeof input === 'object' && input.strategy) {
+                setQuoteStrategy(input.strategy);
+            }
             return { previousCampaign };
         },
         onSuccess: (data) => {
@@ -289,10 +299,7 @@ export default function SniperQueue() {
                                 variant={quoteStrategy === 'arena_referee' ? "default" : "outline"}
                                 size="sm"
                                 className="flex flex-col items-start h-[72px] py-2 px-3"
-                                onClick={() => {
-                                    setQuoteStrategy('arena_referee');
-                                    switchCampaign.mutate('quote_tweet');
-                                }}
+                                onClick={() => switchCampaign.mutate({ campaignType: 'quote_tweet', strategy: 'arena_referee' })}
                                 disabled={switchCampaign.isPending}
                             >
                                 <span className="font-medium text-sm">🏛️ Arena Referee</span>
@@ -302,10 +309,7 @@ export default function SniperQueue() {
                                 variant={quoteStrategy === 'code_flowchart' ? "default" : "outline"}
                                 size="sm"
                                 className="flex flex-col items-start h-[72px] py-2 px-3"
-                                onClick={() => {
-                                    setQuoteStrategy('code_flowchart');
-                                    switchCampaign.mutate('quote_tweet');
-                                }}
+                                onClick={() => switchCampaign.mutate({ campaignType: 'quote_tweet', strategy: 'code_flowchart' })}
                                 disabled={switchCampaign.isPending}
                             >
                                 <span className="font-medium text-sm">📊 Code Flowchart</span>
