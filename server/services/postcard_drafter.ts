@@ -1,17 +1,27 @@
 import { db } from "../db";
 import { postcardDrafts } from "@shared/schema";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import { eq } from "drizzle-orm";
 import { CampaignType, CAMPAIGN_CONFIGS, LogicArtStrategy, getActiveLogicArtStrategy, LOGICART_STRATEGIES } from "../campaign-config";
 import { runArena } from "./arena_service";
+import * as fs from "fs";
+import * as path from "path";
 
-// Initialize Gemini
-// Ensure API key is present
+// Initialize Gemini for text generation (uses regular API key)
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) {
     console.warn("GEMINI_API_KEY is not set. AI features will fail.");
 }
 const genAI = new GoogleGenAI({ apiKey: apiKey || "dummy" });
+
+// Initialize Gemini for image generation (uses Replit AI Integrations)
+const imageGenAI = new GoogleGenAI({
+    apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY || "dummy",
+    httpOptions: {
+        apiVersion: "",
+        baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+    },
+});
 
 // Helper function to calculate text similarity (Jaccard-like similarity based on word overlap)
 function calculateSimilarity(text1: string, text2: string): number {
@@ -471,7 +481,7 @@ Answer (1-4 words only):` }]
         }
     }
 
-    // Curated LogicArt-themed images (code, tech, flowcharts)
+    // Fallback curated LogicArt-themed images (code, tech, flowcharts)
     private static readonly LOGICART_IMAGES = [
         "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&h=800&fit=crop", // Code on screen
         "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=800&h=800&fit=crop", // Developer coding
@@ -481,13 +491,59 @@ Answer (1-4 words only):` }]
         "https://images.unsplash.com/photo-1607798748738-b15c40d33d57?w=800&h=800&fit=crop", // Modern IDE
     ];
     
-    // Generate a LogicArt-themed image (flowchart visualization style)
+    // Generate a LogicArt-themed image using Gemini AI
     async generateLogicArtImage(context: string): Promise<string> {
-        // Pick a random curated code/tech image
+        try {
+            const imagePrompt = `Create a professional, modern image for a coding/developer brand. 
+Theme: ${context}
+Style: Clean, modern code flowchart or abstract data visualization. Dark theme with glowing neon accents (blue, green, purple). 
+Must include: Abstract geometric code patterns, flowing data lines, technology aesthetic.
+No text, no letters, no words - pure visual art.`;
+
+            console.log("Generating LogicArt image via Gemini...");
+            const response = await imageGenAI.models.generateContent({
+                model: "gemini-2.5-flash-image",
+                contents: [{ role: "user", parts: [{ text: imagePrompt }] }],
+                config: {
+                    responseModalities: [Modality.TEXT, Modality.IMAGE],
+                },
+            });
+
+            const candidate = response.candidates?.[0];
+            const imagePart = candidate?.content?.parts?.find(
+                (part: { inlineData?: { data?: string; mimeType?: string } }) => part.inlineData
+            );
+
+            if (imagePart?.inlineData?.data) {
+                // Save the image and return a URL
+                const imageUrl = await this.saveGeneratedImage(imagePart.inlineData.data, "logicart");
+                console.log("LogicArt image generated successfully:", imageUrl);
+                return imageUrl;
+            }
+        } catch (error) {
+            console.error("Error generating LogicArt image via Gemini:", error);
+        }
+
+        // Fallback to curated images
+        console.log("Falling back to curated LogicArt image");
         const randomIndex = Math.floor(Math.random() * PostcardDrafter.LOGICART_IMAGES.length);
-        const imageUrl = PostcardDrafter.LOGICART_IMAGES[randomIndex];
-        console.log("Using curated LogicArt image:", imageUrl);
-        return imageUrl;
+        return PostcardDrafter.LOGICART_IMAGES[randomIndex];
+    }
+    
+    // Save a base64 image to disk and return the URL
+    private async saveGeneratedImage(base64Data: string, prefix: string): Promise<string> {
+        const imagesDir = path.join(process.cwd(), "public", "generated-images");
+        if (!fs.existsSync(imagesDir)) {
+            fs.mkdirSync(imagesDir, { recursive: true });
+        }
+        
+        const filename = `${prefix}-${Date.now()}.png`;
+        const filepath = path.join(imagesDir, filename);
+        
+        const buffer = Buffer.from(base64Data, "base64");
+        fs.writeFileSync(filepath, buffer);
+        
+        return `/generated-images/${filename}`;
     }
 
     // Extract coding theme (for categorization)
@@ -791,7 +847,7 @@ Answer (one word only):` }]
         return imageUrl;
     }
 
-    // Curated Arena Referee images (AI, robots, futuristic battle)
+    // Fallback curated Arena Referee images (AI, robots, futuristic battle)
     private static readonly ARENA_IMAGES = [
         "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=800&fit=crop", // AI brain concept
         "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800&h=800&fit=crop", // Robot face
@@ -801,13 +857,44 @@ Answer (one word only):` }]
         "https://images.unsplash.com/photo-1673187789243-c09d2c91b7f0?w=800&h=800&fit=crop", // Futuristic AI
     ];
     
-    // Generate AI debate/cage match themed image for Arena Referee
+    // Generate AI debate/cage match themed image using Gemini AI
     async generateArenaRefereeImage(winnerModel: string): Promise<string> {
-        // Pick a random curated AI/robot image
+        try {
+            const imagePrompt = `Create a dramatic AI battle arena image.
+Theme: ${winnerModel} as the winning AI champion
+Style: Two robots or AI entities facing off in a futuristic digital colosseum. 
+Colors: Neon blue, purple, and red lighting. Cyberpunk aesthetic.
+Must include: Glowing circuits, data streams, holographic displays, dramatic battle atmosphere.
+No text, no letters, no words - pure visual spectacle.`;
+
+            console.log("Generating Arena Referee image via Gemini...");
+            const response = await imageGenAI.models.generateContent({
+                model: "gemini-2.5-flash-image",
+                contents: [{ role: "user", parts: [{ text: imagePrompt }] }],
+                config: {
+                    responseModalities: [Modality.TEXT, Modality.IMAGE],
+                },
+            });
+
+            const candidate = response.candidates?.[0];
+            const imagePart = candidate?.content?.parts?.find(
+                (part: { inlineData?: { data?: string; mimeType?: string } }) => part.inlineData
+            );
+
+            if (imagePart?.inlineData?.data) {
+                // Save the image and return a URL
+                const imageUrl = await this.saveGeneratedImage(imagePart.inlineData.data, "arena");
+                console.log("Arena Referee image generated successfully:", imageUrl);
+                return imageUrl;
+            }
+        } catch (error) {
+            console.error("Error generating Arena Referee image via Gemini:", error);
+        }
+
+        // Fallback to curated images
+        console.log("Falling back to curated Arena image");
         const randomIndex = Math.floor(Math.random() * PostcardDrafter.ARENA_IMAGES.length);
-        const imageUrl = PostcardDrafter.ARENA_IMAGES[randomIndex];
-        console.log("Using curated Arena image:", imageUrl);
-        return imageUrl;
+        return PostcardDrafter.ARENA_IMAGES[randomIndex];
     }
 }
 

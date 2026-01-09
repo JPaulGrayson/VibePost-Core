@@ -307,3 +307,6 @@ export interface ArenaVerdict {
 
 export const ActionType = z.enum(["reply", "quote_tweet"]);
 export type ActionType = z.infer<typeof ActionType>;
+
+// Re-export chat models for Gemini integration
+export * from "./models/chat";

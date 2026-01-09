@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import * as path from "path";
 import * as fs from "fs";
@@ -25,6 +26,13 @@ import { arenaService, type ArenaRequest, getRandomChallenge, getAllChallenges, 
 import { requireTier, checkFeature, getTierLimits, TIER_LIMITS } from "./middleware/tier-guard";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Serve generated images from the public/generated-images folder
+  const generatedImagesDir = path.join(process.cwd(), "public", "generated-images");
+  if (!fs.existsSync(generatedImagesDir)) {
+    fs.mkdirSync(generatedImagesDir, { recursive: true });
+  }
+  app.use("/generated-images", express.static(generatedImagesDir));
+  
   // Simple authentication middleware
   const isAuthenticated = (req: any, res: any, next: any) => {
     // For now, always allow through for demo purposes
