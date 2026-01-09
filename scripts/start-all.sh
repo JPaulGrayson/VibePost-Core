@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Start the VibePost App
-echo "🚀 Starting VibePost App..."
+# Start the VibePost App with watch mode for hot reloading
+echo "🚀 Starting VibePost App with hot reload..."
 
-# Run the development server
-NODE_ENV=development npx tsx server/index.ts
+# Run the development server with watch mode
+NODE_ENV=development npx tsx --watch server/index.ts

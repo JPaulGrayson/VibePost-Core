@@ -3012,8 +3012,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Top 10 Drafts - MUST be defined BEFORE parameterized routes like /:id/approve
   app.get("/api/postcard-drafts/top", async (req, res) => {
     try {
+      console.log("[TOP 10] Fetching top drafts...");
       const limit = parseInt(req.query.limit as string) || 10;
       const drafts = await storage.getPostcardDrafts();
+      console.log(`[TOP 10] Total drafts from storage: ${drafts.length}`);
       
       // Filter for pending drafts and sort by score descending
       const topDrafts = drafts
@@ -3021,6 +3023,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .sort((a, b) => (b.score || 0) - (a.score || 0))
         .slice(0, limit);
       
+      console.log(`[TOP 10] Returning ${topDrafts.length} top drafts`);
       res.json(topDrafts);
     } catch (error) {
       console.error("Error fetching top drafts:", error);
