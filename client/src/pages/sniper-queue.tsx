@@ -416,7 +416,21 @@ function DraftCard({ draft, campaignType = 'turai' }: { draft: PostcardDraft; ca
         mutationFn: async () => {
             await apiRequest("POST", `/api/postcard-drafts/${draft.id}/regenerate-image`);
         },
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] })
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] });
+            toast({
+                title: "Image Regenerated! 🎨",
+                description: "New image generated for this draft.",
+            });
+        },
+        onError: (error) => {
+            console.error("Failed to regenerate image:", error);
+            toast({
+                variant: "destructive",
+                title: "Image Regeneration Failed",
+                description: "Check console for details.",
+            });
+        }
     });
 
     return (

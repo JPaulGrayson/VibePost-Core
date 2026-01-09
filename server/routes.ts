@@ -3080,17 +3080,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/postcard-drafts/:id/regenerate-image", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const newImageUrl = await postcardDrafter.regenerateImage(id);
-      res.json({ imageUrl: newImageUrl });
-    } catch (error) {
-      console.error("Error regenerating image:", error);
-      res.status(500).json({ message: "Failed to regenerate image" });
-    }
-  });
-
   const httpServer = createServer(app);
   return httpServer;
 }
