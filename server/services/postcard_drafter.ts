@@ -374,6 +374,9 @@ export class PostcardDrafter {
     // LogicArt deployed app URLs
     private static readonly LOGICART_LINK = "https://Logic.art"; // Simple landing page
     private static readonly LOGICART_EMBED_BASE = "https://logicart.replit.app"; // For embed links with code
+    
+    // Arena URL for Quote Tweets - the VibePost Arena page
+    public static readonly ARENA_URL = "https://vibepost.replit.app/arena";
 
     // Extract code snippet from a tweet
     extractCodeFromTweet(text: string): string | null {
