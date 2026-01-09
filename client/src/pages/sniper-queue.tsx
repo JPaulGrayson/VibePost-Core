@@ -604,8 +604,21 @@ function DraftCard({ draft, campaignType = 'turai' }: { draft: PostcardDraft; ca
                     <p className="text-sm text-muted-foreground mb-4 border-l-2 pl-2">"{draft.originalTweetText}"</p>
 
                     {/* Arena Referee Verdict Display - Full Mini-Arena */}
-                    {isQuoteTweet && arenaVerdict && (
+                    {isQuoteTweet && arenaVerdict && draft.strategy === 'arena_referee' && (
                         <MiniArenaDisplay arenaVerdict={arenaVerdict} />
+                    )}
+                    
+                    {/* Code Flowchart Display - Show flowchart info */}
+                    {isQuoteTweet && draft.strategy === 'code_flowchart' && (
+                        <div className="mb-3 p-3 rounded-lg border border-purple-500/30 bg-purple-900/20">
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="text-lg">📊</span>
+                                <span className="font-semibold text-purple-400">Code → Flowchart</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                {arenaVerdict?.reasoning || "Code/problem detected and visualized as flowchart"}
+                            </p>
+                        </div>
                     )}
 
                     <label className="text-xs font-bold">{isQuoteTweet ? "Quote Tweet Text:" : "Draft Reply:"}</label>

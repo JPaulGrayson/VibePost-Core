@@ -1464,15 +1464,11 @@ export async function generateCodeFlowchartDraft(
             turaiImageUrl: imageUrl,
             actionType: "quote_tweet",
             arenaVerdict: {
-                winner: "Gemini Vision",
+                winner: "flowchart",
                 reasoning: extracted.isDescription 
-                    ? `Problem description analyzed and visualized as flowchart (${codeLength} chars)`
-                    : `${language.charAt(0).toUpperCase() + language.slice(1)} code detected and mapped to flowchart (${codeLength} chars)`,
-                responses: [{
-                    model: "gemini",
-                    response: `Generated flowchart visualization for ${extracted.isDescription ? 'problem description' : language + ' code'}`,
-                    responseTime: 0
-                }]
+                    ? `Detected problem description in tweet, converted to visual flowchart for easier understanding`
+                    : `Detected ${language.charAt(0).toUpperCase() + language.slice(1)} code in tweet, converted to visual flowchart`,
+                responses: []
             },
             score: score,
         });
