@@ -133,6 +133,22 @@ export class SniperManager {
     get isRunning(): boolean {
         return this.isHunting;
     }
+    
+    // Check if the sniper service is ready (started and available for manual hunts)
+    get isReady(): boolean {
+        return this.isStarted;
+    }
+    
+    // Get detailed status for UI display
+    get status(): { state: 'stopped' | 'idle' | 'hunting'; message: string } {
+        if (!this.isStarted) {
+            return { state: 'stopped', message: 'Not initialized' };
+        }
+        if (this.isHunting) {
+            return { state: 'hunting', message: 'Hunt in progress' };
+        }
+        return { state: 'idle', message: 'Ready (Manual Mode)' };
+    }
 
     get todaysDrafts(): number {
         return this.draftsGeneratedToday;

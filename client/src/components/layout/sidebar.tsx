@@ -126,9 +126,15 @@ function HealthStatusSection() {
         {/* Sniper Status */}
         <div className="flex items-center justify-between">
           <span className="text-sm text-sidebar-foreground">Sniper</span>
-          <div className="flex items-center space-x-2" title={status.sniper?.isRunning ? "Auto-Pilot Active" : "Stopped"}>
-            <span className="text-xs text-muted-foreground">{status.sniper?.isRunning ? "Active" : "Stopped"}</span>
-            <Circle className={`w-2 h-2 ${status.sniper?.isRunning ? 'text-green-500 fill-current' : 'text-red-500 fill-current'}`} />
+          <div className="flex items-center space-x-2" title={status.sniper?.status?.message || "Unknown"}>
+            <span className="text-xs text-muted-foreground">
+              {status.sniper?.isRunning ? "Hunting" : status.sniper?.isReady ? "Ready" : "Stopped"}
+            </span>
+            <Circle className={`w-2 h-2 ${
+              status.sniper?.isRunning ? 'text-blue-500 fill-current' : 
+              status.sniper?.isReady ? 'text-green-500 fill-current' : 
+              'text-red-500 fill-current'
+            }`} />
           </div>
         </div>
 
