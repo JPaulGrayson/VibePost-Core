@@ -448,7 +448,10 @@ export default function SniperQueue() {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => refetchTop()}
+                                onClick={async () => {
+                                    await queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts/top"] });
+                                    toast({ title: "Refreshed", description: "Top 10 list updated" });
+                                }}
                                 disabled={isLoadingTop}
                             >
                                 <RefreshCw className={`h-4 w-4 mr-1 ${isLoadingTop ? 'animate-spin' : ''}`} />
