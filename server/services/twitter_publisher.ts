@@ -113,11 +113,11 @@ export async function publishDraft(draft: PostcardDraft) {
 
         // 2. Prepare the Payload
         let tweetText = draft.draftReplyText || "";
+        const isQuoteTweet = draft.actionType === 'quote_tweet';
 
-        // IMPORTANT: Prepend @mention for proper reply threading
-        // Twitter API v2 should handle this with in_reply_to_tweet_id, but explicit mentions
-        // help with visibility and reduce spam filter issues
-        if (draft.originalTweetId && draft.originalAuthorHandle) {
+        // For regular replies (not Quote Tweets), prepend @mention for proper threading
+        // Quote Tweets don't need the @mention since the quoted tweet provides context
+        if (!isQuoteTweet && draft.originalTweetId && draft.originalAuthorHandle) {
             const authorHandle = draft.originalAuthorHandle.startsWith('@')
                 ? draft.originalAuthorHandle
                 : `@${draft.originalAuthorHandle}`;
@@ -137,9 +137,13 @@ export async function publishDraft(draft: PostcardDraft) {
             media: { media_ids: [mediaId] }
         };
 
-        // Only add reply field if originalTweetId is a valid numeric tweet ID
-        // (Daily postcards use non-numeric IDs like "daily-..." for standalone posts)
-        if (draft.originalTweetId && /^\d+$/.test(draft.originalTweetId)) {
+        // Determine tweet type: Quote Tweet vs Reply
+        if (isQuoteTweet && draft.originalTweetId && /^\d+$/.test(draft.originalTweetId)) {
+            // Quote Tweet with media attachment
+            payload.quote_tweet_id = draft.originalTweetId;
+            console.log(`📝 Publishing as Quote Tweet with media (quoting tweet ${draft.originalTweetId})`);
+        } else if (draft.originalTweetId && /^\d+$/.test(draft.originalTweetId)) {
+            // Standard reply
             payload.reply = { in_reply_to_tweet_id: draft.originalTweetId };
         }
 
