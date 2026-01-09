@@ -471,15 +471,23 @@ Answer (1-4 words only):` }]
         }
     }
 
+    // Curated LogicArt-themed images (code, tech, flowcharts)
+    private static readonly LOGICART_IMAGES = [
+        "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&h=800&fit=crop", // Code on screen
+        "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=800&h=800&fit=crop", // Developer coding
+        "https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=800&h=800&fit=crop", // Code close-up
+        "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=800&h=800&fit=crop", // Code with coffee
+        "https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=800&h=800&fit=crop", // Syntax highlighting
+        "https://images.unsplash.com/photo-1607798748738-b15c40d33d57?w=800&h=800&fit=crop", // Modern IDE
+    ];
+    
     // Generate a LogicArt-themed image (flowchart visualization style)
     async generateLogicArtImage(context: string): Promise<string> {
-        // Use picsum.photos for reliable random images with consistent seed
-        const seed = `logicart-${context.replace(/\s+/g, '-')}-${Date.now()}`;
-        const picsumUrl = `https://picsum.photos/seed/${encodeURIComponent(seed)}/800/800`;
-        
-        console.log("Generating LogicArt image via Picsum...");
-        // Picsum is very reliable - just return the URL directly
-        return picsumUrl;
+        // Pick a random curated code/tech image
+        const randomIndex = Math.floor(Math.random() * PostcardDrafter.LOGICART_IMAGES.length);
+        const imageUrl = PostcardDrafter.LOGICART_IMAGES[randomIndex];
+        console.log("Using curated LogicArt image:", imageUrl);
+        return imageUrl;
     }
 
     // Extract coding theme (for categorization)
@@ -783,15 +791,23 @@ Answer (one word only):` }]
         return imageUrl;
     }
 
+    // Curated Arena Referee images (AI, robots, futuristic battle)
+    private static readonly ARENA_IMAGES = [
+        "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=800&h=800&fit=crop", // AI brain concept
+        "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=800&h=800&fit=crop", // Robot face
+        "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=800&h=800&fit=crop", // Humanoid robot
+        "https://images.unsplash.com/photo-1531746790731-6c087fecd65a?w=800&h=800&fit=crop", // AI visualization
+        "https://images.unsplash.com/photo-1555255707-c07966088b7b?w=800&h=800&fit=crop", // Tech abstract
+        "https://images.unsplash.com/photo-1673187789243-c09d2c91b7f0?w=800&h=800&fit=crop", // Futuristic AI
+    ];
+    
     // Generate AI debate/cage match themed image for Arena Referee
     async generateArenaRefereeImage(winnerModel: string): Promise<string> {
-        // Use picsum.photos for reliable random images with AI/arena themed seed
-        const seed = `arena-${winnerModel.replace(/\s+/g, '-')}-${Date.now()}`;
-        const picsumUrl = `https://picsum.photos/seed/${encodeURIComponent(seed)}/800/800`;
-        
-        console.log("Generating Arena Referee image via Picsum...");
-        // Picsum is very reliable - just return the URL directly
-        return picsumUrl;
+        // Pick a random curated AI/robot image
+        const randomIndex = Math.floor(Math.random() * PostcardDrafter.ARENA_IMAGES.length);
+        const imageUrl = PostcardDrafter.ARENA_IMAGES[randomIndex];
+        console.log("Using curated Arena image:", imageUrl);
+        return imageUrl;
     }
 }
 
