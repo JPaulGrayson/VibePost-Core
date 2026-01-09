@@ -290,7 +290,7 @@ export const CAMPAIGN_CONFIGS: Record<CampaignType, CampaignConfig> = {
 
         replySettings: {
             tone: 'helpful senior developer friend',
-            productLink: 'https://logicart.dev',
+            productLink: 'https://logic.art',
             callToAction: 'Try visualizing your code flow - it really helps!',
             hashTags: ['#coding', '#developer', '#VibeCoding', '#AI']
         },
