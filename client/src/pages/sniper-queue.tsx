@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useState, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { PostcardDraft, ArenaVerdict } from "@shared/schema";
-import { RefreshCw, Plane, Code2, Quote, Eye } from "lucide-react";
+import { RefreshCw, Plane, Code2, Quote, Eye, Star, ExternalLink, Send } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
 interface CampaignConfig {
@@ -51,9 +52,16 @@ export default function SniperQueue() {
         queryKey: ["/api/sniper/campaign"],
     });
 
+    // Top 10 query - separate from main drafts
+    const { data: topDrafts, isLoading: isLoadingTop, refetch: refetchTop } = useQuery<PostcardDraft[]>({
+        queryKey: ["/api/postcard-drafts/top"],
+        refetchOnWindowFocus: true,
+    });
+
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState("");
     const [activeCampaign, setActiveCampaign] = useState<string>("logicart"); // Default to LogicArt
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set()); // For Top 10 batch selection
 
     // Sync local state when campaign data loads from server (only on initial load)
     const [hasInitialized, setHasInitialized] = useState(false);
@@ -211,6 +219,31 @@ export default function SniperQueue() {
         }
     });
 
+    // Bulk approve selected drafts
+    const bulkApprove = useMutation({
+        mutationFn: async (ids: number[]) => {
+            const res = await apiRequest("POST", "/api/postcard-drafts/bulk-approve", { ids });
+            return res.json();
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts/top"] });
+            setSelectedIds(new Set()); // Clear selection
+            toast({
+                title: `Sent! 🚀`,
+                description: `Published ${data.successCount} drafts${data.failCount > 0 ? `, ${data.failCount} failed` : ''}.`,
+            });
+        },
+        onError: (error) => {
+            console.error("Bulk approve failed:", error);
+            toast({
+                variant: "destructive",
+                title: "Send Failed",
+                description: "Failed to send selected drafts.",
+            });
+        }
+    });
+
     // Switch LogicArt strategy mutation
     const switchStrategy = useMutation({
         mutationFn: async (strategy: string) => {
@@ -240,7 +273,7 @@ export default function SniperQueue() {
             {/* Campaign Selector - Separate tabs for each queue */}
             <div className="mb-6 p-4 bg-card rounded-lg border">
                 <label className="text-sm font-medium text-muted-foreground mb-3 block">Active Queue</label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-5 gap-2">
                     {/* Turai Travel */}
                     <Button
                         variant={activeCampaign === 'turai' ? "default" : "outline"}
@@ -304,6 +337,21 @@ export default function SniperQueue() {
                             {drafts?.filter(d => d.strategy === 'code_flowchart').length || 0}
                         </Badge>
                     </Button>
+                    
+                    {/* Top 10 - Best Candidates */}
+                    <Button
+                        variant={activeCampaign === 'top_10' ? "default" : "outline"}
+                        size="sm"
+                        className="flex flex-col items-center h-[64px] py-2 px-2 bg-gradient-to-br from-amber-500/10 to-yellow-500/10 hover:from-amber-500/20 hover:to-yellow-500/20"
+                        onClick={() => setActiveCampaign('top_10')}
+                        data-testid="campaign-top-10"
+                    >
+                        <Star className="h-4 w-4 mb-1 text-amber-400" />
+                        <span className="font-medium text-xs">⭐ Top 10</span>
+                        <Badge variant="secondary" className="text-[10px] px-1 bg-amber-500/20">
+                            {topDrafts?.length || 0}
+                        </Badge>
+                    </Button>
                 </div>
                 
                 <p className="text-xs text-muted-foreground mt-3">
@@ -311,6 +359,7 @@ export default function SniperQueue() {
                     {activeCampaign === 'logicart' && 'Hunting for developers with coding questions - promoting AI Debug Arena'}
                     {activeCampaign === 'arena_referee' && 'AI debates → Run through Arena → Quote Tweet with verdict'}
                     {activeCampaign === 'code_flowchart' && 'Code snippets → Generate flowchart → Quote Tweet with CTA'}
+                    {activeCampaign === 'top_10' && '⭐ Your top 10 highest-scoring candidates across all queues - select and batch send!'}
                 </p>
 
                 {/* Strategy Selector (LogicArt only - exclude quote tweet strategies) */}
@@ -383,21 +432,174 @@ export default function SniperQueue() {
                 </Button>
             </div>
 
-            <div className="grid gap-6">
-                {isLoading ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                        <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
-                        <p>Loading queue...</p>
+            {/* Top 10 Display - Special view with checkboxes */}
+            {activeCampaign === 'top_10' ? (
+                <div className="space-y-4">
+                    {/* Top 10 Header with actions */}
+                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-amber-900/20 to-yellow-900/20 border border-amber-400/50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                            <Star className="h-5 w-5 text-amber-400" />
+                            <span className="font-bold text-amber-300">Top 10 Response Candidates</span>
+                            <Badge className="bg-amber-500/20 text-amber-300">
+                                {selectedIds.size} selected
+                            </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => refetchTop()}
+                                disabled={isLoadingTop}
+                            >
+                                <RefreshCw className={`h-4 w-4 mr-1 ${isLoadingTop ? 'animate-spin' : ''}`} />
+                                Refresh
+                            </Button>
+                            <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() => bulkApprove.mutate(Array.from(selectedIds))}
+                                disabled={selectedIds.size === 0 || bulkApprove.isPending}
+                            >
+                                {bulkApprove.isPending ? (
+                                    <>
+                                        <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                                        Sending...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send className="h-4 w-4 mr-1" />
+                                        Send Selected ({selectedIds.size})
+                                    </>
+                                )}
+                            </Button>
+                        </div>
                     </div>
-                ) : filteredDrafts?.length === 0 ? (
-                    <p className="text-center py-8 text-muted-foreground">No drafts found matching your search.</p>
-                ) : (
-                    filteredDrafts?.map((draft) => (
-                        <DraftCard key={draft.id} draft={draft} campaignType={activeCampaign} />
-                    ))
-                )}
-            </div>
+
+                    {/* Top 10 List */}
+                    {isLoadingTop ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                            <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                            <p>Loading top candidates...</p>
+                        </div>
+                    ) : topDrafts?.length === 0 ? (
+                        <p className="text-center py-8 text-muted-foreground">No pending drafts found. Run a hunt to find new leads!</p>
+                    ) : (
+                        <div className="space-y-3">
+                            {topDrafts?.map((draft, index) => (
+                                <Top10Card 
+                                    key={draft.id} 
+                                    draft={draft} 
+                                    rank={index + 1}
+                                    isSelected={selectedIds.has(draft.id)}
+                                    onToggle={(id) => {
+                                        setSelectedIds(prev => {
+                                            const next = new Set(prev);
+                                            if (next.has(id)) {
+                                                next.delete(id);
+                                            } else {
+                                                next.add(id);
+                                            }
+                                            return next;
+                                        });
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <div className="grid gap-6">
+                    {isLoading ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                            <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                            <p>Loading queue...</p>
+                        </div>
+                    ) : filteredDrafts?.length === 0 ? (
+                        <p className="text-center py-8 text-muted-foreground">No drafts found matching your search.</p>
+                    ) : (
+                        filteredDrafts?.map((draft) => (
+                            <DraftCard key={draft.id} draft={draft} campaignType={activeCampaign} />
+                        ))
+                    )}
+                </div>
+            )}
         </div>
+    );
+}
+
+// Top 10 Card - Compact display with checkbox and tweet link
+function Top10Card({ draft, rank, isSelected, onToggle }: { 
+    draft: PostcardDraft; 
+    rank: number; 
+    isSelected: boolean;
+    onToggle: (id: number) => void;
+}) {
+    const score = draft.score || 0;
+    const tweetUrl = `https://twitter.com/${draft.originalAuthorHandle}/status/${draft.originalTweetId}`;
+    
+    // Score color
+    let scoreColor = "bg-gray-500";
+    if (score >= 90) scoreColor = "bg-green-500";
+    else if (score >= 70) scoreColor = "bg-yellow-500";
+    
+    // Strategy badge
+    const getStrategyBadge = () => {
+        if (draft.strategy === 'arena_referee') return { text: '🏛️ Arena', color: 'bg-purple-600' };
+        if (draft.strategy === 'code_flowchart') return { text: '📊 Flowchart', color: 'bg-blue-600' };
+        if (draft.campaignType === 'turai') return { text: '✈️ Turai', color: 'bg-cyan-600' };
+        return { text: '🧠 LogicArt', color: 'bg-green-600' };
+    };
+    const strategyBadge = getStrategyBadge();
+
+    return (
+        <Card className={`transition-all ${isSelected ? 'ring-2 ring-amber-400 bg-amber-900/10' : ''}`}>
+            <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                    {/* Checkbox + Rank */}
+                    <div className="flex flex-col items-center gap-1">
+                        <Checkbox 
+                            checked={isSelected}
+                            onCheckedChange={() => onToggle(draft.id)}
+                            className="h-5 w-5"
+                        />
+                        <span className="text-lg font-bold text-muted-foreground">#{rank}</span>
+                    </div>
+                    
+                    {/* Score Badge */}
+                    <div className={`${scoreColor} text-white text-sm font-bold px-2 py-1 rounded-lg min-w-[40px] text-center`}>
+                        {score}
+                    </div>
+                    
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-sm">@{draft.originalAuthorHandle}</span>
+                            <Badge className={`${strategyBadge.color} text-white text-[10px]`}>
+                                {strategyBadge.text}
+                            </Badge>
+                            <a 
+                                href={tweetUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-400 hover:text-blue-300 flex items-center gap-1 text-xs"
+                            >
+                                <ExternalLink className="h-3 w-3" />
+                                View Tweet
+                            </a>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                            {draft.originalTweetText}
+                        </p>
+                        {draft.draftReplyText && (
+                            <div className="mt-2 p-2 bg-muted/30 rounded text-xs text-gray-300 line-clamp-2">
+                                <span className="text-muted-foreground">Draft reply: </span>
+                                {draft.draftReplyText}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
     );
 }
 
