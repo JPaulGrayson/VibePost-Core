@@ -48,7 +48,7 @@ function Router() {
       <Route>
         <MainLayout>
           <Switch>
-            <Route path="/" component={CreatePost} />
+            <Route path="/" component={SniperQueue} />
             <Route path="/create" component={CreatePost} />
             <Route path="/create-post" component={CreatePost} />
             <Route path="/history" component={PostHistory} />
