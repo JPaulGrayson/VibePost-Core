@@ -87,7 +87,7 @@ export default function SniperQueue() {
         
         // Code Flowchart tab - show only code_flowchart drafts  
         if (activeCampaign === 'code_flowchart') {
-            const isFlowchart = draft.strategy === 'code_flowchart' || (draft.actionType === 'quote_tweet' && !draft.arenaVerdict && draft.flowchartUrl);
+            const isFlowchart = draft.strategy === 'code_flowchart';
             return isFlowchart && matchesSearch;
         }
         
@@ -301,7 +301,7 @@ export default function SniperQueue() {
                         <Eye className="h-4 w-4 mb-1" />
                         <span className="font-medium text-xs">📊 Flowchart</span>
                         <Badge variant="secondary" className="text-[10px] px-1">
-                            {drafts?.filter(d => d.strategy === 'code_flowchart' || (d.actionType === 'quote_tweet' && !d.arenaVerdict && d.flowchartUrl)).length || 0}
+                            {drafts?.filter(d => d.strategy === 'code_flowchart').length || 0}
                         </Badge>
                     </Button>
                 </div>
@@ -431,82 +431,62 @@ function MiniArenaDisplay({ arenaVerdict }: { arenaVerdict: ArenaVerdict }) {
         });
     })();
     
-    const winningResponse = winnerIndex >= 0 ? responses[winnerIndex] : null;
     const isWinner = (idx: number) => idx === winnerIndex;
 
     return (
         <div className="mb-3">
-            {/* Header */}
-            <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm">🏆</span>
-                <span className="font-bold text-amber-400 text-sm">The Contenders Have Spoken!</span>
-                <Badge className="bg-purple-600 text-white text-[10px]">Quote Tweet</Badge>
-            </div>
-            
-            {/* Horizontal Layout: Winner Left, 4 Responses Right */}
-            <div className="flex gap-3">
-                {/* LEFT: Winner Verdict + Response */}
-                <div className="flex-1 min-w-0">
-                    {/* Winner Verdict Box */}
-                    <div className="p-2 bg-gradient-to-r from-amber-900/20 to-yellow-900/20 border-2 border-amber-400 rounded-lg mb-2">
-                        <div className="flex items-center gap-1 mb-1">
-                            <span className="text-sm">🏆</span>
-                            <span className="font-bold text-amber-300 text-xs">{arenaVerdict.winner}</span>
-                        </div>
-                        <p className="text-[10px] text-gray-400 mb-1">AI Council Ruling</p>
-                        {arenaVerdict.reasoning && (
-                            <p className="text-[10px] text-gray-300 italic leading-snug line-clamp-3">
-                                "{arenaVerdict.reasoning.substring(0, 200)}{arenaVerdict.reasoning.length > 200 ? '...' : ''}"
-                            </p>
-                        )}
-                    </div>
-                    
-                    {/* Winner's Full Response */}
-                    {winningResponse && (
-                        <div className={`rounded-lg p-2 ${getModelStyle(winningResponse.model).bg} border-2 border-amber-400`}>
-                            <div className="flex items-center justify-between mb-1">
-                                <span className={`text-xs font-bold ${getModelStyle(winningResponse.model).text}`}>
-                                    {winningResponse.model}
-                                </span>
-                                <Badge className="bg-amber-500 text-black text-[9px] px-1">Winner</Badge>
-                            </div>
-                            <div className="max-h-24 overflow-y-auto text-[10px] text-gray-300 leading-snug custom-scrollbar">
-                                {winningResponse.response.substring(0, 400)}{winningResponse.response.length > 400 && '...'}
-                            </div>
-                        </div>
+            {/* Header Row: Title + Winner Badge */}
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                    <span className="text-sm">🏆</span>
+                    <span className="font-bold text-amber-400 text-sm">The Contenders Have Spoken!</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Badge className="bg-purple-600 text-white text-[10px]">Quote Tweet</Badge>
+                    {arenaVerdict.winner && (
+                        <Badge className="bg-amber-500 text-black text-xs">Winner: {arenaVerdict.winner}</Badge>
                     )}
                 </div>
-                
-                {/* RIGHT: 2x2 Grid of All 4 AI Responses (compact) */}
-                {responses.length > 0 && (
-                    <div className="w-48 flex-shrink-0">
-                        <p className="text-[10px] text-muted-foreground mb-1 text-center">All Responses</p>
-                        <div className="grid grid-cols-2 gap-1">
-                            {responses.map((r, idx) => {
-                                const style = getModelStyle(r.model);
-                                const wonMatch = isWinner(idx);
-                                
-                                return (
-                                    <div
-                                        key={idx}
-                                        className={`rounded p-1 ${style.bg} ${wonMatch ? 'border border-amber-400' : `border ${style.border}`}`}
-                                    >
-                                        <div className="flex items-center gap-1 mb-0.5">
-                                            <span className={`text-[8px] font-bold ${style.text} truncate`}>
-                                                {r.model.replace(' 3 Flash', '').replace(' Sonnet 4', '').replace('-4', '')}
-                                            </span>
-                                            {wonMatch && <span className="text-[8px]">🏆</span>}
-                                        </div>
-                                        <div className="max-h-12 overflow-y-auto text-[8px] text-gray-400 leading-tight">
-                                            {r.response.substring(0, 80)}...
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
             </div>
+            
+            {/* Verdict Reasoning (compact) */}
+            {arenaVerdict.reasoning && (
+                <div className="p-2 bg-gradient-to-r from-amber-900/20 to-yellow-900/20 border border-amber-400/50 rounded-lg mb-2">
+                    <p className="text-[10px] text-gray-300 italic leading-snug">
+                        "{arenaVerdict.reasoning.substring(0, 250)}{arenaVerdict.reasoning.length > 250 ? '...' : ''}"
+                    </p>
+                </div>
+            )}
+            
+            {/* 2x2 Grid of All AI Responses - Full Width, Scrollable */}
+            {responses.length > 0 && (
+                <div className="grid grid-cols-2 gap-2">
+                    {responses.map((r, idx) => {
+                        const style = getModelStyle(r.model);
+                        const wonMatch = isWinner(idx);
+                        
+                        return (
+                            <div
+                                key={idx}
+                                className={`rounded-lg p-2 ${style.bg} ${wonMatch ? 'border-2 border-amber-400 ring-1 ring-amber-400/30' : `border ${style.border}`}`}
+                            >
+                                <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-1">
+                                        <span className={`text-xs font-bold ${style.text}`}>
+                                            {r.model}
+                                        </span>
+                                        {wonMatch && <span className="text-xs">🏆</span>}
+                                    </div>
+                                    <span className="text-[9px] text-muted-foreground">{r.responseTime}ms</span>
+                                </div>
+                                <div className="max-h-20 overflow-y-auto text-[11px] text-gray-300 leading-snug pr-1" style={{ scrollbarWidth: 'thin' }}>
+                                    {r.response.substring(0, 300)}{r.response.length > 300 && '...'}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }
