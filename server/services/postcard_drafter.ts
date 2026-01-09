@@ -476,7 +476,9 @@ Answer (1-4 words only):` }]
         try {
             // Use Pollinations AI to generate a code visualization themed image
             const imagePrompt = `clean modern code flowchart diagram visualization, ${context}, dark theme IDE aesthetic, abstract geometric shapes and lines, glowing nodes, technology concept art, no text, no letters, no words, minimalist design`;
-            const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true`;
+            // Add timestamp for cache busting
+            const cacheBuster = Date.now();
+            const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true&seed=${cacheBuster}`;
 
             console.log("Generating LogicArt image via Pollinations...");
             const response = await fetch(pollinationsUrl, {
