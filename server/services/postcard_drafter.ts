@@ -802,7 +802,9 @@ Answer (one word only):` }]
         try {
             // AI debate themed image - robots battling, AI cage match, no travel imagery
             const imagePrompt = `dramatic AI battle arena, two robots facing off, digital cage match, glowing circuits and data streams, futuristic colosseum, ${winnerModel} champion, neon blue and purple lighting, technology battle, no text, no letters, cyberpunk aesthetic`;
-            const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true`;
+            // Add timestamp for cache busting
+            const cacheBuster = Date.now();
+            const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true&seed=${cacheBuster}`;
 
             console.log("Generating Arena Referee image via Pollinations...");
             const response = await fetch(pollinationsUrl, {
