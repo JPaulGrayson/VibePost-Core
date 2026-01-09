@@ -426,79 +426,92 @@ function MiniArenaDisplay({ arenaVerdict }: { arenaVerdict: ArenaVerdict }) {
     };
     
     // Find the exact winning response by matching the winner string
-    // Returns true only for the first response that matches the winner
     const winnerIndex = (() => {
         if (!winner) return -1;
         const normalizedWinner = winner.toLowerCase().trim();
         return responses.findIndex(r => {
             const normalizedModel = r.model.toLowerCase().trim();
-            // Exact match
             if (normalizedModel === normalizedWinner) return true;
-            // Winner fully contains model name (e.g., winner="Gemini 3 Flash" matches model="Gemini 3 Flash")
             if (normalizedWinner.includes(normalizedModel) && normalizedModel.length > 3) return true;
-            // Model fully contains winner (e.g., model="GPT-4o" matches winner="GPT-4o")
             if (normalizedModel.includes(normalizedWinner) && normalizedWinner.length > 3) return true;
             return false;
         });
     })();
     
-    const isWinner = (modelName: string, idx: number) => idx === winnerIndex;
+    const winningResponse = winnerIndex >= 0 ? responses[winnerIndex] : null;
+    const isWinner = (idx: number) => idx === winnerIndex;
 
     return (
-        <div className="mb-4">
+        <div className="mb-3">
             {/* Header */}
-            <div className="flex items-center gap-2 mb-3">
-                <span className="text-lg">🏆</span>
-                <span className="font-bold text-amber-400">The Contenders Have Spoken!</span>
-                <Badge className="bg-purple-600 text-white">Quote Tweet</Badge>
+            <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm">🏆</span>
+                <span className="font-bold text-amber-400 text-sm">The Contenders Have Spoken!</span>
+                <Badge className="bg-purple-600 text-white text-[10px]">Quote Tweet</Badge>
             </div>
             
-            {/* 2x2 Grid of AI Responses */}
-            {responses.length > 0 ? (
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                    {responses.map((r, idx) => {
-                        const style = getModelStyle(r.model);
-                        const wonMatch = isWinner(r.model, idx);
-                        
-                        return (
-                            <div
-                                key={idx}
-                                className={`rounded-lg p-2 ${style.bg} ${wonMatch ? 'border-2 border-amber-400 ring-2 ring-amber-400/30' : `border ${style.border}`}`}
-                            >
-                                <div className="flex items-center justify-between mb-1">
-                                    <div className="flex items-center gap-1">
-                                        <span className={`text-xs font-bold ${style.text}`}>{r.model}</span>
-                                        {wonMatch && <Badge className="bg-amber-500 text-black text-[10px] px-1">Winner</Badge>}
-                                    </div>
-                                    <span className="text-[10px] text-muted-foreground">{r.responseTime}ms</span>
-                                </div>
-                                <Badge className={`${style.badge} text-white text-[9px] mb-1`}>
-                                    {r.model.includes('Gemini') ? 'Google' : 
-                                     r.model.includes('GPT') ? 'OpenAI' : 
-                                     r.model.includes('Claude') ? 'Anthropic' : 'xAI'}
-                                </Badge>
-                                <div className="max-h-20 overflow-y-auto text-[10px] text-gray-300 leading-snug pr-1 custom-scrollbar">
-                                    {r.response.substring(0, 300)}{r.response.length > 300 && '...'}
-                                </div>
+            {/* Horizontal Layout: Winner Left, 4 Responses Right */}
+            <div className="flex gap-3">
+                {/* LEFT: Winner Verdict + Response */}
+                <div className="flex-1 min-w-0">
+                    {/* Winner Verdict Box */}
+                    <div className="p-2 bg-gradient-to-r from-amber-900/20 to-yellow-900/20 border-2 border-amber-400 rounded-lg mb-2">
+                        <div className="flex items-center gap-1 mb-1">
+                            <span className="text-sm">🏆</span>
+                            <span className="font-bold text-amber-300 text-xs">{arenaVerdict.winner}</span>
+                        </div>
+                        <p className="text-[10px] text-gray-400 mb-1">AI Council Ruling</p>
+                        {arenaVerdict.reasoning && (
+                            <p className="text-[10px] text-gray-300 italic leading-snug line-clamp-3">
+                                "{arenaVerdict.reasoning.substring(0, 200)}{arenaVerdict.reasoning.length > 200 ? '...' : ''}"
+                            </p>
+                        )}
+                    </div>
+                    
+                    {/* Winner's Full Response */}
+                    {winningResponse && (
+                        <div className={`rounded-lg p-2 ${getModelStyle(winningResponse.model).bg} border-2 border-amber-400`}>
+                            <div className="flex items-center justify-between mb-1">
+                                <span className={`text-xs font-bold ${getModelStyle(winningResponse.model).text}`}>
+                                    {winningResponse.model}
+                                </span>
+                                <Badge className="bg-amber-500 text-black text-[9px] px-1">Winner</Badge>
                             </div>
-                        );
-                    })}
+                            <div className="max-h-24 overflow-y-auto text-[10px] text-gray-300 leading-snug custom-scrollbar">
+                                {winningResponse.response.substring(0, 400)}{winningResponse.response.length > 400 && '...'}
+                            </div>
+                        </div>
+                    )}
                 </div>
-            ) : (
-                <p className="text-xs text-muted-foreground mb-3">No model responses recorded</p>
-            )}
-            
-            {/* Winner Verdict Box - Gold Frame */}
-            <div className="p-3 bg-gradient-to-r from-amber-900/20 to-yellow-900/20 border-2 border-amber-400 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg">🏆</span>
-                    <span className="font-bold text-amber-300">AND THE WINNER IS... {arenaVerdict.winner}!</span>
-                </div>
-                <p className="text-xs text-gray-400 mb-1">Official ruling by AI Council</p>
-                {arenaVerdict.reasoning && (
-                    <p className="text-xs text-gray-300 italic leading-snug">
-                        "{arenaVerdict.reasoning}"
-                    </p>
+                
+                {/* RIGHT: 2x2 Grid of All 4 AI Responses (compact) */}
+                {responses.length > 0 && (
+                    <div className="w-48 flex-shrink-0">
+                        <p className="text-[10px] text-muted-foreground mb-1 text-center">All Responses</p>
+                        <div className="grid grid-cols-2 gap-1">
+                            {responses.map((r, idx) => {
+                                const style = getModelStyle(r.model);
+                                const wonMatch = isWinner(idx);
+                                
+                                return (
+                                    <div
+                                        key={idx}
+                                        className={`rounded p-1 ${style.bg} ${wonMatch ? 'border border-amber-400' : `border ${style.border}`}`}
+                                    >
+                                        <div className="flex items-center gap-1 mb-0.5">
+                                            <span className={`text-[8px] font-bold ${style.text} truncate`}>
+                                                {r.model.replace(' 3 Flash', '').replace(' Sonnet 4', '').replace('-4', '')}
+                                            </span>
+                                            {wonMatch && <span className="text-[8px]">🏆</span>}
+                                        </div>
+                                        <div className="max-h-12 overflow-y-auto text-[8px] text-gray-400 leading-tight">
+                                            {r.response.substring(0, 80)}...
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

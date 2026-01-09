@@ -1123,128 +1123,195 @@ export const postcardDrafter = new PostcardDrafter();
 // ============= CODE FLOWCHART STRATEGY =============
 
 /**
- * Detect if a tweet contains actual code OR discusses a code problem worth visualizing
- * More lenient detection to catch tweets with error messages or debugging discussions
+ * Phrases that indicate promotional/educational content we should skip
+ */
+const PROMO_BLOCKLIST = [
+    /free courses?/i, /paid courses?/i, /courses?\s+free/i, // "free course", "paid courses", "courses FREE"
+    /free for first/i, /\bfree\b.*\btraining\b/i,
+    /bootcamp/i, /scholarship/i, /enroll now/i, /sign up/i, /register now/i,
+    /limited time/i, /discount/i, /\$\d+.*off/i, /sale\b/i,
+    /learn \w+ in \d+ (days?|weeks?|months?)/i,
+    /complete (course|guide|tutorial)/i,
+    /masterclass/i, /webinar/i, /workshop/i,
+    /please (learn|follow|subscribe|retweet)/i,
+    /must know/i, /you need to learn/i, /every developer should/i,
+    /\d+ (tips|tricks|skills|things)/i, // "10 tips", "5 things to know"
+    /roadmap/i, /curriculum/i, /certification/i,
+    /join (our|my|the)/i, /dm me/i, /link in bio/i,
+    /first \d+ people/i, /part\s*-?\s*\d+\)/i, // "First 4500 People", "PART - 1)"
+    /all paid/i, /course free/i, // "All Paid", "Course FREE"
+    /\(free\s+for/i, // "(Free for First..."
+];
+
+/**
+ * Check if tweet is promotional content we should skip
+ */
+function isPromoContent(text: string): boolean {
+    for (const pattern of PROMO_BLOCKLIST) {
+        if (pattern.test(text)) return true;
+    }
+    return false;
+}
+
+/**
+ * Detect if a tweet contains ACTUAL code worth visualizing
+ * Balanced detection - catches real code while rejecting promo content
  */
 export function detectCodeInTweet(tweetText: string): boolean {
+    // FIRST: Reject promotional/educational content
+    if (isPromoContent(tweetText)) {
+        console.log(`🚫 Code Flowchart: Rejected promo content`);
+        return false;
+    }
+    
     // Check for code fences (strongest signal)
     if (tweetText.includes('```')) return true;
     
-    // Check for common syntax patterns
-    const codePatterns = [
+    // JavaScript/TypeScript patterns
+    const jsPatterns = [
         /function\s+\w+\s*\(/,           // function declarations
         /const\s+\w+\s*=/,               // const declarations
         /let\s+\w+\s*=/,                 // let declarations
         /var\s+\w+\s*=/,                 // var declarations
-        /def\s+\w+\s*\(/,                // Python function
-        /class\s+\w+/,                   // class declarations
-        /import\s+\w+/,                  // imports
-        /from\s+\w+\s+import/,           // Python imports
-        /if\s*\(.+\)\s*{/,               // if statements
-        /for\s*\(.+\)\s*{/,              // for loops
-        /while\s*\(.+\)\s*{/,            // while loops
-        /=>\s*{/,                        // arrow functions
-        /\)\s*:\s*\w+\s*{/,              // TypeScript return type
-        /async\s+function/,              // async functions
-        /await\s+\w+/,                   // await statements
+        /=>\s*[{(]/,                     // arrow functions
+        /async\s+(function|\w+\s*=)/,    // async functions
+        /await\s+\w+/,                   // await statements  
         /return\s+.+;/,                  // return statements
         /console\.log\(/,                // console.log
-        /print\(.+\)/,                   // Python print
-        /\[\s*\d+\s*\]/,                 // array indexing
         /\.map\(|\.filter\(|\.reduce\(/, // array methods
         /try\s*{|catch\s*\(/,            // try/catch
+        /if\s*\(.+\)\s*{/,               // if statements with braces
+        /for\s*\(.+\)\s*{/,              // for loops with braces
     ];
     
-    for (const pattern of codePatterns) {
+    // Python patterns (no braces required)
+    const pythonPatterns = [
+        /def\s+\w+\s*\(/,                // Python function def
+        /class\s+\w+.*:/,                // Python class
+        /import\s+\w+/,                  // Python import
+        /from\s+\w+\s+import/,           // Python from import
+        /print\([^)]+\)/,                // Python print
+        /if\s+.+:/,                      // Python if
+        /for\s+\w+\s+in\s+/,             // Python for loop
+        /while\s+.+:/,                   // Python while
+        /elif\s+/,                       // Python elif
+        /\[\s*\w+\s+for\s+\w+\s+in/,     // List comprehension
+    ];
+    
+    // Other language patterns
+    const otherPatterns = [
+        /fn\s+\w+\s*\(/,                 // Rust fn
+        /pub\s+fn/,                      // Rust pub fn
+        /func\s+\w+\(/,                  // Go func
+        /package\s+main/,                // Go package
+        /<\?php/,                        // PHP
+        /\$\w+\s*=/,                     // PHP/Shell variable
+    ];
+    
+    for (const pattern of [...jsPatterns, ...pythonPatterns, ...otherPatterns]) {
         if (pattern.test(tweetText)) return true;
     }
     
-    // Check for error messages (strong signal of debugging tweet)
+    // Check for error messages with stack trace indicators
     const errorPatterns = [
         /TypeError:/i, /SyntaxError:/i, /ReferenceError:/i,
-        /undefined is not/i, /null reference/i, /segfault/i,
-        /stack overflow/i, /index out of bounds/i,
-        /cannot read property/i, /is not defined/i,
-        /expected.*but got/i, /invalid syntax/i,
-        /Uncaught Error:/i, /Exception:/i, /Traceback:/i,
+        /NameError:/i, /ValueError:/i, /AttributeError:/i,
+        /undefined is not/i, /is not defined/i,
+        /cannot read propert/i,
+        /Traceback \(most recent/i,
+        /at line \d+/i, /on line \d+/i,
+        /Uncaught \w+Error:/i,
+        /Exception:/i,
     ];
     
     for (const pattern of errorPatterns) {
         if (pattern.test(tweetText)) return true;
     }
     
-    // Check for code discussion signals (lenient - may discuss code without inline)
-    const discussionPatterns = [
-        /my (code|function|loop|array|class|method)/i,
-        /why (isn't|doesn't|won't|is) (this|my|the) (code|function|working)/i,
-        /what('s|s) wrong with (this|my) (code|function)/i,
-        /can someone (help|explain)/i,
-        /stuck on (a|this|my) (bug|error|loop|function)/i,
-        /debug(ging)? (this|my)/i,
-        /how (do I|to) (fix|solve|implement)/i,
-        /for loop|while loop|recursive|algorithm/i,
-    ];
-    
-    for (const pattern of discussionPatterns) {
-        if (pattern.test(tweetText)) return true;
-    }
-    
-    // Check for high symbol density (code has lots of brackets, semicolons, etc.)
-    const symbolCount = (tweetText.match(/[{}()\[\];=><+\-*/&|!]/g) || []).length;
+    // Check for code symbol density (balanced)
+    const codeSymbols = (tweetText.match(/[{}\[\];=():<>]/g) || []).length;
     const wordCount = tweetText.split(/\s+/).length;
     
-    // If more than 20% symbols to words ratio, likely code-related
-    if (wordCount > 5 && symbolCount / wordCount > 0.2) return true;
+    // If significant code symbols relative to text length
+    if (wordCount > 5 && codeSymbols >= 6 && codeSymbols / wordCount > 0.25) return true;
     
     return false;
 }
 
 /**
- * Extract code from a tweet (handles code fences, inline code, and problem descriptions)
- * For tweets without literal code, returns the problem description for conceptual flowchart
+ * Extract ACTUAL code from a tweet
+ * Balanced extraction - handles multiple languages without false positives
  */
 export function extractCodeFromTweet(tweetText: string): { code: string; language: string; isDescription?: boolean } | null {
-    // Try to extract fenced code block first
+    // Reject promo content first
+    if (isPromoContent(tweetText)) {
+        return null;
+    }
+    
+    // Try to extract fenced code block first (best case)
     const fenceMatch = tweetText.match(/```(\w*)\n?([\s\S]*?)```/);
     if (fenceMatch) {
         const language = fenceMatch[1] || 'unknown';
         const code = fenceMatch[2].trim();
-        if (code.length > 10) { // Minimum code length
+        if (code.length > 10) {
             return { code, language };
         }
     }
     
-    // Try to extract inline code patterns
-    // Look for lines that look like code (indentation, semicolons, brackets)
+    // Try to extract inline code patterns - recognize multiple languages
     const lines = tweetText.split('\n');
     const codeLines = lines.filter(line => {
         const trimmed = line.trim();
-        return (
-            trimmed.includes(';') ||
-            trimmed.includes('{') ||
-            trimmed.includes('}') ||
-            trimmed.match(/^\s*(const|let|var|function|def|class|if|for|while|return|import|from)\s/) ||
-            trimmed.match(/^\s*\w+\s*=\s*/) ||
-            trimmed.match(/^\s*\w+\(.*\)/)
+        if (!trimmed) return false;
+        
+        // JavaScript/TypeScript patterns
+        const isJS = (
+            trimmed.match(/^\s*(const|let|var)\s+\w+\s*=/) ||
+            trimmed.match(/^\s*function\s+\w+\s*\(/) ||
+            trimmed.match(/^\s*(if|for|while)\s*\(.+\)\s*{/) ||
+            trimmed.includes(';') && trimmed.includes('=') ||
+            trimmed.match(/console\.log\(/) ||
+            trimmed.match(/=>\s*[{(]/)
         );
+        
+        // Python patterns (no semicolons/braces needed)
+        const isPython = (
+            trimmed.match(/^\s*def\s+\w+\s*\(/) ||
+            trimmed.match(/^\s*class\s+\w+.*:/) ||
+            trimmed.match(/^\s*(if|for|while|elif|else)\s+.*:/) ||
+            trimmed.match(/^\s*(import|from)\s+\w+/) ||
+            trimmed.match(/print\([^)]+\)/) ||
+            trimmed.match(/\[\s*\w+\s+for\s+\w+\s+in/)
+        );
+        
+        // Generic code patterns
+        const isCode = (
+            trimmed.includes('{') && trimmed.includes('}') ||
+            trimmed.match(/^\s*return\s+/) ||
+            trimmed.match(/^\s*\w+\s*=\s*\[.*\]/) // array assignment
+        );
+        
+        return isJS || isPython || isCode;
     });
     
-    if (codeLines.length >= 2) {
+    if (codeLines.length >= 1) { // Even 1 line of clear code is enough
         return { code: codeLines.join('\n'), language: 'unknown' };
     }
     
-    // Fallback: Use the problem description for conceptual flowchart
-    // This handles tweets that discuss code problems without inline code
-    const cleanText = tweetText
-        .replace(/@\w+/g, '') // Remove mentions
-        .replace(/https?:\/\/\S+/g, '') // Remove URLs
-        .replace(/RT\s+/g, '') // Remove RT prefix
-        .trim();
-    
-    if (cleanText.length > 20) {
-        return { code: cleanText, language: 'description', isDescription: true };
+    // Check for error message with stack trace (worthy of flowchart)
+    const hasStackTrace = /TypeError:|SyntaxError:|ReferenceError:|NameError:|ValueError:|Traceback|at line \d+|Uncaught \w+Error:/i.test(tweetText);
+    if (hasStackTrace) {
+        const cleanText = tweetText
+            .replace(/@\w+/g, '')
+            .replace(/https?:\/\/\S+/g, '')
+            .replace(/RT\s+/g, '')
+            .trim();
+        if (cleanText.length > 30) {
+            return { code: cleanText, language: 'error', isDescription: true };
+        }
     }
     
+    // NO FALLBACK - don't create flowcharts for non-code tweets
     return null;
 }
 
