@@ -2,7 +2,7 @@
 
 ## Overview
 
-The LogicArt Sniper system uses 4 specialized strategies to find and engage developers on X/Twitter. Each strategy targets a specific audience with tailored messaging and action types.
+The LogicArt Sniper system uses 5 specialized strategies to find and engage developers on X/Twitter. Each strategy targets a specific audience with tailored messaging and action types.
 
 ## Strategy Summary
 
@@ -12,6 +12,7 @@ The LogicArt Sniper system uses 4 specialized strategies to find and engage deve
 | **Spaghetti Detective** | 🍝 | Senior devs with legacy code pain | Reply | Complexity Pain / Suffering |
 | **Bootcamp Savior** | 🎓 | Beginners stuck on bugs | Reply | Beginner Struggling |
 | **Arena Referee** | 🏛️ | Viral AI model debates | Quote Tweet | AI Model Debate |
+| **Code Flowchart** | 📊 | Tweets containing code snippets | Quote Tweet | Code Detection |
 
 ---
 
@@ -107,6 +108,44 @@ The LogicArt Sniper system uses 4 specialized strategies to find and engage deve
 **Reply Tone:** Competitive, Fun - "Let's settle this in the Arena"
 
 **Action:** Quote Tweet with AI Council verdict (runs debate through 4 AI models)
+
+---
+
+## 5. Code Flowchart 📊
+
+**Description:** Detect tweets containing code snippets and generate visual flowcharts
+
+**Selection Criteria:**
+- Tweets containing code blocks (markdown fences)
+- Posts with inline code patterns (curly braces, semicolons, function syntax)
+- Code-heavy tweets with high symbol density
+
+**Code Detection Logic:**
+| Method | Description |
+|--------|-------------|
+| Markdown Fences | Detects \`\`\` code blocks |
+| Syntax Patterns | Keywords like `function`, `const`, `if`, `for`, `return`, `class`, `import` |
+| Symbol Density | High concentration of `{}`, `()`, `;`, `=>`, `===` |
+| Language Hints | Detects Python, JavaScript, TypeScript, Rust, Go patterns |
+
+**Search Terms:**
+| Category | Keywords |
+|----------|----------|
+| Debug/Help | `code bug`, `my code`, `code not working`, `debug this`, `help with code` |
+| Code Review | `code review`, `what's wrong with`, `fix this code`, `this works but` |
+| Sharing Code | `wrote this function`, `here's my code`, `check out this` |
+
+**Positive Intent Signals:** Code fence blocks, high symbol density (>15%), syntax keywords, function definitions
+
+**Negative Signals:** Promotional content, job listings, tutorial links
+
+**Reply Tone:** Helpful, Educational - "Visualized your logic flow"
+
+**Action:** Quote Tweet with AI-generated flowchart image + CTA to Arena
+
+**Generated Content Format:**
+- Flowchart image: Visual representation of code logic
+- CTA message: Drives traffic to logic.art/x for full AI analysis
 
 ---
 
