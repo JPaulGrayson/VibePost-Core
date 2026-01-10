@@ -64,6 +64,7 @@ export default function SniperQueue() {
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set()); // For Top 10 batch selection
 
     // Sync local state when campaign data loads from server (only on initial load)
+    // Skip sync if user is on top_10 tab - that's a local-only view
     const [hasInitialized, setHasInitialized] = useState(false);
     useEffect(() => {
         if (campaignData?.currentCampaign && !hasInitialized) {
@@ -79,6 +80,21 @@ export default function SniperQueue() {
             setHasInitialized(true);
         }
     }, [campaignData?.currentCampaign, campaignData?.activeStrategy, hasInitialized]);
+    
+    // Preserve active tab in session storage so refresh doesn't lose it
+    useEffect(() => {
+        const savedTab = sessionStorage.getItem('sniperActiveTab');
+        if (savedTab && !hasInitialized) {
+            setActiveCampaign(savedTab);
+            setHasInitialized(true);
+        }
+    }, []);
+    
+    useEffect(() => {
+        if (hasInitialized) {
+            sessionStorage.setItem('sniperActiveTab', activeCampaign);
+        }
+    }, [activeCampaign, hasInitialized]);
 
     const filteredDrafts = drafts?.filter(draft => {
         // Helper: check if draft matches search query
