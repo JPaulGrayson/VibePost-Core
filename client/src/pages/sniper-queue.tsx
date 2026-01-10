@@ -244,6 +244,7 @@ export default function SniperQueue() {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] });
             queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts/top"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/posts"] }); // Refresh Recent Posts & Post History
             setSelectedIds(new Set()); // Clear selection
             toast({
                 title: `Sent! 🚀`,
@@ -775,6 +776,7 @@ function DraftCard({ draft, campaignType = 'turai' }: { draft: PostcardDraft; ca
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/posts"] }); // Refresh Recent Posts & Post History
             toast({
                 title: "Published! 🚀",
                 description: `Reply sent to @${draft.originalAuthorHandle}`,
