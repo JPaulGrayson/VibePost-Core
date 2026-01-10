@@ -72,6 +72,22 @@ const SPAM_CONFIG = {
     RECENT_DRAFTS_COUNT: 200,              // Check more drafts for duplicates (was 100)
 };
 
+// In-memory session cache to prevent race condition duplicates within same hunt cycle
+// This catches same-author duplicates that arrive before first one is saved to DB
+const sessionFingerprintCache = new Map<string, { handle: string; tweetId: string; timestamp: number }>();
+const SESSION_CACHE_TTL_MS = 60000; // 1 minute TTL
+
+function cleanExpiredSessionCache() {
+    const now = Date.now();
+    const keysToDelete: string[] = [];
+    sessionFingerprintCache.forEach((value, key) => {
+        if (now - value.timestamp > SESSION_CACHE_TTL_MS) {
+            keysToDelete.push(key);
+        }
+    });
+    keysToDelete.forEach(key => sessionFingerprintCache.delete(key));
+}
+
 // Verify intent based on campaign type using Gemini AI
 async function verifyIntent(tweetText: string, campaignType: CampaignType = 'turai'): Promise<boolean> {
     try {
@@ -145,6 +161,31 @@ export async function generateDraft(
         return false;
     }
 
+    // Create fingerprint early for session cache check
+    const fingerprint = createTextFingerprint(tweet.text);
+    
+    // Clean expired entries from session cache
+    cleanExpiredSessionCache();
+    
+    // SESSION CACHE: Check if same/similar content was processed in this hunt cycle
+    // This prevents race condition duplicates when same author posts multiple times
+    const cachedEntry = sessionFingerprintCache.get(fingerprint);
+    if (cachedEntry && fingerprint.length > 20) {
+        console.log(`🚫 SESSION DUPLICATE: Same content already queued in this cycle`);
+        console.log(`   First: @${cachedEntry.handle} (tweet ${cachedEntry.tweetId})`);
+        console.log(`   Duplicate: @${authorHandle} (tweet ${tweet.id})`);
+        return false;
+    }
+    
+    // Add to session cache immediately (before any async operations)
+    if (fingerprint.length > 20) {
+        sessionFingerprintCache.set(fingerprint, {
+            handle: authorHandle,
+            tweetId: tweet.id,
+            timestamp: Date.now()
+        });
+    }
+
     // SPAM DETECTION: Check for duplicate/similar tweet text from different users
     // This catches spam campaigns where bots post identical content from multiple accounts
     const normalizedText = tweet.text
@@ -152,9 +193,6 @@ export async function generateDraft(
         .replace(/https?:\/\/\S+/g, '') // Remove URLs
         .replace(/\s+/g, ' ')           // Normalize whitespace
         .trim();
-
-    // Create fingerprint for exact-match detection
-    const fingerprint = createTextFingerprint(tweet.text);
     
     // Get recent drafts to check for similarity (increased lookback)
     const recentDrafts = await db.query.postcardDrafts.findMany({
