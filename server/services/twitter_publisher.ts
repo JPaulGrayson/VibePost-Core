@@ -75,8 +75,25 @@ export async function publishDraft(draft: PostcardDraft) {
 
             mimeType = matches[1];
             buffer = Buffer.from(matches[2], 'base64');
+        } else if (draft.turaiImageUrl.startsWith('/generated-images/')) {
+            // Local file path - read from filesystem
+            const fs = await import('fs/promises');
+            const path = await import('path');
+            const localPath = path.join(process.cwd(), 'public', draft.turaiImageUrl);
+            
+            try {
+                buffer = await fs.readFile(localPath);
+                // Detect mime type from extension
+                if (draft.turaiImageUrl.endsWith('.png')) mimeType = 'image/png';
+                else if (draft.turaiImageUrl.endsWith('.jpg') || draft.turaiImageUrl.endsWith('.jpeg')) mimeType = 'image/jpeg';
+                else if (draft.turaiImageUrl.endsWith('.gif')) mimeType = 'image/gif';
+                else if (draft.turaiImageUrl.endsWith('.webp')) mimeType = 'image/webp';
+                console.log(`Read local image: ${localPath} (${buffer.length} bytes)`);
+            } catch (fsError: any) {
+                throw new Error(`Failed to read local image file: ${localPath} - ${fsError.message}`);
+            }
         } else {
-            throw new Error("Unsupported image format (must be HTTP URL or Data URI)");
+            throw new Error("Unsupported image format (must be HTTP URL, Data URI, or local /generated-images/ path)");
         }
 
         console.log(`Image prepared, size: ${buffer.length} bytes, type: ${mimeType}. Uploading to Twitter...`);
