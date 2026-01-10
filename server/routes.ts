@@ -560,6 +560,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Retry failed post
+  app.post("/api/posts/:id/retry", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const post = await storage.getPost(id);
+
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+
+      if (post.status !== "failed" && post.status !== "draft") {
+        return res.status(400).json({ message: "Post is not in failed or draft status" });
+      }
+
+      // Reset status to draft first, then publish
+      await storage.updatePost(id, { status: "draft" });
+      
+      // Attempt to publish
+      await handlePostPublishing(id, post.platforms as string[]);
+      
+      // Get updated post to return
+      const updatedPost = await storage.getPost(id);
+      res.json(updatedPost);
+    } catch (error) {
+      console.error("Retry post failed:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to retry post" });
+    }
+  });
+
   // Test Twitter API connection
   app.post("/api/platforms/twitter/test", async (req, res) => {
     try {

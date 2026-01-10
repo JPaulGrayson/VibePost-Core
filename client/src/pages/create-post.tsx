@@ -27,7 +27,7 @@ export default function CreatePost() {
 
   // Fetch post data if editing
   const { data: editingPost } = useQuery<Post>({
-    queryKey: ["/api/posts", editPostId],
+    queryKey: [`/api/posts/${editPostId}`],
     enabled: !!editPostId,
   });
 

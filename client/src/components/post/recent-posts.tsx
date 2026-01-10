@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Heart, MessageCircle, Repeat2, ThumbsUp, Trash2 } from "lucide-react";
+import { ExternalLink, Heart, MessageCircle, Repeat2, ThumbsUp, Trash2, RotateCw } from "lucide-react";
 import { Twitter } from "lucide-react";
 import { SiDiscord, SiReddit } from "react-icons/si";
 import type { Post } from "@shared/schema";
@@ -18,6 +18,33 @@ export default function RecentPosts() {
   const { data: posts = [] } = useQuery<Post[]>({
     queryKey: ["/api/posts"],
     select: (data) => data.slice(0, 5), // Only show recent 5 posts
+  });
+
+  const retryPostMutation = useMutation({
+    mutationFn: async (postId: number) => {
+      const response = await fetch(`/api/posts/${postId}/retry`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to retry post");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      toast({
+        title: "Post published!",
+        description: "The post was successfully retried and published.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Retry failed",
+        description: error.message || "Failed to publish post. Please try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   const deletePostMutation = useMutation({
@@ -169,14 +196,27 @@ export default function RecentPosts() {
                       )}
 
                       <div className="flex items-center space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="p-0 h-auto text-social-primary hover:text-blue-700"
-                          onClick={() => setLocation("/history")}
-                        >
-                          {post.status === "failed" ? "Retry" : "View"}
-                        </Button>
+                        {post.status === "failed" ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-0 h-auto text-green-600 hover:text-green-700 flex items-center gap-1"
+                            onClick={() => retryPostMutation.mutate(post.id)}
+                            disabled={retryPostMutation.isPending}
+                          >
+                            <RotateCw className={`h-3 w-3 ${retryPostMutation.isPending ? 'animate-spin' : ''}`} />
+                            Retry
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-0 h-auto text-social-primary hover:text-blue-700"
+                            onClick={() => setLocation("/history")}
+                          >
+                            View
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"

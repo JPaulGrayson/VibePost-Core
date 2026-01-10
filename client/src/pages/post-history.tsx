@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ExternalLink, Edit2, Trash2 } from "lucide-react";
+import { Search, ExternalLink, Edit2, Trash2, RotateCw } from "lucide-react";
 import { Twitter, MessageSquare } from "lucide-react";
 import { SiDiscord, SiReddit } from "react-icons/si";
 import type { Post } from "@shared/schema";
@@ -22,6 +22,33 @@ export default function PostHistory() {
 
   const { data: posts = [], isLoading } = useQuery<Post[]>({
     queryKey: ["/api/posts"],
+  });
+
+  const retryPostMutation = useMutation({
+    mutationFn: async (postId: number) => {
+      const response = await fetch(`/api/posts/${postId}/retry`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to retry post");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      toast({
+        title: "Post published!",
+        description: "The post was successfully retried and published.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Retry failed",
+        description: error.message || "Failed to publish post. Please try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   const deletePostMutation = useMutation({
@@ -211,6 +238,17 @@ export default function PostHistory() {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
+                        {post.status === "failed" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-green-600 hover:text-green-700"
+                            onClick={() => retryPostMutation.mutate(post.id)}
+                            disabled={retryPostMutation.isPending}
+                          >
+                            <RotateCw className={`h-4 w-4 ${retryPostMutation.isPending ? 'animate-spin' : ''}`} />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
