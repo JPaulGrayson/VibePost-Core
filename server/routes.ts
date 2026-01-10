@@ -3066,9 +3066,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               tweetId: result.tweetId,
             });
             results.push({ id, success: true, tweetId: result.tweetId });
+            console.log(`✅ Bulk sent ${id} -> Tweet ${result.tweetId}`);
           } else {
-            await storage.updatePostcardDraft(id, { status: "failed" });
-            results.push({ id, success: false, error: result.error });
+            const errorMsg = result.error || "Unknown publish error";
+            await storage.updatePostcardDraft(id, { 
+              status: "failed",
+              lastError: errorMsg,
+              publishAttempts: 1
+            });
+            results.push({ id, success: false, error: errorMsg });
+            console.log(`❌ Bulk send failed ${id}: ${errorMsg}`);
+          }
+          
+          // Rate limit protection: wait 3 seconds between sends
+          if (ids.indexOf(id) < ids.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 3000));
           }
         } catch (error) {
           results.push({ id, success: false, error: error instanceof Error ? error.message : "Unknown error" });
