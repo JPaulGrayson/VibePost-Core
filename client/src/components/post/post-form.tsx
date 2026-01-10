@@ -48,9 +48,10 @@ export default function PostForm({
   const queryClient = useQueryClient();
   const [characterCount, setCharacterCount] = useState(0);
   const [date, setDate] = useState<Date | undefined>(undefined);
-  const [mediaUrl, setMediaUrl] = useState<string>("");
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [showMediaInput, setShowMediaInput] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [urlInput, setUrlInput] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof postSchema>>({
@@ -66,11 +67,15 @@ export default function PostForm({
     setCharacterCount(content.length);
   }, [content, form]);
 
-  // Load mediaUrl when editing a post
+  // Load mediaUrls when editing a post
   useEffect(() => {
-    if (editingPost?.mediaUrl) {
-      setMediaUrl(editingPost.mediaUrl);
-      setShowMediaInput(true);
+    if (editingPost) {
+      // Support both new mediaUrls array and legacy mediaUrl
+      const urls = (editingPost as any).mediaUrls || (editingPost.mediaUrl ? [editingPost.mediaUrl] : []);
+      if (urls.length > 0) {
+        setMediaUrls(urls);
+        setShowMediaInput(true);
+      }
     }
   }, [editingPost]);
 
@@ -126,7 +131,8 @@ export default function PostForm({
       // Reset form if creating new
       if (!editingPost) {
         setDate(undefined);
-        setMediaUrl("");
+        setMediaUrls([]);
+        setUrlInput("");
         setShowMediaInput(false);
       }
     },
@@ -151,7 +157,7 @@ export default function PostForm({
       template: selectedTemplate,
       status: "draft",
       scheduledAt: date ? date.toISOString() : undefined,
-      mediaUrl: mediaUrl || undefined,
+      mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
     };
     createPostMutation.mutate(data);
   };
@@ -172,18 +178,34 @@ export default function PostForm({
       template: selectedTemplate,
       status: date ? "scheduled" : "published",
       scheduledAt: date ? date.toISOString() : undefined,
-      mediaUrl: mediaUrl || undefined,
+      mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
     };
     createPostMutation.mutate(postData);
   };
 
-  const handleMediaUrlChange = (url: string) => {
-    setMediaUrl(url);
+  const handleAddUrl = () => {
+    if (urlInput.trim() && mediaUrls.length < 4) {
+      setMediaUrls([...mediaUrls, urlInput.trim()]);
+      setUrlInput("");
+    }
+  };
+
+  const handleRemoveMedia = (index: number) => {
+    setMediaUrls(mediaUrls.filter((_, i) => i !== index));
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (mediaUrls.length >= 4) {
+      toast({
+        title: "Maximum reached",
+        description: "You can only attach up to 4 media files per post.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsUploading(true);
     try {
@@ -200,7 +222,7 @@ export default function PostForm({
       }
 
       const data = await response.json();
-      setMediaUrl(data.url);
+      setMediaUrls([...mediaUrls, data.url]);
       toast({
         title: "File uploaded",
         description: `${file.name} has been uploaded successfully.`,
@@ -219,8 +241,9 @@ export default function PostForm({
     }
   };
 
-  const clearMedia = () => {
-    setMediaUrl("");
+  const clearAllMedia = () => {
+    setMediaUrls([]);
+    setUrlInput("");
     setShowMediaInput(false);
   };
 
@@ -277,79 +300,113 @@ export default function PostForm({
           <div className="space-y-3 p-3 bg-muted/50 rounded-lg border border-border">
             <div className="flex items-center gap-2">
               <Image className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Add Media</span>
+              <span className="text-sm font-medium">Add Media ({mediaUrls.length}/4)</span>
               <button
                 type="button"
-                onClick={clearMedia}
+                onClick={clearAllMedia}
                 className="ml-auto text-muted-foreground hover:text-foreground"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
+            {/* Media Previews */}
+            {mediaUrls.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {mediaUrls.map((url, index) => (
+                  <div key={index} className="relative group">
+                    {url.match(/\.(mp4|mov|webm|avi)$/i) ? (
+                      <video src={url} className="h-20 w-32 rounded-md object-cover" />
+                    ) : (
+                      <img 
+                        src={url} 
+                        alt={`Media ${index + 1}`}
+                        className="h-20 w-20 rounded-md object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMedia(index)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* File Upload */}
-            <div className="flex gap-2">
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="image/*,video/*"
-                onChange={handleFileUpload}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="flex-1"
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Choose File
-                  </>
-                )}
-              </Button>
-            </div>
+            {mediaUrls.length < 4 && (
+              <div className="flex gap-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*,video/*"
+                  onChange={handleFileUpload}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="flex-1"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Choose File
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
 
             {/* Divider */}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <div className="flex-1 border-t border-border" />
-              <span>or paste URL</span>
-              <div className="flex-1 border-t border-border" />
-            </div>
+            {mediaUrls.length < 4 && (
+              <>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex-1 border-t border-border" />
+                  <span>or paste URL</span>
+                  <div className="flex-1 border-t border-border" />
+                </div>
 
-            {/* URL Input */}
-            <Input
-              type="text"
-              placeholder="Enter a URL"
-              value={mediaUrl}
-              onChange={(e) => handleMediaUrlChange(e.target.value)}
-              className="bg-background"
-            />
-
-            {/* Preview */}
-            {mediaUrl && (
-              <div className="mt-2">
-                {mediaUrl.match(/\.(mp4|mov|webm|avi)$/i) ? (
-                  <video src={mediaUrl} className="max-h-32 rounded-md" controls />
-                ) : (
-                  <img 
-                    src={mediaUrl} 
-                    alt="Preview" 
-                    className="max-h-32 rounded-md object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
+                {/* URL Input */}
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Enter a URL"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    className="bg-background flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddUrl();
+                      }
                     }}
                   />
-                )}
-              </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddUrl}
+                    disabled={!urlInput.trim()}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </>
             )}
           </div>
         )}
@@ -368,7 +425,7 @@ export default function PostForm({
               onClick={() => setShowMediaInput(!showMediaInput)}
             >
               <Image className="mr-2 h-4 w-4" />
-              {mediaUrl ? "Edit Media" : "Add Media"}
+              {mediaUrls.length > 0 ? `Edit Media (${mediaUrls.length})` : "Add Media"}
             </Button>
             <Button
               type="button"
