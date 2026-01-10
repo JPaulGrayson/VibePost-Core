@@ -327,8 +327,8 @@ export default function PostForm({
 
             {/* URL Input */}
             <Input
-              type="url"
-              placeholder="https://example.com/image.jpg"
+              type="text"
+              placeholder="Enter a URL"
               value={mediaUrl}
               onChange={(e) => handleMediaUrlChange(e.target.value)}
               className="bg-background"
