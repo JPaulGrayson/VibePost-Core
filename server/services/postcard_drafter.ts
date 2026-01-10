@@ -1122,12 +1122,12 @@ export async function generateArenaRefereeDraft(
         console.log(`🏆 Arena Winner: ${arenaResult.winner}`);
         console.log(`📝 Reasoning: ${arenaResult.winnerReason?.substring(0, 100)}...`);
         
-        // Generate the Quote Tweet text
+        // Generate the Quote Tweet text with pre-populated Arena link
         const quoteText = generateArenaVerdictText({
             winner: arenaResult.winner,
             winnerReason: arenaResult.winnerReason,
             responses: arenaResult.responses
-        }, authorHandle);
+        }, authorHandle, tweet.text);
         
         // Generate Arena battle image for the Quote Tweet
         console.log(`🎨 Generating Arena Referee image...`);
@@ -1178,11 +1178,28 @@ export async function generateArenaRefereeDraft(
 }
 
 /**
+ * Build Arena URL with optional pre-populated question
+ */
+function buildArenaUrl(question?: string): string {
+    const baseUrl = PostcardDrafter.ARENA_URL;
+    if (!question) return baseUrl;
+    
+    // Truncate very long questions to avoid excessively long URLs
+    const maxLength = 500;
+    const truncated = question.length > maxLength 
+        ? question.substring(0, maxLength) + "..." 
+        : question;
+    
+    return `${baseUrl}?q=${encodeURIComponent(truncated)}`;
+}
+
+/**
  * Generate the Quote Tweet text for an Arena verdict
  */
 function generateArenaVerdictText(
     arenaResult: { winner: string; winnerReason?: string; responses: any[] },
-    authorHandle: string
+    authorHandle: string,
+    originalQuestion?: string
 ): string {
     const winner = arenaResult.winner;
     const reasoning = arenaResult.winnerReason || "Based on clarity, accuracy, and helpfulness.";
@@ -1192,9 +1209,9 @@ function generateArenaVerdictText(
     const fastestTime = Math.min(...validResponses.map(r => r.responseTime));
     const fastestModel = validResponses.find(r => r.responseTime === fastestTime)?.model || "Unknown";
     
-    // Build the Quote Tweet text
-    // Twitter's Quote Tweet UI shows the original tweet, so we just need our commentary
-    const arenaUrl = PostcardDrafter.ARENA_URL;
+    // Build the Arena URL with pre-populated question
+    const arenaUrl = buildArenaUrl(originalQuestion);
+    
     const templates = [
         `We ran this through the AI Council. 🏛️\n\nThe verdict? ${winner} wins!\n\n${reasoning.length > 150 ? reasoning.substring(0, 147) + "..." : reasoning}\n\n🏆 Try your own debate: ${arenaUrl}`,
         `🏟️ AI CAGE MATCH VERDICT 🏟️\n\n@${authorHandle} asked, we delivered!\n\n🏆 Winner: ${winner}\n\n"${reasoning.length > 120 ? reasoning.substring(0, 117) + "..." : reasoning}"\n\n⚡ Fastest: ${fastestModel} (${fastestTime}ms)\n\n🔗 ${arenaUrl}`,

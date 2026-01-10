@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,6 +59,20 @@ export default function ArenaPage() {
 }`);
   const [problem, setProblem] = useState("This function throws an error when calculating the total. Find the bug.");
   const [question, setQuestion] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("q");
+    if (q) {
+      try {
+        const decodedQuestion = decodeURIComponent(q);
+        setQuestion(decodedQuestion);
+        setMode("question");
+      } catch (e) {
+        console.error("Failed to decode question from URL:", e);
+      }
+    }
+  }, []);
 
   const arenaMutation = useMutation({
     mutationFn: async (data: { code?: string; problemDescription: string; mode: ArenaMode }) => {
