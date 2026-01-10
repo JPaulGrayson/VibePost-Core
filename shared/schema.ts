@@ -41,6 +41,7 @@ export const posts = pgTable("posts", {
   publishedAt: timestamp("published_at"),
   platformData: jsonb("platform_data").$type<Record<string, any>>(),
   campaignId: integer("campaign_id"),
+  mediaUrl: text("media_url"), // URL to image or video attachment
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
