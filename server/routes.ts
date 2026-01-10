@@ -3065,6 +3065,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
               publishedAt: new Date(),
               tweetId: result.tweetId,
             });
+            
+            // Create a record in the main posts table for history
+            await storage.createPost({
+              userId: "system",
+              content: draft.draftReplyText || "",
+              platforms: ["twitter"],
+              status: "published",
+              platformData: {
+                twitter: {
+                  tweetId: result.tweetId,
+                  replyingTo: draft.originalAuthorHandle,
+                  url: `https://twitter.com/CodeWizard_AI/status/${result.tweetId}`,
+                }
+              }
+            });
+            
             results.push({ id, success: true, tweetId: result.tweetId });
             console.log(`✅ Bulk sent ${id} -> Tweet ${result.tweetId}`);
           } else {
