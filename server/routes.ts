@@ -2816,9 +2816,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accessSecret,
       });
 
-      // Post the tweet
+      // Handle media upload if post has a mediaUrl
+      let mediaId: string | undefined;
+      if (post.mediaUrl) {
+        console.log(`Uploading media from: ${post.mediaUrl}`);
+        try {
+          let buffer: Buffer;
+          let mimeType = 'image/jpeg';
+
+          if (post.mediaUrl.startsWith('http')) {
+            const response = await fetch(post.mediaUrl);
+            if (!response.ok) throw new Error(`Failed to download media: ${response.statusText}`);
+            const arrayBuffer = await response.arrayBuffer();
+            buffer = Buffer.from(arrayBuffer);
+            const contentType = response.headers.get('content-type');
+            if (contentType) mimeType = contentType;
+          } else if (post.mediaUrl.startsWith('/generated-images/')) {
+            const fs = await import('fs/promises');
+            const path = await import('path');
+            const localPath = path.join(process.cwd(), 'public', post.mediaUrl);
+            buffer = await fs.readFile(localPath);
+            if (post.mediaUrl.endsWith('.png')) mimeType = 'image/png';
+            else if (post.mediaUrl.endsWith('.gif')) mimeType = 'image/gif';
+            else if (post.mediaUrl.endsWith('.mp4')) mimeType = 'video/mp4';
+          } else {
+            throw new Error("Unsupported media URL format");
+          }
+
+          if (buffer.length > 0) {
+            // Check if it's a video (needs chunked upload)
+            if (mimeType.startsWith('video/')) {
+              mediaId = await twitterClient.v1.uploadMedia(buffer, { mimeType, type: 'longvideo' });
+            } else {
+              mediaId = await twitterClient.v1.uploadMedia(buffer, { mimeType });
+            }
+            console.log(`Media uploaded successfully, ID: ${mediaId}`);
+          }
+        } catch (mediaError) {
+          console.error("Media upload failed, posting without media:", mediaError);
+          // Continue without media if upload fails
+        }
+      }
+
+      // Post the tweet (with or without media)
       console.log(`Publishing to Twitter: ${post.content}`);
-      const tweet = await twitterClient.v2.tweet(post.content);
+      const tweetOptions: any = {};
+      if (mediaId) {
+        tweetOptions.media = { media_ids: [mediaId] };
+      }
+      const tweet = await twitterClient.v2.tweet(post.content, tweetOptions);
 
       if (tweet.data) {
         const tweetUrl = `https://twitter.com/user/status/${tweet.data.id}`;

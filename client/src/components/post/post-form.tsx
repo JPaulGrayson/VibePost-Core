@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Image, Hash, Clock, Save, Send, Calendar as CalendarIcon, X } from "lucide-react";
+import { Image, Hash, Clock, Save, Send, Calendar as CalendarIcon, X, Link2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import type { Post } from "@shared/schema";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -47,8 +48,8 @@ export default function PostForm({
   const queryClient = useQueryClient();
   const [characterCount, setCharacterCount] = useState(0);
   const [date, setDate] = useState<Date | undefined>(undefined);
-  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mediaUrl, setMediaUrl] = useState<string>("");
+  const [showMediaInput, setShowMediaInput] = useState(false);
 
   const form = useForm<z.infer<typeof postSchema>>({
     resolver: zodResolver(postSchema),
@@ -62,6 +63,14 @@ export default function PostForm({
     form.setValue("content", content);
     setCharacterCount(content.length);
   }, [content, form]);
+
+  // Load mediaUrl when editing a post
+  useEffect(() => {
+    if (editingPost?.mediaUrl) {
+      setMediaUrl(editingPost.mediaUrl);
+      setShowMediaInput(true);
+    }
+  }, [editingPost]);
 
   // Update template content when template changes
   useEffect(() => {
@@ -111,7 +120,8 @@ export default function PostForm({
       // Reset form if creating new
       if (!editingPost) {
         setDate(undefined);
-        setMediaFiles([]);
+        setMediaUrl("");
+        setShowMediaInput(false);
       }
     },
     onError: (error: any) => {
@@ -135,6 +145,7 @@ export default function PostForm({
       template: selectedTemplate,
       status: "draft",
       scheduledAt: date ? date.toISOString() : undefined,
+      mediaUrl: mediaUrl || undefined,
     };
     createPostMutation.mutate(data);
   };
@@ -155,19 +166,18 @@ export default function PostForm({
       template: selectedTemplate,
       status: date ? "scheduled" : "published",
       scheduledAt: date ? date.toISOString() : undefined,
+      mediaUrl: mediaUrl || undefined,
     };
     createPostMutation.mutate(postData);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const files = Array.from(e.target.files);
-      setMediaFiles(prev => [...prev, ...files]);
-      toast({
-        title: "Media added",
-        description: `Added ${files.length} file(s). (Mock upload)`,
-      });
-    }
+  const handleMediaUrlChange = (url: string) => {
+    setMediaUrl(url);
+  };
+
+  const clearMedia = () => {
+    setMediaUrl("");
+    setShowMediaInput(false);
   };
 
   const handleAddTags = () => {
@@ -218,44 +228,64 @@ export default function PostForm({
           )}
         />
 
-        {/* Media Preview */}
-        {mediaFiles.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto py-2">
-            {mediaFiles.map((file, index) => (
-              <div key={index} className="relative w-20 h-20 bg-muted rounded-md flex items-center justify-center border">
-                <span className="text-xs text-center truncate px-1">{file.name}</span>
-                <button
-                  type="button"
-                  onClick={() => setMediaFiles(prev => prev.filter((_, i) => i !== index))}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5"
-                >
-                  <X className="w-3 h-3" />
-                </button>
+        {/* Media URL Input */}
+        {showMediaInput && (
+          <div className="space-y-2 p-3 bg-muted/50 rounded-lg border border-border">
+            <div className="flex items-center gap-2">
+              <Link2 className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Media URL</span>
+              <button
+                type="button"
+                onClick={clearMedia}
+                className="ml-auto text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <Input
+              type="url"
+              placeholder="Paste image or video URL (e.g., https://example.com/image.jpg)"
+              value={mediaUrl}
+              onChange={(e) => handleMediaUrlChange(e.target.value)}
+              className="bg-background"
+            />
+            {mediaUrl && (
+              <div className="mt-2">
+                {mediaUrl.match(/\.(mp4|mov|webm|avi)$/i) ? (
+                  <video src={mediaUrl} className="max-h-32 rounded-md" controls />
+                ) : (
+                  <img 
+                    src={mediaUrl} 
+                    alt="Preview" 
+                    className="max-h-32 rounded-md object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                )}
               </div>
-            ))}
+            )}
+            <p className="text-xs text-muted-foreground">
+              Supports images (jpg, png, gif) and videos (mp4, mov). Must be a direct URL to the file.
+            </p>
           </div>
         )}
 
         {/* Post Options */}
         <div className="flex items-center justify-between pt-4 border-t border-border">
           <div className="flex items-center space-x-4">
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              multiple
-              accept="image/*,video/*"
-              onChange={handleFileChange}
-            />
             <Button
               type="button"
-              variant="ghost"
+              variant={showMediaInput ? "secondary" : "ghost"}
               size="sm"
-              className="text-muted-foreground hover:text-foreground"
-              onClick={() => fileInputRef.current?.click()}
+              className={cn(
+                "text-muted-foreground hover:text-foreground",
+                showMediaInput && "bg-blue-50 text-blue-600"
+              )}
+              onClick={() => setShowMediaInput(!showMediaInput)}
             >
               <Image className="mr-2 h-4 w-4" />
-              Add Media
+              {mediaUrl ? "Edit Media" : "Add Media"}
             </Button>
             <Button
               type="button"
