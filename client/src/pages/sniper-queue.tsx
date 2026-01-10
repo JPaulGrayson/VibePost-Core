@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useState, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { PostcardDraft, ArenaVerdict } from "@shared/schema";
-import { RefreshCw, Plane, Code2, Quote, Eye, Star, ExternalLink, Send } from "lucide-react";
+import { RefreshCw, Plane, Code2, Quote, Eye, Star, ExternalLink, Send, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
@@ -240,6 +240,30 @@ export default function SniperQueue() {
                 variant: "destructive",
                 title: "Send Failed",
                 description: "Failed to send selected drafts.",
+            });
+        }
+    });
+
+    // Delete a draft (reject it from the queue)
+    const deleteDraft = useMutation({
+        mutationFn: async (id: number) => {
+            const res = await apiRequest("POST", `/api/postcard-drafts/${id}/reject`);
+            return res.json();
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts/top"] });
+            toast({
+                title: "Draft Deleted",
+                description: "Draft removed from the queue.",
+            });
+        },
+        onError: (error) => {
+            console.error("Delete failed:", error);
+            toast({
+                variant: "destructive",
+                title: "Delete Failed",
+                description: "Failed to delete draft.",
             });
         }
     });
@@ -505,6 +529,7 @@ export default function SniperQueue() {
                                             return next;
                                         });
                                     }}
+                                    onDelete={(id) => deleteDraft.mutate(id)}
                                 />
                             ))}
                         </div>
@@ -531,11 +556,12 @@ export default function SniperQueue() {
 }
 
 // Top 10 Card - Compact display with checkbox and tweet link
-function Top10Card({ draft, rank, isSelected, onToggle }: { 
+function Top10Card({ draft, rank, isSelected, onToggle, onDelete }: { 
     draft: PostcardDraft; 
     rank: number; 
     isSelected: boolean;
     onToggle: (id: number) => void;
+    onDelete: (id: number) => void;
 }) {
     const score = draft.score || 0;
     const tweetUrl = `https://twitter.com/${draft.originalAuthorHandle}/status/${draft.originalTweetId}`;
@@ -600,6 +626,17 @@ function Top10Card({ draft, rank, isSelected, onToggle }: {
                             </div>
                         )}
                     </div>
+                    
+                    {/* Delete Button */}
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onDelete(draft.id)}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8 p-0"
+                        title="Delete draft"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
                 </div>
             </CardContent>
         </Card>
