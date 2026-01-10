@@ -2871,27 +2871,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accessSecret,
       });
 
-      // Handle media upload if post has a mediaUrl
-      let mediaId: string | undefined;
-      if (post.mediaUrl) {
-        console.log(`Uploading media from: ${post.mediaUrl}`);
+      // Handle media upload - support both legacy mediaUrl and new mediaUrls array
+      const mediaIds: string[] = [];
+      const mediaUrlsToUpload: string[] = [];
+      
+      // Gather all media URLs (support both old and new format)
+      if ((post as any).mediaUrls && Array.isArray((post as any).mediaUrls)) {
+        mediaUrlsToUpload.push(...(post as any).mediaUrls);
+      } else if (post.mediaUrl) {
+        mediaUrlsToUpload.push(post.mediaUrl);
+      }
+
+      // Upload up to 4 media files (Twitter limit)
+      for (const mediaUrl of mediaUrlsToUpload.slice(0, 4)) {
+        console.log(`Uploading media from: ${mediaUrl}`);
         try {
           let buffer: Buffer;
           let mimeType = 'image/jpeg';
 
-          if (post.mediaUrl.startsWith('http')) {
-            const response = await fetch(post.mediaUrl);
+          if (mediaUrl.startsWith('http')) {
+            const response = await fetch(mediaUrl);
             if (!response.ok) throw new Error(`Failed to download media: ${response.statusText}`);
             const arrayBuffer = await response.arrayBuffer();
             buffer = Buffer.from(arrayBuffer);
             const contentType = response.headers.get('content-type');
             if (contentType) mimeType = contentType;
-          } else if (post.mediaUrl.startsWith('/generated-images/') || post.mediaUrl.startsWith('/uploads/')) {
+          } else if (mediaUrl.startsWith('/generated-images/') || mediaUrl.startsWith('/uploads/')) {
             const fs = await import('fs/promises');
             const path = await import('path');
-            const localPath = path.join(process.cwd(), 'public', post.mediaUrl);
+            const localPath = path.join(process.cwd(), 'public', mediaUrl);
             buffer = await fs.readFile(localPath);
-            const ext = post.mediaUrl.toLowerCase();
+            const ext = mediaUrl.toLowerCase();
             if (ext.endsWith('.png')) mimeType = 'image/png';
             else if (ext.endsWith('.jpg') || ext.endsWith('.jpeg')) mimeType = 'image/jpeg';
             else if (ext.endsWith('.gif')) mimeType = 'image/gif';
@@ -2899,29 +2909,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             else if (ext.endsWith('.mov')) mimeType = 'video/quicktime';
             else if (ext.endsWith('.webm')) mimeType = 'video/webm';
           } else {
-            throw new Error("Unsupported media URL format");
+            console.warn(`Unsupported media URL format: ${mediaUrl}`);
+            continue;
           }
 
           if (buffer.length > 0) {
             // Check if it's a video (needs chunked upload)
+            let uploadedMediaId: string;
             if (mimeType.startsWith('video/')) {
-              mediaId = await twitterClient.v1.uploadMedia(buffer, { mimeType, type: 'longvideo' });
+              uploadedMediaId = await twitterClient.v1.uploadMedia(buffer, { mimeType, type: 'longvideo' });
             } else {
-              mediaId = await twitterClient.v1.uploadMedia(buffer, { mimeType });
+              uploadedMediaId = await twitterClient.v1.uploadMedia(buffer, { mimeType });
             }
-            console.log(`Media uploaded successfully, ID: ${mediaId}`);
+            mediaIds.push(uploadedMediaId);
+            console.log(`Media uploaded successfully, ID: ${uploadedMediaId}`);
           }
         } catch (mediaError) {
-          console.error("Media upload failed, posting without media:", mediaError);
-          // Continue without media if upload fails
+          console.error(`Media upload failed for ${mediaUrl}:`, mediaError);
+          // Continue with other media if one fails
         }
       }
 
       // Post the tweet (with or without media)
       console.log(`Publishing to Twitter: ${post.content}`);
       const tweetOptions: any = {};
-      if (mediaId) {
-        tweetOptions.media = { media_ids: [mediaId] };
+      if (mediaIds.length > 0) {
+        tweetOptions.media = { media_ids: mediaIds };
       }
       const tweet = await twitterClient.v2.tweet(post.content, tweetOptions);
 
