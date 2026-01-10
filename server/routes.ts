@@ -3,6 +3,7 @@ import express from "express";
 import { createServer, type Server } from "http";
 import * as path from "path";
 import * as fs from "fs";
+import multer from "multer";
 import { z } from "zod";
 import { TwitterApi } from "twitter-api-v2";
 import { eq, and, or, isNull } from "drizzle-orm";
@@ -43,64 +44,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
-  // File upload endpoint for media attachments
-  app.post('/api/upload', async (req, res) => {
-    try {
-      const chunks: Buffer[] = [];
-      req.on('data', (chunk) => chunks.push(chunk));
-      req.on('end', async () => {
-        const body = Buffer.concat(chunks);
-        const contentType = req.headers['content-type'] || '';
-        
-        // Parse multipart form data manually
-        const boundary = contentType.split('boundary=')[1];
-        if (!boundary) {
-          return res.status(400).json({ error: 'No boundary in content-type' });
-        }
+  // Configure multer for file uploads
+  const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  
+  const multerStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, uploadsDir);
+    },
+    filename: (req, file, cb) => {
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(7);
+      const ext = path.extname(file.originalname).toLowerCase();
+      cb(null, `${timestamp}-${randomId}${ext}`);
+    }
+  });
+  
+  const upload = multer({
+    storage: multerStorage,
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+    fileFilter: (req, file, cb) => {
+      const allowedTypes = /jpeg|jpg|png|gif|webp|mp4|mov|webm|avi/;
+      const ext = path.extname(file.originalname).toLowerCase().slice(1);
+      if (allowedTypes.test(ext)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Invalid file type'));
+      }
+    }
+  });
 
-        const bodyStr = body.toString('binary');
-        const parts = bodyStr.split('--' + boundary);
-        
-        for (const part of parts) {
-          if (part.includes('filename=')) {
-            // Extract filename
-            const filenameMatch = part.match(/filename="([^"]+)"/);
-            if (!filenameMatch) continue;
-            
-            const originalFilename = filenameMatch[1];
-            const ext = path.extname(originalFilename).toLowerCase();
-            const timestamp = Date.now();
-            const randomId = Math.random().toString(36).substring(7);
-            const newFilename = `${timestamp}-${randomId}${ext}`;
-            
-            // Extract file content (after the double CRLF)
-            const contentStart = part.indexOf('\r\n\r\n');
-            if (contentStart === -1) continue;
-            
-            let fileContent = part.substring(contentStart + 4);
-            // Remove trailing boundary markers
-            if (fileContent.endsWith('\r\n')) {
-              fileContent = fileContent.slice(0, -2);
-            }
-            
-            // Save the file
-            const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-            if (!fs.existsSync(uploadsDir)) {
-              fs.mkdirSync(uploadsDir, { recursive: true });
-            }
-            
-            const filePath = path.join(uploadsDir, newFilename);
-            fs.writeFileSync(filePath, fileContent, 'binary');
-            
-            const fileUrl = `/uploads/${newFilename}`;
-            console.log(`File uploaded: ${fileUrl}`);
-            
-            return res.json({ url: fileUrl, filename: newFilename });
-          }
-        }
-        
-        res.status(400).json({ error: 'No file found in request' });
-      });
+  // Test route to verify upload registration
+  app.get('/api/upload-test', (req, res) => {
+    res.json({ status: 'upload routes registered' });
+  });
+
+  // File upload endpoint for media attachments
+  app.post('/api/upload', upload.single('file'), (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+      
+      const fileUrl = `/uploads/${req.file.filename}`;
+      console.log(`File uploaded: ${fileUrl} (${req.file.size} bytes)`);
+      
+      res.json({ url: fileUrl, filename: req.file.filename });
     } catch (error) {
       console.error('Upload error:', error);
       res.status(500).json({ error: 'Upload failed' });
