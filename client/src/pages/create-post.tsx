@@ -21,8 +21,8 @@ export default function CreatePost() {
   const [isDraftDialogOpen, setIsDraftDialogOpen] = useState(false);
   const [location] = useLocation();
 
-  // Get edit parameter from URL
-  const urlParams = new URLSearchParams(location.split('?')[1]);
+  // Get edit parameter from URL - use window.location.search since wouter's location doesn't include query string
+  const urlParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
   const editPostId = urlParams.get('edit');
 
   // Fetch post data if editing

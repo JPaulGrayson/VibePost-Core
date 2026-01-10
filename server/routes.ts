@@ -2790,21 +2790,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!post) throw new Error("Post not found");
 
     try {
-      // Get stored Twitter credentials from database (same as test function)
+      // Get stored Twitter credentials from database, fall back to env vars
       const twitterConnection = await storage.getPlatformConnection("twitter");
+      const credentials = twitterConnection?.credentials || {};
 
-      if (!twitterConnection || !twitterConnection.credentials || Object.keys(twitterConnection.credentials).length === 0) {
-        throw new Error("Twitter API credentials not configured");
+      // Use database credentials if available, otherwise fall back to env vars
+      const appKey = (credentials.apiKey && credentials.apiKey.trim() !== "") 
+        ? credentials.apiKey : process.env.TWITTER_API_KEY!;
+      const appSecret = (credentials.apiSecret && credentials.apiSecret.trim() !== "") 
+        ? credentials.apiSecret : process.env.TWITTER_API_SECRET!;
+      const accessToken = (credentials.accessToken && credentials.accessToken.trim() !== "") 
+        ? credentials.accessToken : process.env.TWITTER_ACCESS_TOKEN!;
+      const accessSecret = (credentials.accessTokenSecret && credentials.accessTokenSecret.trim() !== "") 
+        ? credentials.accessTokenSecret : process.env.TWITTER_ACCESS_TOKEN_SECRET!;
+
+      if (!appKey || !appSecret || !accessToken || !accessSecret) {
+        throw new Error("Twitter API credentials not configured - check settings or environment variables");
       }
 
-      const credentials = twitterConnection.credentials;
-
-      // Initialize Twitter API client with database credentials
+      // Initialize Twitter API client
       const twitterClient = new TwitterApi({
-        appKey: credentials.apiKey,
-        appSecret: credentials.apiSecret,
-        accessToken: credentials.accessToken,
-        accessSecret: credentials.accessTokenSecret,
+        appKey,
+        appSecret,
+        accessToken,
+        accessSecret,
       });
 
       // Post the tweet
