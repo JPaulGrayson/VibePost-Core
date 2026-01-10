@@ -40,6 +40,38 @@ function calculateSimilarity(text1: string, text2: string): number {
     return intersection.length / unionSize;
 }
 
+// Create a text fingerprint for quick duplicate detection
+// This normalizes tweets aggressively to catch near-duplicates from bot networks
+function createTextFingerprint(text: string): string {
+    return text
+        .toLowerCase()
+        .replace(/https?:\/\/\S+/g, '')           // Remove URLs
+        .replace(/@\w+/g, '')                      // Remove @mentions
+        .replace(/#\w+/g, '')                      // Remove hashtags  
+        .replace(/[^\w\s]/g, '')                   // Remove punctuation/emojis
+        .replace(/\s+/g, ' ')                      // Normalize whitespace
+        .trim()
+        .split(' ')
+        .filter(w => w.length > 3)                 // Keep only meaningful words
+        .sort()                                     // Sort alphabetically (order-independent)
+        .join(' ');
+}
+
+// Spam detection thresholds
+const SPAM_CONFIG = {
+    // Text similarity thresholds
+    EXACT_FINGERPRINT_BLOCK: true,        // Block exact fingerprint matches
+    SIMILARITY_THRESHOLD: 0.80,            // Block 80%+ similar text (lowered from 90%)
+    
+    // Account quality thresholds (if metadata available)
+    MIN_FOLLOWERS: 10,                     // Minimum followers to pass
+    MIN_ACCOUNT_AGE_DAYS: 7,               // Minimum account age
+    MAX_FOLLOWING_RATIO: 10,               // Max following/followers ratio (spam signal)
+    
+    // Lookback settings
+    RECENT_DRAFTS_COUNT: 200,              // Check more drafts for duplicates (was 100)
+};
+
 // Verify intent based on campaign type using Gemini AI
 async function verifyIntent(tweetText: string, campaignType: CampaignType = 'turai'): Promise<boolean> {
     try {
@@ -121,14 +153,31 @@ export async function generateDraft(
         .replace(/\s+/g, ' ')           // Normalize whitespace
         .trim();
 
-    // Get recent drafts to check for similarity (last 100)
+    // Create fingerprint for exact-match detection
+    const fingerprint = createTextFingerprint(tweet.text);
+    
+    // Get recent drafts to check for similarity (increased lookback)
     const recentDrafts = await db.query.postcardDrafts.findMany({
-        limit: 100,
+        limit: SPAM_CONFIG.RECENT_DRAFTS_COUNT,
         orderBy: (drafts, { desc }) => [desc(drafts.createdAt)],
     });
 
+    // Build a Set of existing fingerprints for O(1) lookup
+    const existingFingerprints = new Set<string>();
+    
     for (const draft of recentDrafts) {
         if (!draft.originalTweetText) continue;
+
+        // Check fingerprint match first (catches bot networks with identical content)
+        const existingFingerprint = createTextFingerprint(draft.originalTweetText);
+        existingFingerprints.add(existingFingerprint);
+        
+        if (SPAM_CONFIG.EXACT_FINGERPRINT_BLOCK && fingerprint === existingFingerprint && fingerprint.length > 20) {
+            console.log(`🚫 SPAM BLOCKED: Fingerprint match from different account`);
+            console.log(`   Original: @${draft.originalAuthorHandle}: "${draft.originalTweetText?.substring(0, 50)}..."`);
+            console.log(`   Duplicate: @${authorHandle}: "${tweet.text.substring(0, 50)}..."`);
+            return false;
+        }
 
         const existingNormalized = draft.originalTweetText
             .toLowerCase()
@@ -136,10 +185,12 @@ export async function generateDraft(
             .replace(/\s+/g, ' ')
             .trim();
 
-        // Check for very similar text (90% similarity or exact match)
+        // Check for similar text (lowered threshold to catch more spam)
         const similarity = calculateSimilarity(normalizedText, existingNormalized);
-        if (similarity > 0.9) {
-            console.log(`⚠️ Spam detected: Tweet "${tweet.text.substring(0, 50)}..." is ${Math.round(similarity * 100)}% similar to existing draft. Skipping.`);
+        if (similarity > SPAM_CONFIG.SIMILARITY_THRESHOLD) {
+            console.log(`🚫 SPAM BLOCKED: ${Math.round(similarity * 100)}% similar to existing draft`);
+            console.log(`   Original: @${draft.originalAuthorHandle}: "${draft.originalTweetText?.substring(0, 50)}..."`);
+            console.log(`   Similar: @${authorHandle}: "${tweet.text.substring(0, 50)}..."`);
             return false;
         }
     }

@@ -121,7 +121,7 @@ export class KeywordSearchEngine {
       const searchResults = await twitterClient.v2.search(query, {
         max_results: Math.max(10, Math.min(maxResults, 100)), // v2 API requires 10-100
         'tweet.fields': ['created_at', 'author_id', 'public_metrics'],
-        'user.fields': ['username'],
+        'user.fields': ['username', 'public_metrics', 'created_at'],  // Added metrics for spam filtering
         expansions: ['author_id']
       });
 
@@ -198,6 +198,38 @@ export class KeywordSearchEngine {
           continue;
         }
 
+        // 5. ACCOUNT QUALITY FILTER: Minimum followers and account age
+        const followerCount = author?.public_metrics?.followers_count || 0;
+        const followingCount = author?.public_metrics?.following_count || 0;
+        const accountCreatedAt = author?.created_at ? new Date(author.created_at) : null;
+        
+        // Minimum followers (filter out brand new/bot accounts)
+        const MIN_FOLLOWERS = 10;
+        if (followerCount < MIN_FOLLOWERS) {
+          console.log(`🤖 Skipping low-follower account: @${author?.username} (${followerCount} followers)`);
+          filteredCount++;
+          continue;
+        }
+        
+        // High following/follower ratio = spam signal (following thousands, followed by few)
+        const MAX_FOLLOWING_RATIO = 15;
+        if (followerCount > 0 && followingCount / followerCount > MAX_FOLLOWING_RATIO) {
+          console.log(`🤖 Skipping suspicious follow ratio: @${author?.username} (${followingCount}/${followerCount})`);
+          filteredCount++;
+          continue;
+        }
+        
+        // Account age check (skip very new accounts - likely bots)
+        const MIN_ACCOUNT_AGE_DAYS = 7;
+        if (accountCreatedAt) {
+          const accountAgeDays = (Date.now() - accountCreatedAt.getTime()) / (1000 * 60 * 60 * 24);
+          if (accountAgeDays < MIN_ACCOUNT_AGE_DAYS) {
+            console.log(`🤖 Skipping new account: @${author?.username} (${Math.round(accountAgeDays)} days old)`);
+            filteredCount++;
+            continue;
+          }
+        }
+
         const createdAt = new Date(tweet.created_at || new Date());
         const metrics = tweet.public_metrics || {};
         const replyCount = metrics.reply_count || 0;
@@ -205,8 +237,7 @@ export class KeywordSearchEngine {
         // Calculate base score
         let score = this.calculateRelevanceScore(tweet.text, createdAt, replyCount);
 
-        // 5. Adjust score based on account size (prioritize real people)
-        const followerCount = author?.public_metrics?.followers_count || 0;
+        // 6. Adjust score based on account size (prioritize real people)
         if (followerCount < 500) score += 15;       // Small account = likely real person
         else if (followerCount < 1000) score += 10; // Still small
         else if (followerCount > 50000) score -= 15; // Influencer - less likely to engage
