@@ -43,6 +43,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
+  // File upload endpoint for media attachments
+  app.post('/api/upload', async (req, res) => {
+    try {
+      const chunks: Buffer[] = [];
+      req.on('data', (chunk) => chunks.push(chunk));
+      req.on('end', async () => {
+        const body = Buffer.concat(chunks);
+        const contentType = req.headers['content-type'] || '';
+        
+        // Parse multipart form data manually
+        const boundary = contentType.split('boundary=')[1];
+        if (!boundary) {
+          return res.status(400).json({ error: 'No boundary in content-type' });
+        }
+
+        const bodyStr = body.toString('binary');
+        const parts = bodyStr.split('--' + boundary);
+        
+        for (const part of parts) {
+          if (part.includes('filename=')) {
+            // Extract filename
+            const filenameMatch = part.match(/filename="([^"]+)"/);
+            if (!filenameMatch) continue;
+            
+            const originalFilename = filenameMatch[1];
+            const ext = path.extname(originalFilename).toLowerCase();
+            const timestamp = Date.now();
+            const randomId = Math.random().toString(36).substring(7);
+            const newFilename = `${timestamp}-${randomId}${ext}`;
+            
+            // Extract file content (after the double CRLF)
+            const contentStart = part.indexOf('\r\n\r\n');
+            if (contentStart === -1) continue;
+            
+            let fileContent = part.substring(contentStart + 4);
+            // Remove trailing boundary markers
+            if (fileContent.endsWith('\r\n')) {
+              fileContent = fileContent.slice(0, -2);
+            }
+            
+            // Save the file
+            const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+            if (!fs.existsSync(uploadsDir)) {
+              fs.mkdirSync(uploadsDir, { recursive: true });
+            }
+            
+            const filePath = path.join(uploadsDir, newFilename);
+            fs.writeFileSync(filePath, fileContent, 'binary');
+            
+            const fileUrl = `/uploads/${newFilename}`;
+            console.log(`File uploaded: ${fileUrl}`);
+            
+            return res.json({ url: fileUrl, filename: newFilename });
+          }
+        }
+        
+        res.status(400).json({ error: 'No file found in request' });
+      });
+    } catch (error) {
+      console.error('Upload error:', error);
+      res.status(500).json({ error: 'Upload failed' });
+    }
+  });
+
   // Simple authentication stub
   app.get('/api/auth/user', async (req, res) => {
     // For now, always return a basic user to enable the app
@@ -2831,14 +2895,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             buffer = Buffer.from(arrayBuffer);
             const contentType = response.headers.get('content-type');
             if (contentType) mimeType = contentType;
-          } else if (post.mediaUrl.startsWith('/generated-images/')) {
+          } else if (post.mediaUrl.startsWith('/generated-images/') || post.mediaUrl.startsWith('/uploads/')) {
             const fs = await import('fs/promises');
             const path = await import('path');
             const localPath = path.join(process.cwd(), 'public', post.mediaUrl);
             buffer = await fs.readFile(localPath);
-            if (post.mediaUrl.endsWith('.png')) mimeType = 'image/png';
-            else if (post.mediaUrl.endsWith('.gif')) mimeType = 'image/gif';
-            else if (post.mediaUrl.endsWith('.mp4')) mimeType = 'video/mp4';
+            const ext = post.mediaUrl.toLowerCase();
+            if (ext.endsWith('.png')) mimeType = 'image/png';
+            else if (ext.endsWith('.jpg') || ext.endsWith('.jpeg')) mimeType = 'image/jpeg';
+            else if (ext.endsWith('.gif')) mimeType = 'image/gif';
+            else if (ext.endsWith('.mp4')) mimeType = 'video/mp4';
+            else if (ext.endsWith('.mov')) mimeType = 'video/quicktime';
+            else if (ext.endsWith('.webm')) mimeType = 'video/webm';
           } else {
             throw new Error("Unsupported media URL format");
           }

@@ -133,6 +133,14 @@ import { twitterListener } from "./services/twitter_listener";
   }));
   console.log("📸 Serving generated images from:", generatedImagesDir);
 
+  // Serve uploaded media files
+  const uploadsDir = path.join(process.cwd(), "public", "uploads");
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  app.use("/uploads", express.static(uploadsDir));
+  console.log("📁 Serving uploads from:", uploadsDir);
+
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes

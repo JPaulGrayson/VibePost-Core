@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Image, Hash, Clock, Save, Send, Calendar as CalendarIcon, X, Link2 } from "lucide-react";
+import { Image, Hash, Clock, Save, Send, Calendar as CalendarIcon, X, Link2, Upload, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { Post } from "@shared/schema";
 import { Calendar } from "@/components/ui/calendar";
@@ -50,6 +50,8 @@ export default function PostForm({
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [mediaUrl, setMediaUrl] = useState<string>("");
   const [showMediaInput, setShowMediaInput] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof postSchema>>({
     resolver: zodResolver(postSchema),
@@ -175,6 +177,44 @@ export default function PostForm({
     setMediaUrl(url);
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await response.json();
+      setMediaUrl(data.url);
+      toast({
+        title: "File uploaded",
+        description: `${file.name} has been uploaded successfully.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "Could not upload the file. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const clearMedia = () => {
     setMediaUrl("");
     setShowMediaInput(false);
@@ -228,12 +268,12 @@ export default function PostForm({
           )}
         />
 
-        {/* Media URL Input */}
+        {/* Media Input */}
         {showMediaInput && (
-          <div className="space-y-2 p-3 bg-muted/50 rounded-lg border border-border">
+          <div className="space-y-3 p-3 bg-muted/50 rounded-lg border border-border">
             <div className="flex items-center gap-2">
-              <Link2 className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Media URL</span>
+              <Image className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Add Media</span>
               <button
                 type="button"
                 onClick={clearMedia}
@@ -242,13 +282,55 @@ export default function PostForm({
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {/* File Upload */}
+            <div className="flex gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*,video/*"
+                onChange={handleFileUpload}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="flex-1"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Choose File
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex-1 border-t border-border" />
+              <span>or paste URL</span>
+              <div className="flex-1 border-t border-border" />
+            </div>
+
+            {/* URL Input */}
             <Input
               type="url"
-              placeholder="Paste image or video URL (e.g., https://example.com/image.jpg)"
+              placeholder="https://example.com/image.jpg"
               value={mediaUrl}
               onChange={(e) => handleMediaUrlChange(e.target.value)}
               className="bg-background"
             />
+
+            {/* Preview */}
             {mediaUrl && (
               <div className="mt-2">
                 {mediaUrl.match(/\.(mp4|mov|webm|avi)$/i) ? (
@@ -265,9 +347,6 @@ export default function PostForm({
                 )}
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
-              Supports images (jpg, png, gif) and videos (mp4, mov). Must be a direct URL to the file.
-            </p>
           </div>
         )}
 
