@@ -253,6 +253,8 @@ export default function PostHistory() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(post.id)}
+                          aria-label="Edit post"
+                          data-testid={`edit-post-${post.id}`}
                         >
                           <Edit2 className="h-4 w-4" />
                         </Button>

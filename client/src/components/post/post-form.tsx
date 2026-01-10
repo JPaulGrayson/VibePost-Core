@@ -74,20 +74,24 @@ export default function PostForm({
     }
   }, [editingPost]);
 
-  // Update template content when template changes
+  // Update template content when template changes - but NOT when editing an existing post
   useEffect(() => {
+    // Skip template override when editing a post - preserve the saved content
+    if (editingPost) {
+      return;
+    }
     if (selectedTemplate && templates[selectedTemplate as keyof typeof templates]) {
       const templateContent = templates[selectedTemplate as keyof typeof templates];
       onContentChange(templateContent);
     }
-  }, [selectedTemplate, onContentChange]);
+  }, [selectedTemplate, onContentChange, editingPost]);
 
   const createPostMutation = useMutation({
     mutationFn: async (data: { content: string; platforms: string[]; template: string; status: string; scheduledAt?: string }) => {
       if (editingPost) {
         // Update existing post
         const response = await fetch(`/api/posts/${editingPost.id}`, {
-          method: "PUT",
+          method: "PATCH",
           headers: {
             "Content-Type": "application/json",
           },
