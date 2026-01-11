@@ -1223,18 +1223,19 @@ function generateArenaVerdictText(
     const winner = arenaResult.winner;
     const reasoning = arenaResult.winnerReason || "Best clarity and accuracy.";
     
-    // Build the Arena URL with pre-populated question for click-through
-    const arenaUrl = buildArenaUrl(originalQuestion);
+    // For Quote Tweets, use simple URL - users can see the quoted tweet as the question
+    // This keeps the tweet SHORT (no long encoded query param)
+    const arenaUrl = PostcardDrafter.ARENA_URL;
     
-    // Keep reasoning SHORT - max 80 chars to fit in tweet
-    const shortReason = reasoning.length > 80 ? reasoning.substring(0, 77) + "..." : reasoning;
+    // Keep reasoning SHORT - max 60 chars to fit in tweet safely
+    const shortReason = reasoning.length > 60 ? reasoning.substring(0, 57) + "..." : reasoning;
     
     // Templates designed to stay well under 280 chars
-    // Format: ~50 chars header + ~80 chars reason + ~30 chars CTA + ~23 chars URL = ~183 chars max
+    // ~35 chars header + ~60 chars reason + ~25 chars CTA + ~15 chars URL = ~135 chars max
     const templates = [
-        `🏛️ AI Council verdict:\n\n${winner} wins!\n\n"${shortReason}"\n\n👉 Try it: ${arenaUrl}`,
-        `The AI Council has spoken! 🏛️\n\n🏆 ${winner}\n\n${shortReason}\n\n👉 Run your own: ${arenaUrl}`,
-        `🏟️ VERDICT: ${winner} wins\n\n${shortReason}\n\n🔗 Your turn: ${arenaUrl}`,
+        `🏛️ AI Council verdict: ${winner} wins!\n\n"${shortReason}"\n\n👉 ${arenaUrl}`,
+        `The AI Council has spoken! 🏛️\n\n🏆 ${winner}\n\n${shortReason}\n\n${arenaUrl}`,
+        `🏟️ VERDICT: ${winner}\n\n${shortReason}\n\n🔗 ${arenaUrl}`,
     ];
     
     // Pick a random template for variety
