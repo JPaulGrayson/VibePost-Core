@@ -37,6 +37,7 @@ function Router() {
     return (
       <Switch>
         <Route path="/arena" component={Arena} />
+        <Route path="/x" component={Arena} />
         <Route component={Landing} />
       </Switch>
     );
@@ -45,6 +46,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/arena" component={Arena} />
+      <Route path="/x" component={Arena} />
       <Route>
         <MainLayout>
           <Switch>
