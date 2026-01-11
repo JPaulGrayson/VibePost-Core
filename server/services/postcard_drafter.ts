@@ -1218,6 +1218,8 @@ function buildArenaUrl(question?: string): string {
 
 /**
  * Generate the Quote Tweet text for an Arena verdict
+ * NOTE: Twitter limit is 280 chars. URL takes ~23 chars (t.co shortening).
+ * Keep templates SHORT to avoid cutoff!
  */
 function generateArenaVerdictText(
     arenaResult: { winner: string; winnerReason?: string; responses: any[] },
@@ -1225,20 +1227,20 @@ function generateArenaVerdictText(
     originalQuestion?: string
 ): string {
     const winner = arenaResult.winner;
-    const reasoning = arenaResult.winnerReason || "Based on clarity, accuracy, and helpfulness.";
+    const reasoning = arenaResult.winnerReason || "Best clarity and accuracy.";
     
-    // Get response times for fun stats
-    const validResponses = arenaResult.responses.filter(r => !r.error);
-    const fastestTime = Math.min(...validResponses.map(r => r.responseTime));
-    const fastestModel = validResponses.find(r => r.responseTime === fastestTime)?.model || "Unknown";
-    
-    // Build the Arena URL with pre-populated question
+    // Build the Arena URL with pre-populated question for click-through
     const arenaUrl = buildArenaUrl(originalQuestion);
     
+    // Keep reasoning SHORT - max 80 chars to fit in tweet
+    const shortReason = reasoning.length > 80 ? reasoning.substring(0, 77) + "..." : reasoning;
+    
+    // Templates designed to stay well under 280 chars
+    // Format: ~50 chars header + ~80 chars reason + ~30 chars CTA + ~23 chars URL = ~183 chars max
     const templates = [
-        `We ran this through the AI Council. 🏛️\n\nThe verdict? ${winner} wins!\n\n${reasoning.length > 150 ? reasoning.substring(0, 147) + "..." : reasoning}\n\n🏆 Try your own debate: ${arenaUrl}`,
-        `🏟️ AI CAGE MATCH VERDICT 🏟️\n\n@${authorHandle} asked, we delivered!\n\n🏆 Winner: ${winner}\n\n"${reasoning.length > 120 ? reasoning.substring(0, 117) + "..." : reasoning}"\n\n⚡ Fastest: ${fastestModel} (${fastestTime}ms)\n\n🔗 ${arenaUrl}`,
-        `The AI Council has spoken! 🏛️\n\n${winner} takes this round. Here's why:\n\n${reasoning.length > 140 ? reasoning.substring(0, 137) + "..." : reasoning}\n\n👉 Run your own AI battle: ${arenaUrl}`,
+        `🏛️ AI Council verdict:\n\n${winner} wins!\n\n"${shortReason}"\n\n👉 Try it: ${arenaUrl}`,
+        `The AI Council has spoken! 🏛️\n\n🏆 ${winner}\n\n${shortReason}\n\n👉 Run your own: ${arenaUrl}`,
+        `🏟️ VERDICT: ${winner} wins\n\n${shortReason}\n\n🔗 Your turn: ${arenaUrl}`,
     ];
     
     // Pick a random template for variety
