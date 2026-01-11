@@ -290,7 +290,7 @@ export const CAMPAIGN_CONFIGS: Record<CampaignType, CampaignConfig> = {
 
         replySettings: {
             tone: 'helpful senior developer friend',
-            productLink: 'https://logic.art/x',
+            productLink: 'https://x.logic.art/x',
             callToAction: 'Try visualizing your code flow - it really helps!',
             hashTags: ['#coding', '#developer', '#VibeCoding', '#AI']
         },
@@ -583,7 +583,7 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         replyPersona: {
             tone: 'Helpful Developer - "Here\'s your logic mapped out"',
             hook: 'Provide instant value with a flowchart, then drive to Arena for deeper analysis',
-            templateExample: "Your code mapped out 📊\n\n[flowchart image]\n\nWant 4 AI models to debug this? → logic.art/x"
+            templateExample: "Your code mapped out 📊\n\n[flowchart image]\n\nWant 4 AI models to debug this? → x.logic.art/x"
         },
         actionType: 'quote_tweet' // Quote Tweet with flowchart image
     }

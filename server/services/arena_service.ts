@@ -34,7 +34,7 @@ export interface ArenaResult {
   timestamp: string;
 }
 
-const LOGICART_BASE_URL = process.env.LOGICART_API_URL || "https://logic.art";
+const LOGICART_BASE_URL = process.env.LOGICART_API_URL || "https://x.logic.art";
 
 const DEBUG_PROMPT = (code: string, problem: string) => `You are a helpful coding assistant. Debug this code and explain the issue clearly and concisely.
 
