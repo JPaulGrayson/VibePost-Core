@@ -513,26 +513,23 @@ export class PostcardDrafter {
         return null;
     }
 
-    // Generate a LogicArt URL - with code pre-loaded in clean embed view if we extracted code
-    generateArenaUrl(code: string | null): string {
-        if (!code) {
-            // No code extracted - link to main landing page
+    // Generate a LogicArt URL - pre-populate Arena with user's question/code
+    generateArenaUrl(contentToPreload: string | null): string {
+        if (!contentToPreload) {
             return PostcardDrafter.LOGICART_LINK;
         }
         
-        // Encode code for URL parameter
         try {
-            const encodedCode = encodeURIComponent(code);
-            // If the encoded URL would be too long (>800 chars), fall back to simple landing
-            // Twitter has URL limits and very long URLs look spammy
-            if (encodedCode.length > 800) {
-                console.log("   ⚠️ Code too long for URL, using simple link");
-                return PostcardDrafter.LOGICART_LINK;
-            }
-            // Create embed URL with code pre-loaded in clean view
-            // embed=true gives clean fullscreen with code editor + flowchart
-            // autorun=true auto-starts the visualization
-            return `${PostcardDrafter.LOGICART_EMBED_BASE}/?embed=true&autorun=true&code=${encodedCode}`;
+            // Truncate if too long (keep URL reasonable)
+            const truncated = contentToPreload.length > 400 
+                ? contentToPreload.substring(0, 400) + "..." 
+                : contentToPreload;
+            
+            const encoded = encodeURIComponent(truncated);
+            
+            // Use ?q= parameter to pre-populate the Arena question field
+            // This matches what Arena Referee uses and the Arena page expects
+            return `${PostcardDrafter.ARENA_URL}?q=${encoded}`;
         } catch (e) {
             return PostcardDrafter.LOGICART_LINK;
         }
@@ -705,18 +702,15 @@ Visual theme (2-5 words):` }]
         campaignType: CampaignType
     ): Promise<{ text: string; score: number; extractedCode?: string; arenaUrl?: string }> {
         if (campaignType === 'logicart') {
-            // Extract code from the original tweet
-            const extractedCode = this.extractCodeFromTweet(originalText);
-            // Generate dynamic Arena URL with code pre-loaded (if found)
-            const arenaUrl = this.generateArenaUrl(extractedCode);
+            // Pre-populate Arena with the user's original tweet/question
+            // This lets them immediately run it through the AI Council when they click
+            const arenaUrl = this.generateArenaUrl(originalText);
             
-            console.log(`   📝 Code extraction: ${extractedCode ? `Found ${extractedCode.length} chars` : 'No code found'}`);
-            console.log(`   🔗 Arena URL: ${arenaUrl.length > 50 ? arenaUrl.substring(0, 50) + '...' : arenaUrl}`);
+            console.log(`   🔗 Arena URL pre-populated with user's question`);
             
             const result = await this.generateLogicArtReply(author, context, originalText, arenaUrl);
             return {
                 ...result,
-                extractedCode: extractedCode || undefined,
                 arenaUrl
             };
         }
@@ -726,17 +720,17 @@ Visual theme (2-5 words):` }]
 
     // LogicArt-specific reply generation
     async generateLogicArtReply(author: string, context: string, originalText: string, arenaUrl?: string): Promise<{ text: string; score: number }> {
-        // Use the dynamic URL if we extracted code, otherwise use the simple landing page
+        // Use the dynamic URL - it's pre-populated with their question
         const linkToUse = arenaUrl || PostcardDrafter.LOGICART_LINK;
-        const hasCodePreloaded = arenaUrl?.includes('code=');
+        const isPreloaded = arenaUrl?.includes('q=');
         
         try {
-            // Adjust messaging based on whether we pre-loaded their code
-            const codeSpecificInstructions = hasCodePreloaded
-                ? `You have already extracted and visualized their code! The link will show them the flowchart of THEIR code instantly.
-                   Use phrases like "I visualized your code", "Check out what I found", "Look at the flow here"`
-                : `Encourage them to paste their code into the tool for instant visualization.
-                   Use phrases like "Paste your code into", "Try throwing your code into", "Drop your code here"`;
+            // When pre-loaded, tell them we've set up their question - they just need to click
+            const codeSpecificInstructions = isPreloaded
+                ? `The link already has their question pre-loaded! When they click, they'll see 4 AI models compete to answer.
+                   Use phrases like "I set this up for you", "Click to watch 4 AIs battle it out", "Your question is ready - hit the link"`
+                : `Encourage them to try the AI Arena for their coding questions.
+                   Use phrases like "Throw your question into", "Try asking", "Get 4 AI opinions"`;
             
             const systemPrompt = `
             You are "The Code Sage", a wise and friendly senior developer who helps fellow coders.
@@ -752,18 +746,18 @@ Visual theme (2-5 words):` }]
             ${codeSpecificInstructions}
             
             Rules:
-            1. Tone: Friendly senior developer, empathetic, confident. Use emojis sparingly: 🧠, 💡, ⚡, 🔍, 📊
+            1. Tone: Friendly senior developer, empathetic, confident. Use emojis sparingly: 🧠, 💡, ⚡, 🔍, 🥊
             2. Structure your reply:
                - Acknowledge their struggle (empathy first)
-               - Mention how visualizing code as a flowchart helps spot issues
+               - Mention the AI Arena where 4 AI models compete to help
                - Include the link naturally
-            3. Example patterns (adapt based on whether code is pre-loaded):
-               - WITH code: "I threw your code into a visualizer - look at the flow here: [LINK] 🧠"
-               - WITH code: "Interesting! I mapped out that logic - check the flowchart: [LINK] 💡"
-               - NO code: "Debugging [X] is rough. Try pasting your code into [LINK] - the chart shows exactly where things break 🧠"
-               - NO code: "Visualizing helps! Drop your code into [LINK] and watch the flow unfold ⚡"
+            3. Example patterns (question is pre-loaded in the link):
+               - "I set up your question for the AI Arena - 4 models will battle it out: [LINK] 🥊"
+               - "Let's see what 4 AIs think! I loaded your question here: [LINK] 💡"
+               - "Interesting challenge! Watch 4 AIs compete to solve it: [LINK] 🧠"
+               - "4 AI models enter, 1 answer wins. Your question is ready: [LINK] ⚡"
             4. **CRITICAL**: You MUST include "[LINK]" placeholder - I will replace it with the actual URL.
-            5. **CRITICAL**: Be genuinely helpful, not salesy.
+            5. **CRITICAL**: Be genuinely helpful, not salesy. The link has their question pre-loaded.
             6. Length: Keep it under 240 characters (Twitter limit with link).
 
             Output Format: JSON
@@ -793,7 +787,7 @@ Visual theme (2-5 words):` }]
             try {
                 const jsonStr = resultText?.replace(/```json/g, '').replace(/```/g, '').trim();
                 const parsed = JSON.parse(jsonStr || '{}');
-                let replyText = parsed.reply || `That's a tricky one, @${author}! Paste your code into [LINK] - the flowchart shows exactly where things break 🧠`;
+                let replyText = parsed.reply || `That's a tricky one, @${author}! I loaded your question into the AI Arena - 4 models will battle it out: [LINK] 🥊`;
                 
                 // Replace [LINK] placeholder with actual Arena URL
                 if (/\[LINK\]/gi.test(replyText)) {
@@ -811,7 +805,7 @@ Visual theme (2-5 words):` }]
             } catch (e) {
                 console.error("Failed to parse LogicArt AI JSON response:", resultText);
                 return {
-                    text: `That's a tricky one, @${author}! Paste your code into ${linkToUse} - the flowchart shows exactly where things break 🧠`,
+                    text: `That's a tricky one, @${author}! I loaded your question for the AI Arena - watch 4 models compete: ${linkToUse} 🥊`,
                     score: 50
                 };
             }
@@ -819,7 +813,7 @@ Visual theme (2-5 words):` }]
         } catch (error) {
             console.error("Error generating LogicArt reply:", error);
             return {
-                text: `That's a tricky one, @${author}! Paste your code into ${linkToUse} - seeing the flow as a chart makes issues pop out 🧠`,
+                text: `That's a tricky one, @${author}! Your question is ready in the AI Arena - 4 models will battle it out: ${linkToUse} 🥊`,
                 score: 50
             };
         }
