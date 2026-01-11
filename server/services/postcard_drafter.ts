@@ -1286,78 +1286,102 @@ export function detectCodeInTweet(tweetText: string): boolean {
         return false;
     }
     
-    // Check for code fences (strongest signal)
-    if (tweetText.includes('```')) return true;
+    // LANGUAGE FILTER: Skip tweets with high CJK/Thai/Korean content unless strong code signals
+    // CJK characters often get misdetected due to symbol density
+    const cjkPattern = /[\u3000-\u9FFF\uAC00-\uD7AF\u0E00-\u0E7F]/g;
+    const cjkMatches = tweetText.match(cjkPattern) || [];
+    const cjkRatio = cjkMatches.length / tweetText.length;
     
-    // JavaScript/TypeScript patterns
-    const jsPatterns = [
+    // If >30% CJK characters, require VERY strong code signals (code fences or explicit keywords)
+    const highCJKContent = cjkRatio > 0.3;
+    
+    if (highCJKContent) {
+        // Only accept if it has code fences - the clearest signal
+        if (tweetText.includes('```')) {
+            console.log(`✅ Code Flowchart: CJK tweet accepted - has code fences`);
+            return true;
+        }
+        console.log(`🚫 Code Flowchart: Rejected high CJK content (${Math.round(cjkRatio * 100)}% CJK chars)`);
+        return false;
+    }
+    
+    // SCORING SYSTEM: Require multiple code signals for confidence
+    let codeScore = 0;
+    const THRESHOLD = 3; // Need at least 3 points to be considered code
+    
+    // Code fences (strongest signal - 5 points)
+    if (tweetText.includes('```')) codeScore += 5;
+    
+    // STRONG SIGNALS (2 points each) - Language-specific keywords with structure
+    const strongPatterns = [
         /function\s+\w+\s*\(/,           // function declarations
         /const\s+\w+\s*=/,               // const declarations
         /let\s+\w+\s*=/,                 // let declarations
-        /var\s+\w+\s*=/,                 // var declarations
-        /=>\s*[{(]/,                     // arrow functions
-        /async\s+(function|\w+\s*=)/,    // async functions
-        /await\s+\w+/,                   // await statements  
-        /return\s+.+;/,                  // return statements
-        /console\.log\(/,                // console.log
-        /\.map\(|\.filter\(|\.reduce\(/, // array methods
-        /try\s*{|catch\s*\(/,            // try/catch
-        /if\s*\(.+\)\s*{/,               // if statements with braces
-        /for\s*\(.+\)\s*{/,              // for loops with braces
-    ];
-    
-    // Python patterns (no braces required)
-    const pythonPatterns = [
         /def\s+\w+\s*\(/,                // Python function def
-        /class\s+\w+.*:/,                // Python class
-        /import\s+\w+/,                  // Python import
+        /class\s+\w+\s*[:{(]/,           // class definitions
+        /import\s+[\w{]+\s+from/,        // ES6 imports
         /from\s+\w+\s+import/,           // Python from import
-        /print\([^)]+\)/,                // Python print
-        /if\s+.+:/,                      // Python if
-        /for\s+\w+\s+in\s+/,             // Python for loop
-        /while\s+.+:/,                   // Python while
-        /elif\s+/,                       // Python elif
-        /\[\s*\w+\s+for\s+\w+\s+in/,     // List comprehension
-    ];
-    
-    // Other language patterns
-    const otherPatterns = [
-        /fn\s+\w+\s*\(/,                 // Rust fn
-        /pub\s+fn/,                      // Rust pub fn
+        /=>\s*[{(]/,                     // arrow functions
+        /async\s+(function|\w+\s*=>?)/,  // async functions
+        /try\s*{[\s\S]*catch/,           // try/catch blocks
+        /pub\s+fn|fn\s+\w+\s*\(/,        // Rust fn
         /func\s+\w+\(/,                  // Go func
-        /package\s+main/,                // Go package
-        /<\?php/,                        // PHP
-        /\$\w+\s*=/,                     // PHP/Shell variable
     ];
     
-    for (const pattern of [...jsPatterns, ...pythonPatterns, ...otherPatterns]) {
-        if (pattern.test(tweetText)) return true;
+    for (const pattern of strongPatterns) {
+        if (pattern.test(tweetText)) codeScore += 2;
     }
     
-    // Check for error messages with stack trace indicators
+    // MEDIUM SIGNALS (1 point each) - Common code patterns
+    const mediumPatterns = [
+        /console\.log\(/,                // console.log
+        /print\([^)]+\)/,                // Python print
+        /return\s+\w+/,                  // return statements
+        /\.map\(|\.filter\(|\.reduce\(/, // array methods
+        /if\s*\(.+\)\s*{/,               // if statements with braces
+        /for\s*\(.+\)\s*{/,              // for loops with braces
+        /while\s*\(.+\)\s*{/,            // while loops
+        /\[\s*\w+\s+for\s+\w+\s+in/,     // Python list comprehension
+        /===|!==|===/,                   // strict equality operators
+        /\+=|-=|\*=|\/=/,                // compound assignment
+        /\w+\.\w+\(/,                    // method calls (obj.method())
+    ];
+    
+    for (const pattern of mediumPatterns) {
+        if (pattern.test(tweetText)) codeScore += 1;
+    }
+    
+    // ERROR MESSAGES (2 points) - Stack traces and errors
     const errorPatterns = [
-        /TypeError:/i, /SyntaxError:/i, /ReferenceError:/i,
-        /NameError:/i, /ValueError:/i, /AttributeError:/i,
-        /undefined is not/i, /is not defined/i,
+        /TypeError:|SyntaxError:|ReferenceError:/i,
+        /NameError:|ValueError:|AttributeError:/i,
+        /undefined is not|is not defined/i,
         /cannot read propert/i,
         /Traceback \(most recent/i,
-        /at line \d+/i, /on line \d+/i,
         /Uncaught \w+Error:/i,
-        /Exception:/i,
     ];
     
     for (const pattern of errorPatterns) {
-        if (pattern.test(tweetText)) return true;
+        if (pattern.test(tweetText)) codeScore += 2;
     }
     
-    // Check for code symbol density (balanced)
-    const codeSymbols = (tweetText.match(/[{}\[\];=():<>]/g) || []).length;
-    const wordCount = tweetText.split(/\s+/).length;
+    // STRUCTURAL SIGNALS (1 point each) - Code-specific structures
+    const hasBracePairs = /\{[^}]+\}/.test(tweetText);
+    const hasParenWithContent = /\([^)]{3,}\)/.test(tweetText);
+    const hasSemicolons = (tweetText.match(/;/g) || []).length >= 2;
+    const hasIndentation = /\n\s{2,}\w/.test(tweetText);
     
-    // If significant code symbols relative to text length
-    if (wordCount > 5 && codeSymbols >= 6 && codeSymbols / wordCount > 0.25) return true;
+    if (hasBracePairs) codeScore += 1;
+    if (hasParenWithContent) codeScore += 0.5;
+    if (hasSemicolons) codeScore += 1;
+    if (hasIndentation) codeScore += 1;
     
-    return false;
+    // Log the score for debugging
+    if (codeScore > 0) {
+        console.log(`📊 Code Flowchart: Score ${codeScore}/${THRESHOLD} for tweet`);
+    }
+    
+    return codeScore >= THRESHOLD;
 }
 
 /**
