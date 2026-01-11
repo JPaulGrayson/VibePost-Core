@@ -6,22 +6,23 @@ import { SiDiscord, SiReddit } from "react-icons/si";
 interface PostPreviewProps {
   content: string;
   selectedPlatforms: string[];
+  mediaUrls?: string[];
 }
 
-export default function PostPreview({ content, selectedPlatforms }: PostPreviewProps) {
+export default function PostPreview({ content, selectedPlatforms, mediaUrls = [] }: PostPreviewProps) {
   const platformPreviews = selectedPlatforms.map(platform => {
     switch (platform) {
       case "twitter":
         return (
-          <TwitterPreview key={platform} content={content} />
+          <TwitterPreview key={platform} content={content} mediaUrls={mediaUrls} />
         );
       case "discord":
         return (
-          <DiscordPreview key={platform} content={content} />
+          <DiscordPreview key={platform} content={content} mediaUrls={mediaUrls} />
         );
       case "reddit":
         return (
-          <RedditPreview key={platform} content={content} />
+          <RedditPreview key={platform} content={content} mediaUrls={mediaUrls} />
         );
       default:
         return null;
@@ -35,7 +36,7 @@ export default function PostPreview({ content, selectedPlatforms }: PostPreviewP
   );
 }
 
-function TwitterPreview({ content }: { content: string }) {
+function TwitterPreview({ content, mediaUrls = [] }: { content: string; mediaUrls?: string[] }) {
   return (
     <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
       <div className="flex items-center justify-between mb-3">
@@ -70,6 +71,28 @@ function TwitterPreview({ content }: { content: string }) {
               <div className="text-gray-900 whitespace-pre-line mb-3">
                 {content}
               </div>
+              {mediaUrls.length > 0 && (
+                <div className={`grid gap-1 mb-3 rounded-xl overflow-hidden ${mediaUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                  {mediaUrls.slice(0, 4).map((url, idx) => {
+                    const isVideo = url.match(/\.(mp4|mov|webm)$/i);
+                    return isVideo ? (
+                      <video 
+                        key={idx} 
+                        src={url} 
+                        className="w-full h-32 object-cover bg-gray-100"
+                        controls
+                      />
+                    ) : (
+                      <img 
+                        key={idx} 
+                        src={url} 
+                        alt={`Media ${idx + 1}`} 
+                        className="w-full h-32 object-cover bg-gray-100"
+                      />
+                    );
+                  })}
+                </div>
+              )}
               <div className="flex items-center space-x-6 text-gray-500">
                 <Button variant="ghost" size="sm" className="p-0 h-auto hover:text-blue-500">
                   <MessageCircle className="mr-1 h-4 w-4" />
@@ -96,7 +119,7 @@ function TwitterPreview({ content }: { content: string }) {
   );
 }
 
-function DiscordPreview({ content }: { content: string }) {
+function DiscordPreview({ content, mediaUrls = [] }: { content: string; mediaUrls?: string[] }) {
   return (
     <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
       <div className="flex items-center justify-between mb-3">
@@ -129,6 +152,18 @@ function DiscordPreview({ content }: { content: string }) {
               <div className="text-gray-900 whitespace-pre-line">
                 {content}
               </div>
+              {mediaUrls.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {mediaUrls.slice(0, 4).map((url, idx) => {
+                    const isVideo = url.match(/\.(mp4|mov|webm)$/i);
+                    return isVideo ? (
+                      <video key={idx} src={url} className="max-w-[200px] rounded" controls />
+                    ) : (
+                      <img key={idx} src={url} alt={`Media ${idx + 1}`} className="max-w-[200px] rounded" />
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -137,7 +172,7 @@ function DiscordPreview({ content }: { content: string }) {
   );
 }
 
-function RedditPreview({ content }: { content: string }) {
+function RedditPreview({ content, mediaUrls = [] }: { content: string; mediaUrls?: string[] }) {
   return (
     <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
       <div className="flex items-center justify-between mb-3">
@@ -168,6 +203,18 @@ function RedditPreview({ content }: { content: string }) {
             <div className="text-gray-900 whitespace-pre-line">
               {content}
             </div>
+            {mediaUrls.length > 0 && (
+              <div className="mt-2">
+                {mediaUrls.slice(0, 1).map((url, idx) => {
+                  const isVideo = url.match(/\.(mp4|mov|webm)$/i);
+                  return isVideo ? (
+                    <video key={idx} src={url} className="max-w-full rounded" controls />
+                  ) : (
+                    <img key={idx} src={url} alt="Post media" className="max-w-full rounded" />
+                  );
+                })}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

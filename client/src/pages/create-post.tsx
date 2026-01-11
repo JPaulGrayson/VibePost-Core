@@ -17,6 +17,7 @@ export default function CreatePost() {
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(["twitter"]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("announcement");
   const [postContent, setPostContent] = useState("");
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [currentPost, setCurrentPost] = useState<Post | null>(null);
   const [isDraftDialogOpen, setIsDraftDialogOpen] = useState(false);
   const [location] = useLocation();
@@ -166,6 +167,7 @@ export default function CreatePost() {
                 onContentChange={setPostContent}
                 onPostCreated={setCurrentPost}
                 editingPost={editingPost}
+                onMediaChange={setMediaUrls}
               />
             </CardContent>
           </Card>
@@ -178,6 +180,7 @@ export default function CreatePost() {
                 <PostPreview
                   content={postContent}
                   selectedPlatforms={selectedPlatforms}
+                  mediaUrls={mediaUrls}
                 />
               </CardContent>
             </Card>

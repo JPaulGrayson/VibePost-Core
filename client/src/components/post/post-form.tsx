@@ -34,6 +34,7 @@ interface PostFormProps {
   onContentChange: (content: string) => void;
   onPostCreated?: (post: Post) => void;
   editingPost?: Post | null;
+  onMediaChange?: (mediaUrls: string[]) => void;
 }
 
 export default function PostForm({
@@ -42,7 +43,8 @@ export default function PostForm({
   content,
   onContentChange,
   onPostCreated,
-  editingPost
+  editingPost,
+  onMediaChange
 }: PostFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -78,6 +80,11 @@ export default function PostForm({
       }
     }
   }, [editingPost]);
+
+  // Notify parent when mediaUrls changes
+  useEffect(() => {
+    onMediaChange?.(mediaUrls);
+  }, [mediaUrls, onMediaChange]);
 
   // Update template content when template changes - but NOT when editing an existing post
   useEffect(() => {
