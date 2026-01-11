@@ -9,6 +9,7 @@ import { CAMPAIGN_CONFIGS, LOGICART_STRATEGIES, getActiveLogicArtStrategy, setAc
 export class SniperManager {
     private isHunting = false;  // Tracks if a hunt is in progress
     private isStarted = false;  // Tracks if the auto-loop has been started
+    private huntAllMode = false; // Fast mode for Hunt All (fewer keywords per strategy)
     
     // Independent pause controls per campaign - both PAUSED by default
     private campaignPauseState: Record<string, boolean> = {
@@ -39,9 +40,10 @@ export class SniperManager {
             allKeywords = config.keywords;
         }
         
-        // Return a subset of keywords to avoid rate limiting (rotate through them)
-        // Use first 5 keywords per hunt cycle for faster testing
-        return allKeywords.slice(0, 5);
+        // In Hunt All mode, use only 2 keywords per strategy (faster)
+        // In single hunt mode, use 5 keywords
+        const keywordLimit = this.huntAllMode ? 2 : 5;
+        return allKeywords.slice(0, keywordLimit);
     }
 
     private dailyLimit = 500;
@@ -123,7 +125,7 @@ export class SniperManager {
         };
     }
 
-    // Hunt ALL LogicArt strategies in sequence
+    // Hunt ALL LogicArt strategies in sequence (fast mode - 2 keywords each)
     async huntAllStrategies(forceReset: boolean = false) {
         if (forceReset) {
             console.log("🔄 Force reset: clearing isHunting flag");
@@ -139,7 +141,10 @@ export class SniperManager {
         const strategiesHunted: string[] = [];
         let totalDrafts = 0;
 
-        console.log("🎯 HUNT ALL STRATEGIES - Cycling through all 5 LogicArt strategies...");
+        console.log("🎯 HUNT ALL STRATEGIES (FAST MODE) - 2 keywords per strategy...");
+
+        // Enable fast mode for Hunt All
+        this.huntAllMode = true;
 
         for (const strategy of allStrategies) {
             // Switch to this strategy
@@ -152,14 +157,17 @@ export class SniperManager {
                 totalDrafts += stats.draftsCreated;
                 strategiesHunted.push(`${strategyConfig.emoji} ${strategyConfig.name}: ${stats.draftsCreated} drafts`);
                 
-                // Brief pause between strategies to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                // Brief pause between strategies
+                await new Promise(resolve => setTimeout(resolve, 1000));
             } catch (error) {
                 console.error(`Error hunting ${strategy}:`, error);
                 strategiesHunted.push(`${strategyConfig.emoji} ${strategyConfig.name}: ERROR`);
             }
         }
 
+        // Disable fast mode
+        this.huntAllMode = false;
+        
         // Restore original strategy
         setActiveLogicArtStrategy(originalStrategy);
         console.log(`\n✅ HUNT ALL COMPLETE - ${totalDrafts} total drafts across ${allStrategies.length} strategies`);
