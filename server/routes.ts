@@ -1114,6 +1114,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Hunt ALL Strategies (cycles through all 5 LogicArt strategies)
+  app.post("/api/debug/hunt-all", async (req, res) => {
+    try {
+      const { forceReset = false } = req.body;
+      
+      console.log(`🎯 HUNT ALL triggered via API (forceReset: ${forceReset})`);
+      
+      const result = await sniperManager.huntAllStrategies(forceReset);
+      
+      res.json({ 
+        success: true, 
+        message: result.message, 
+        result
+      });
+    } catch (error) {
+      console.error("Hunt all failed:", error);
+      res.status(500).json({ success: false, error: String(error) });
+    }
+  });
+
   // Debug: Test Twitter search with specific keyword
   app.get("/api/debug/test-search", async (req, res) => {
     try {

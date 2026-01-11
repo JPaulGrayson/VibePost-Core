@@ -4,7 +4,7 @@ import { storage } from "../storage";
 import { replyTimingOptimizer } from "./reply_timing_optimizer";
 import { dmFollowUpService } from "./dm_follow_up";
 import { getActiveCampaign } from "../campaign-state";
-import { CAMPAIGN_CONFIGS, LOGICART_STRATEGIES, getActiveLogicArtStrategy, LogicArtStrategy } from "../campaign-config";
+import { CAMPAIGN_CONFIGS, LOGICART_STRATEGIES, getActiveLogicArtStrategy, setActiveLogicArtStrategy, LogicArtStrategy } from "../campaign-config";
 
 export class SniperManager {
     private isHunting = false;  // Tracks if a hunt is in progress
@@ -120,6 +120,55 @@ export class SniperManager {
         return {
             draftsGenerated: this.draftsGeneratedToday,
             stats
+        };
+    }
+
+    // Hunt ALL LogicArt strategies in sequence
+    async huntAllStrategies(forceReset: boolean = false) {
+        if (forceReset) {
+            console.log("🔄 Force reset: clearing isHunting flag");
+            this.isHunting = false;
+        }
+        if (this.isHunting) {
+            console.log("⚠️ Sniper is already hunting. Skipping hunt all.");
+            return { draftsGenerated: 0, message: "Sniper is already running", strategiesHunted: [] };
+        }
+
+        const originalStrategy = getActiveLogicArtStrategy();
+        const allStrategies = Object.keys(LOGICART_STRATEGIES) as LogicArtStrategy[];
+        const strategiesHunted: string[] = [];
+        let totalDrafts = 0;
+
+        console.log("🎯 HUNT ALL STRATEGIES - Cycling through all 5 LogicArt strategies...");
+
+        for (const strategy of allStrategies) {
+            // Switch to this strategy
+            setActiveLogicArtStrategy(strategy);
+            const strategyConfig = LOGICART_STRATEGIES[strategy];
+            console.log(`\n🔄 Hunting with: ${strategyConfig.emoji} ${strategyConfig.name}`);
+            
+            try {
+                const stats = await this.hunt(true); // bypass pause
+                totalDrafts += stats.draftsCreated;
+                strategiesHunted.push(`${strategyConfig.emoji} ${strategyConfig.name}: ${stats.draftsCreated} drafts`);
+                
+                // Brief pause between strategies to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            } catch (error) {
+                console.error(`Error hunting ${strategy}:`, error);
+                strategiesHunted.push(`${strategyConfig.emoji} ${strategyConfig.name}: ERROR`);
+            }
+        }
+
+        // Restore original strategy
+        setActiveLogicArtStrategy(originalStrategy);
+        console.log(`\n✅ HUNT ALL COMPLETE - ${totalDrafts} total drafts across ${allStrategies.length} strategies`);
+        console.log(`🔄 Restored active strategy to: ${LOGICART_STRATEGIES[originalStrategy].name}`);
+
+        return {
+            draftsGenerated: totalDrafts,
+            message: `Hunted all ${allStrategies.length} strategies`,
+            strategiesHunted
         };
     }
 

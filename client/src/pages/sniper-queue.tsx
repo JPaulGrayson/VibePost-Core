@@ -235,6 +235,31 @@ export default function SniperQueue() {
         }
     });
 
+    // Hunt ALL strategies at once
+    const huntAll = useMutation({
+        mutationFn: async () => {
+            const res = await apiRequest("POST", "/api/debug/hunt-all", {});
+            return res.json();
+        },
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ["/api/postcard-drafts"] });
+            const result = data.result;
+            
+            toast({
+                title: "Hunt All Complete!",
+                description: `Created ${result?.draftsGenerated || 0} drafts across all strategies.`,
+            });
+        },
+        onError: (error) => {
+            console.error("Hunt all failed:", error);
+            toast({
+                variant: "destructive",
+                title: "Hunt All Failed",
+                description: "Check console for details.",
+            });
+        }
+    });
+
     // Bulk approve selected drafts
     const bulkApprove = useMutation({
         mutationFn: async (ids: number[]) => {
@@ -446,7 +471,7 @@ export default function SniperQueue() {
                 <Button
                     variant="outline"
                     onClick={() => manualHunt.mutate()}
-                    disabled={manualHunt.isPending}
+                    disabled={manualHunt.isPending || huntAll.isPending}
                 >
                     {manualHunt.isPending ? (
                         <>
@@ -456,7 +481,25 @@ export default function SniperQueue() {
                     ) : (
                         <>
                             <RefreshCw className="mr-2 h-4 w-4" />
-                            Manual Hunt ✈️
+                            Hunt Selected
+                        </>
+                    )}
+                </Button>
+                <Button
+                    variant="default"
+                    onClick={() => huntAll.mutate()}
+                    disabled={huntAll.isPending || manualHunt.isPending}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                >
+                    {huntAll.isPending ? (
+                        <>
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            Hunting All...
+                        </>
+                    ) : (
+                        <>
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            Hunt All Strategies
                         </>
                     )}
                 </Button>
