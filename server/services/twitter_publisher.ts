@@ -3,6 +3,7 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 import { PostcardDraft } from "@shared/schema";
 import { storage } from "../storage";
+import { postcardDrafter } from "./postcard_drafter";
 
 // Rate limiting to prevent Twitter 429 errors
 const MIN_DELAY_BETWEEN_TWEETS_MS = 30000; // 30 seconds
@@ -46,19 +47,28 @@ export async function publishDraft(draft: PostcardDraft) {
         const me = await client.v2.me();
         console.log(`Authenticated as @${me.data.username}`);
 
-        if (!draft.turaiImageUrl) {
-            return { success: false, error: "No image URL in draft" };
+        // Generate image on-demand if missing (deferred image generation)
+        let imageUrl = draft.turaiImageUrl;
+        if (!imageUrl) {
+            console.log(`🎨 No image in draft - generating on-demand before posting...`);
+            try {
+                imageUrl = await postcardDrafter.regenerateImage(draft.id);
+                console.log(`✅ Image generated on-demand: ${imageUrl}`);
+            } catch (imgError) {
+                console.error(`❌ Failed to generate image on-demand:`, imgError);
+                return { success: false, error: "Failed to generate image for posting" };
+            }
         }
 
         // 1. Upload the Image
         let mediaId;
-        console.log(`Fetching image from ${draft.turaiImageUrl}`);
+        console.log(`Fetching image from ${imageUrl}`);
 
         let buffer: Buffer;
         let mimeType = 'image/jpeg'; // Default
 
-        if (draft.turaiImageUrl.startsWith('http')) {
-            const response = await fetch(draft.turaiImageUrl);
+        if (imageUrl.startsWith('http')) {
+            const response = await fetch(imageUrl);
             if (!response.ok) throw new Error(`Failed to download image: ${response.statusText}`);
 
             const arrayBuffer = await response.arrayBuffer();
@@ -68,26 +78,26 @@ export async function publishDraft(draft: PostcardDraft) {
             const contentType = response.headers.get('content-type');
             if (contentType) mimeType = contentType;
 
-        } else if (draft.turaiImageUrl.startsWith('data:')) {
+        } else if (imageUrl.startsWith('data:')) {
             // Extract base64 data
-            const matches = draft.turaiImageUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+            const matches = imageUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
             if (!matches || matches.length !== 3) throw new Error('Invalid data URI format');
 
             mimeType = matches[1];
             buffer = Buffer.from(matches[2], 'base64');
-        } else if (draft.turaiImageUrl.startsWith('/generated-images/')) {
+        } else if (imageUrl.startsWith('/generated-images/')) {
             // Local file path - read from filesystem
             const fs = await import('fs/promises');
             const path = await import('path');
-            const localPath = path.join(process.cwd(), 'public', draft.turaiImageUrl);
+            const localPath = path.join(process.cwd(), 'public', imageUrl);
             
             try {
                 buffer = await fs.readFile(localPath);
                 // Detect mime type from extension
-                if (draft.turaiImageUrl.endsWith('.png')) mimeType = 'image/png';
-                else if (draft.turaiImageUrl.endsWith('.jpg') || draft.turaiImageUrl.endsWith('.jpeg')) mimeType = 'image/jpeg';
-                else if (draft.turaiImageUrl.endsWith('.gif')) mimeType = 'image/gif';
-                else if (draft.turaiImageUrl.endsWith('.webp')) mimeType = 'image/webp';
+                if (imageUrl.endsWith('.png')) mimeType = 'image/png';
+                else if (imageUrl.endsWith('.jpg') || imageUrl.endsWith('.jpeg')) mimeType = 'image/jpeg';
+                else if (imageUrl.endsWith('.gif')) mimeType = 'image/gif';
+                else if (imageUrl.endsWith('.webp')) mimeType = 'image/webp';
                 console.log(`Read local image: ${localPath} (${buffer.length} bytes)`);
             } catch (fsError: any) {
                 throw new Error(`Failed to read local image file: ${localPath} - ${fsError.message}`);
@@ -115,7 +125,7 @@ export async function publishDraft(draft: PostcardDraft) {
                 // Wait a bit and re-download the image
                 await new Promise(resolve => setTimeout(resolve, 2000));
 
-                const retryResponse = await fetch(draft.turaiImageUrl!);
+                const retryResponse = await fetch(imageUrl);
                 if (!retryResponse.ok) throw new Error(`Retry download failed: ${retryResponse.statusText}`);
 
                 const retryBuffer = Buffer.from(await retryResponse.arrayBuffer());

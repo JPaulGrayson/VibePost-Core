@@ -945,7 +945,7 @@ Visual theme (2-5 words):` }]
         let imageUrl: string;
         let attribution: string | null = null;
 
-        // Generate appropriate image based on campaign type
+        // Generate appropriate image based on campaign type and strategy
         if (draft.campaignType === 'turai') {
             if (!draft.detectedLocation) throw new Error("Location not detected for this draft");
             const imageResult = await this.generateTuraiImage(draft.detectedLocation);
@@ -957,8 +957,20 @@ Visual theme (2-5 words):` }]
                 draft.detectedLocation || 'AI models',
                 draft.originalTweetText || undefined
             );
+        } else if (draft.strategy === 'code_flowchart') {
+            // Code Flowchart: Generate actual flowchart from the tweet's code
+            const extracted = extractCodeFromTweet(draft.originalTweetText || '');
+            if (extracted) {
+                const language = extracted.language !== 'unknown' 
+                    ? extracted.language 
+                    : detectLanguage(extracted.code);
+                imageUrl = await generateCodeFlowchartImage(extracted.code, language, extracted.isDescription);
+            } else {
+                // Fallback if code extraction fails
+                imageUrl = await this.generateLogicArtImage('code flowchart');
+            }
         } else {
-            // LogicArt: coding/flowchart themed image
+            // LogicArt (other strategies): coding/flowchart themed image
             imageUrl = await this.generateLogicArtImage(draft.detectedLocation || 'code debugging');
         }
 
@@ -1145,15 +1157,10 @@ export async function generateArenaRefereeDraft(
             responses: arenaResult.responses
         }, authorHandle, tweet.text);
         
-        // Generate Arena battle image for the Quote Tweet
-        console.log(`🎨 Generating Arena Referee image...`);
+        // DEFER image generation until post time to save compute
+        // Image will be generated when the draft is approved and about to be posted
+        console.log(`⏳ Skipping image generation - will generate on-demand before posting`);
         let imageUrl = "";
-        try {
-            imageUrl = await postcardDrafter.generateArenaRefereeImage(arenaResult.winner, tweet.text);
-            console.log(`✅ Arena image generated: ${imageUrl}`);
-        } catch (imgError) {
-            console.error(`⚠️ Image generation failed, continuing without image:`, imgError);
-        }
         
         // Calculate a score based on engagement potential
         // High engagement topics (model debates) get higher scores
@@ -1658,14 +1665,10 @@ export async function generateCodeFlowchartDraft(
         
         console.log(`📊 Extracted ${language} ${extracted.isDescription ? 'problem description' : 'code'} (${extracted.code.length} chars)`);
         
-        // Generate flowchart image
+        // DEFER image generation until post time to save compute
+        // Image will be generated when the draft is approved and about to be posted
+        console.log(`⏳ Skipping flowchart generation - will generate on-demand before posting`);
         let imageUrl = "";
-        try {
-            imageUrl = await generateCodeFlowchartImage(extracted.code, language, extracted.isDescription);
-            console.log(`✅ Flowchart generated: ${imageUrl}`);
-        } catch (imgError) {
-            console.error(`⚠️ Flowchart generation failed:`, imgError);
-        }
         
         // Generate the Quote Tweet text
         const quoteText = generateFlowchartQuoteText(language, authorHandle);
