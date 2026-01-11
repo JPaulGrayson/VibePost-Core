@@ -470,12 +470,12 @@ export class PostcardDrafter {
 
     // ===== LOGICART-SPECIFIC METHODS =====
 
-    // LogicArt deployed app URLs
-    private static readonly LOGICART_LINK = "https://logic.art/x"; // Simple landing page
-    private static readonly LOGICART_EMBED_BASE = "https://logicart.replit.app"; // For embed links with code
+    // LogicArt deployed app URLs - using direct Replit URL to preserve query params
+    private static readonly LOGICART_LINK = "https://vibepost-jpaulgrayson.replit.app/x"; // Simple landing page
+    private static readonly LOGICART_EMBED_BASE = "https://vibepost-jpaulgrayson.replit.app"; // For embed links with code
     
-    // Arena URL for Quote Tweets - logic.art/x landing page
-    public static readonly ARENA_URL = "https://logic.art/x";
+    // Arena URL for replies - direct Replit URL preserves ?q= parameter
+    public static readonly ARENA_URL = "https://vibepost-jpaulgrayson.replit.app/x";
 
     // Extract code snippet from a tweet
     extractCodeFromTweet(text: string): string | null {
