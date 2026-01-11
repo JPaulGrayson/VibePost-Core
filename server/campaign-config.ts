@@ -313,6 +313,11 @@ export function hasPositiveIntent(content: string, type: CampaignType): boolean 
     const lower = content.toLowerCase();
     const config = CAMPAIGN_CONFIGS[type];
 
+    // GLOBAL FILTER: Always skip retweets - they're low quality
+    if (lower.startsWith('rt @') || lower.includes(' rt @')) {
+        return false;
+    }
+
     // Check for negative signals first (disqualify)
     for (const signal of config.intentSignals.negative) {
         if (lower.includes(signal.toLowerCase())) {
@@ -514,7 +519,16 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         intentType: 'AI Model Debate / Comparison',
         intentSignals: {
             positive: ["vs", "better", "worse", "smarter", "compared", "comparison", "which one", "battle", "showdown", "debate", "true", "lies", "accurate", "overrated", "underrated", "best", "worst"],
-            negative: ["hiring", "job", "sponsor", "discount", "affiliate", "founder", "CEO", "we're building", "launching", "promo", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto]
+            negative: [
+                // Standard filters
+                "hiring", "job", "sponsor", "discount", "affiliate", "founder", "CEO", "we're building", "launching", "promo",
+                // Music/Entertainment filters - exclude song identification tweets
+                "song", "lyrics", "music", "album", "artist", "kpop", "k-pop", "band", "singer", "melody", "chorus",
+                "LOVE ME", "HATE ME", "stuck in my brain", "what song", "name this song", "identify this song",
+                "aespa", "BLACKPINK", "BTS", "BABYMONSTER", "NewJeans", "TWICE", "ITZY", "Stray Kids",
+                "supernova", "lovesick", "pop culture", "viral lyrics",
+                ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto
+            ]
         },
         replyPersona: {
             tone: 'Competitive, Fun - "Let\'s settle this in the Arena"',

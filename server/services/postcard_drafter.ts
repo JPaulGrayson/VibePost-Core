@@ -1086,6 +1086,22 @@ export async function generateArenaRefereeDraft(
     const strategy = LOGICART_STRATEGIES.arena_referee;
     console.log(`${strategy.emoji} Arena Referee: Processing debate tweet ${tweet.id} from @${authorHandle}`);
 
+    // QUALITY FILTER: Skip retweets - they're always low quality
+    const lowerText = tweet.text.toLowerCase();
+    if (lowerText.startsWith('rt @') || lowerText.includes(' rt @')) {
+        console.log(`❌ FILTERED: Retweet skipped - @${authorHandle}`);
+        return false;
+    }
+
+    // QUALITY FILTER: Check negative intent signals for arena_referee strategy
+    const negativeSignals = strategy.intentSignals.negative;
+    for (const signal of negativeSignals) {
+        if (lowerText.includes(signal.toLowerCase())) {
+            console.log(`❌ FILTERED: Negative signal "${signal}" found - @${authorHandle}: "${tweet.text.substring(0, 50)}..."`);
+            return false;
+        }
+    }
+
     // Check if draft already exists
     const existing = await db.query.postcardDrafts.findFirst({
         where: eq(postcardDrafts.originalTweetId, tweet.id),
@@ -1570,6 +1586,22 @@ export async function generateCodeFlowchartDraft(
 ): Promise<boolean> {
     const strategy = LOGICART_STRATEGIES.code_flowchart;
     console.log(`${strategy.emoji} Code Flowchart: Processing tweet ${tweet.id} from @${authorHandle}`);
+
+    // QUALITY FILTER: Skip retweets - they're always low quality
+    const lowerText = tweet.text.toLowerCase();
+    if (lowerText.startsWith('rt @') || lowerText.includes(' rt @')) {
+        console.log(`❌ FILTERED: Retweet skipped - @${authorHandle}`);
+        return false;
+    }
+
+    // QUALITY FILTER: Check negative intent signals for code_flowchart strategy
+    const negativeSignals = strategy.intentSignals.negative;
+    for (const signal of negativeSignals) {
+        if (lowerText.includes(signal.toLowerCase())) {
+            console.log(`❌ FILTERED: Negative signal "${signal}" found - @${authorHandle}`);
+            return false;
+        }
+    }
 
     // Check if draft already exists
     const existing = await db.query.postcardDrafts.findFirst({
