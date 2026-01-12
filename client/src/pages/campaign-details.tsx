@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calendar, ChevronLeft, Plus, Send, Edit, Trash2, Save, Search, MessageCircle, Wand2, ImagePlus, Upload, Copy, ExternalLink, Sparkles } from "lucide-react";
+import { Calendar, ChevronLeft, Plus, Send, Edit, Trash2, Save, Search, MessageCircle, Wand2, ImagePlus, Upload, Copy, ExternalLink, Sparkles, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Campaign, Post, InsertPost } from "@shared/schema";
@@ -300,7 +300,8 @@ export default function CampaignDetails() {
       const data = await response.json();
       
       // Add cache-busting timestamp to force browser to fetch new image
-      const imageUrlWithCache = data.imageUrl + `&t=${Date.now()}`;
+      const separator = data.imageUrl.includes('?') ? '&' : '?';
+      const imageUrlWithCache = data.imageUrl + `${separator}t=${Date.now()}`;
       setManualPost(prev => ({ ...prev, imageUrl: imageUrlWithCache }));
       toast({ title: "Image Generated", description: "AI image is ready" });
     } catch (error) {
@@ -357,6 +358,27 @@ export default function CampaignDetails() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: "Copied!", description: "Reply copied to clipboard" });
+  };
+
+  // Download image to device
+  const downloadImage = async () => {
+    if (!manualPost.imageUrl) return;
+    
+    try {
+      const response = await fetch(manualPost.imageUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `vibepost-image-${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast({ title: "Downloaded!", description: "Image saved to your device" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to download image", variant: "destructive" });
+    }
   };
 
   if (campaignLoading) {
@@ -722,12 +744,21 @@ export default function CampaignDetails() {
               )}
             </div>
             {manualPost.imageUrl && (
-              <div className="mt-2">
+              <div className="mt-2 space-y-2">
                 <img 
                   src={manualPost.imageUrl} 
                   alt="Post image" 
                   className="max-w-xs rounded-lg border border-slate-600"
                 />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={downloadImage}
+                  className="text-green-400 hover:text-green-300"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Image
+                </Button>
               </div>
             )}
           </div>
