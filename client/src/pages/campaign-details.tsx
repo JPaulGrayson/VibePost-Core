@@ -93,7 +93,7 @@ export default function CampaignDetails() {
 
   // Add post to campaign
   const addPostToCampaign = useMutation({
-    mutationFn: async (postData: { content: string; template?: string }) => {
+    mutationFn: async (postData: { content: string; template?: string; mediaUrl?: string }) => {
       const response = await fetch("/api/posts", {
         method: "POST",
         headers: {
@@ -325,6 +325,7 @@ export default function CampaignDetails() {
       await addPostToCampaign.mutateAsync({
         content: manualPost.generatedReply,
         template: "custom",
+        mediaUrl: manualPost.imageUrl || undefined,
       });
       
       // Reset form
@@ -924,7 +925,7 @@ export default function CampaignDetails() {
             <div className="space-y-4">
               {posts.map((post: Post) => (
                 <div key={post.id} className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <Badge variant="outline">{post.template}</Badge>
@@ -938,6 +939,13 @@ export default function CampaignDetails() {
                         {new Date(post.createdAt).toLocaleDateString()}
                       </div>
                     </div>
+                    {post.mediaUrl && (
+                      <img 
+                        src={post.mediaUrl} 
+                        alt="Post media" 
+                        className="w-24 h-24 object-cover rounded-lg border border-slate-600"
+                      />
+                    )}
                   </div>
                 </div>
               ))}
