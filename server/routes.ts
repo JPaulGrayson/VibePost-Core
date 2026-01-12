@@ -2606,10 +2606,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate AI Image for Manual Post Creator
   app.post("/api/generate-image", async (req, res) => {
     try {
-      const { context, style } = req.body;
+      const { context, style, customPrompt } = req.body;
       
       // Generate image using Pollinations AI
-      const imageUrl = await postcardDrafter.generateManualImage(context || "technology and coding");
+      // Use custom prompt if provided, otherwise generate from context
+      const imageUrl = await postcardDrafter.generateManualImage(
+        context || "technology and coding",
+        customPrompt
+      );
       
       res.json({ success: true, imageUrl });
     } catch (error) {

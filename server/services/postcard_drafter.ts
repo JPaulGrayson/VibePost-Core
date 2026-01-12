@@ -902,26 +902,34 @@ Just output the reply text with the link included, nothing else.`
     }
 
     // Generate image for Manual Post Creator
-    async generateManualImage(context: string): Promise<string> {
+    async generateManualImage(context: string, customPrompt?: string): Promise<string> {
         try {
-            // Extract a visual theme from the context
-            const themeResponse = await genAI.models.generateContent({
-                model: 'gemini-2.0-flash',
-                contents: [{
-                    role: 'user',
-                    parts: [{
-                        text: `Based on this coding/tech context: "${context.substring(0, 200)}"
+            let imagePrompt: string;
+            
+            // Use custom prompt if provided, otherwise generate from context
+            if (customPrompt && customPrompt.trim()) {
+                imagePrompt = customPrompt.trim();
+                console.log("🎨 Using custom image prompt:", imagePrompt);
+            } else {
+                // Extract a visual theme from the context
+                const themeResponse = await genAI.models.generateContent({
+                    model: 'gemini-2.0-flash',
+                    contents: [{
+                        role: 'user',
+                        parts: [{
+                            text: `Based on this coding/tech context: "${context.substring(0, 200)}"
                         
 Generate a short image prompt for a tech-themed illustration.
 Focus on: code, algorithms, AI, debugging, programming concepts.
 Style: Modern, professional, abstract tech art.
 Keep it under 50 words. Just output the image prompt, nothing else.`
+                        }]
                     }]
-                }]
-            });
-            
-            const imagePrompt = themeResponse.candidates?.[0]?.content?.parts?.[0]?.text?.trim() 
-                || "abstract technology visualization with code symbols and neural network patterns";
+                });
+                
+                imagePrompt = themeResponse.candidates?.[0]?.content?.parts?.[0]?.text?.trim() 
+                    || "abstract technology visualization with code symbols and neural network patterns";
+            }
             
             // Use Pollinations AI for image generation
             const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true&width=800&height=450`;

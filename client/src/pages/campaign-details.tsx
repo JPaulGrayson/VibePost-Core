@@ -45,6 +45,7 @@ export default function CampaignDetails() {
     imageUrl: "",
     strategy: "vibe_scout" as string,
     arenaUrl: "",
+    customImagePrompt: "",
   });
   const [isGeneratingReply, setIsGeneratingReply] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
@@ -289,6 +290,7 @@ export default function CampaignDetails() {
         body: JSON.stringify({
           context: manualPost.originalTweet || "coding and technology",
           style: "tech-professional",
+          customPrompt: manualPost.customImagePrompt || undefined,
         }),
       });
       
@@ -338,6 +340,7 @@ export default function CampaignDetails() {
         imageUrl: "",
         strategy: "vibe_scout",
         arenaUrl: "",
+        customImagePrompt: "",
       });
       setShowPreview(false);
       toast({ title: "Saved!", description: "Post added to campaign" });
@@ -664,6 +667,18 @@ export default function CampaignDetails() {
               <Badge variant="outline" className="bg-orange-500/20 text-orange-300">Step 3</Badge>
               <Label>Add Image (Optional)</Label>
             </div>
+            
+            {/* Custom Image Prompt */}
+            <div className="space-y-2">
+              <Input
+                placeholder="Custom image prompt (e.g., 'train going over broken trestle bridge')"
+                value={manualPost.customImagePrompt}
+                onChange={(e) => setManualPost({ ...manualPost, customImagePrompt: e.target.value })}
+                className="bg-slate-800 border-slate-600"
+              />
+              <p className="text-xs text-gray-500">Leave empty to auto-generate from tweet context</p>
+            </div>
+            
             <div className="flex gap-3">
               <Button
                 variant="outline"
