@@ -180,6 +180,11 @@ Changelog:
 - January 8, 2026. SCHEMA: Added strategy, actionType, arenaVerdict fields to postcardDrafts table
 - January 8, 2026. UI: Quote Tweet button and verdict display in sniper queue for Arena Referee drafts
 - January 8, 2026. TYPES: ArenaVerdict interface and ActionType enum exported from shared/schema.ts
+- January 12, 2026. FEATURE: Manual Post Creator for bypassing Twitter API rate limits
+- January 12, 2026. NEW: Paste tweets manually, generate strategy-specific AI replies with Arena URLs
+- January 12, 2026. API: Added /api/generate-reply and /api/generate-image endpoints
+- January 12, 2026. UI: Arena Link verification box shows pre-populated URL for each generated reply
+- January 12, 2026. STRATEGIES: 5 distinct personas (Vibe Scout, Spaghetti Detective, Bootcamp Savior, Arena Referee, Code Flowchart)
 ```
 
 ## User Preferences
