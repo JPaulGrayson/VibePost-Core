@@ -1,6 +1,6 @@
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calendar, ChevronLeft, Plus, Send, Edit, Trash2, Save, Search, MessageCircle } from "lucide-react";
+import { Calendar, ChevronLeft, Plus, Send, Edit, Trash2, Save, Search, MessageCircle, Wand2, ImagePlus, Upload, Copy, ExternalLink, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Campaign, Post, InsertPost } from "@shared/schema";
@@ -34,6 +34,20 @@ export default function CampaignDetails() {
 
   const [automationResults, setAutomationResults] = useState<any[]>([]);
   const [keywordList, setKeywordList] = useState("vibe coding, app development, AI tools");
+
+  // Manual Post Creator state
+  const [manualPost, setManualPost] = useState({
+    originalTweet: "",
+    originalAuthor: "",
+    generatedReply: "",
+    imageUrl: "",
+    strategy: "vibe_scout" as string,
+    arenaUrl: "",
+  });
+  const [isGeneratingReply, setIsGeneratingReply] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch campaign details
   const { data: campaign, isLoading: campaignLoading } = useQuery<Campaign>({
@@ -231,6 +245,110 @@ export default function CampaignDetails() {
     },
   });
 
+  // Generate AI reply for manual post
+  const generateAIReply = async () => {
+    if (!manualPost.originalTweet.trim()) {
+      toast({ title: "Error", description: "Please paste a tweet first", variant: "destructive" });
+      return;
+    }
+    
+    setIsGeneratingReply(true);
+    try {
+      const response = await fetch("/api/generate-reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          originalTweet: manualPost.originalTweet,
+          originalAuthor: manualPost.originalAuthor || "unknown",
+          strategy: manualPost.strategy,
+        }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to generate reply");
+      const data = await response.json();
+      
+      setManualPost(prev => ({ ...prev, generatedReply: data.reply, arenaUrl: data.arenaUrl || "" }));
+      setShowPreview(true);
+      toast({ title: "Reply Generated", description: "AI has crafted a response for you" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to generate reply", variant: "destructive" });
+    } finally {
+      setIsGeneratingReply(false);
+    }
+  };
+
+  // Generate AI image for the post
+  const generateAIImage = async () => {
+    setIsGeneratingImage(true);
+    try {
+      const response = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          context: manualPost.originalTweet || "coding and technology",
+          style: "tech-professional",
+        }),
+      });
+      
+      if (!response.ok) throw new Error("Failed to generate image");
+      const data = await response.json();
+      
+      setManualPost(prev => ({ ...prev, imageUrl: data.imageUrl }));
+      toast({ title: "Image Generated", description: "AI image is ready" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to generate image", variant: "destructive" });
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  // Handle image file upload
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setManualPost(prev => ({ ...prev, imageUrl: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Save manual post to campaign
+  const saveManualPost = async () => {
+    if (!manualPost.generatedReply.trim()) {
+      toast({ title: "Error", description: "Generate a reply first", variant: "destructive" });
+      return;
+    }
+
+    try {
+      await addPostToCampaign.mutateAsync({
+        content: manualPost.generatedReply,
+        template: "custom",
+      });
+      
+      // Reset form
+      setManualPost({
+        originalTweet: "",
+        originalAuthor: "",
+        generatedReply: "",
+        imageUrl: "",
+        strategy: "vibe_scout",
+        arenaUrl: "",
+      });
+      setShowPreview(false);
+      toast({ title: "Saved!", description: "Post added to campaign" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to save post", variant: "destructive" });
+    }
+  };
+
+  // Copy reply to clipboard
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copied!", description: "Reply copied to clipboard" });
+  };
+
   if (campaignLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -259,6 +377,14 @@ export default function CampaignDetails() {
       template: newPost.template,
     });
   };
+
+  const strategyOptions = [
+    { value: "vibe_scout", label: "🎯 Vibe Coding Scout", description: "Helpful developer friend" },
+    { value: "spaghetti_detective", label: "🍝 Spaghetti Detective", description: "Debug messy code" },
+    { value: "bootcamp_savior", label: "🎓 Bootcamp Savior", description: "Help learning devs" },
+    { value: "arena_referee", label: "🏛️ Arena Referee", description: "AI model comparison" },
+    { value: "code_flowchart", label: "📊 Code Flowchart", description: "Visualize code logic" },
+  ];
 
   const getPlatformBadgeColor = (platform: string) => {
     switch (platform) {
@@ -444,43 +570,234 @@ export default function CampaignDetails() {
         </CardHeader>
       </Card>
 
-      {/* Add New Post */}
-      <Card className="mb-6">
+      {/* Manual Post Creator */}
+      <Card className="mb-6 border-2 border-dashed border-purple-500/30 bg-gradient-to-br from-slate-900/50 to-purple-900/20">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Plus className="w-5 h-5" />
-            Add Post to Campaign
+          <CardTitle className="flex items-center gap-2 text-purple-300">
+            <Wand2 className="w-5 h-5" />
+            Manual Post Creator
           </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Paste a tweet you found, and AI will craft a perfect response with an image
+          </p>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="template">Template</Label>
-            <Select value={newPost.template} onValueChange={(value: any) => setNewPost({ ...newPost, template: value })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="announcement">📢 Announcement</SelectItem>
-                <SelectItem value="tip">💡 Tip</SelectItem>
-                <SelectItem value="question">❓ Question</SelectItem>
-                <SelectItem value="share">🔗 Share</SelectItem>
-                <SelectItem value="custom">✨ Custom</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="content">Post Content</Label>
+        <CardContent className="space-y-6">
+          {/* Step 1: Paste Tweet */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-blue-500/20 text-blue-300">Step 1</Badge>
+              <Label>Paste Tweet Text</Label>
+            </div>
             <Textarea
-              id="content"
-              value={newPost.content}
-              onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
-              placeholder="What would you like to post?"
-              rows={4}
+              value={manualPost.originalTweet}
+              onChange={(e) => setManualPost({ ...manualPost, originalTweet: e.target.value })}
+              placeholder="Paste the tweet content you want to respond to..."
+              rows={3}
+              className="bg-slate-800/50"
+            />
+            <Input
+              value={manualPost.originalAuthor}
+              onChange={(e) => setManualPost({ ...manualPost, originalAuthor: e.target.value })}
+              placeholder="@username (optional)"
+              className="bg-slate-800/50 w-48"
             />
           </div>
 
+          {/* Step 2: Choose Strategy & Generate */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-green-500/20 text-green-300">Step 2</Badge>
+              <Label>Choose Strategy & Generate Reply</Label>
+            </div>
+            <div className="flex gap-3 flex-wrap">
+              <Select value={manualPost.strategy} onValueChange={(value) => setManualPost({ ...manualPost, strategy: value })}>
+                <SelectTrigger className="w-64 bg-slate-800/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {strategyOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={generateAIReply}
+                disabled={isGeneratingReply || !manualPost.originalTweet.trim()}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {isGeneratingReply ? (
+                  <>Generating...</>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Generate Reply
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Step 3: Add Image */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-orange-500/20 text-orange-300">Step 3</Badge>
+              <Label>Add Image (Optional)</Label>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={generateAIImage}
+                disabled={isGeneratingImage}
+              >
+                {isGeneratingImage ? "Generating..." : (
+                  <>
+                    <ImagePlus className="w-4 h-4 mr-2" />
+                    AI Generate
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload
+              </Button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                accept="image/*"
+                className="hidden"
+              />
+              {manualPost.imageUrl && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setManualPost({ ...manualPost, imageUrl: "" })}
+                  className="text-red-400"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+            {manualPost.imageUrl && (
+              <div className="mt-2">
+                <img 
+                  src={manualPost.imageUrl} 
+                  alt="Post image" 
+                  className="max-w-xs rounded-lg border border-slate-600"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Preview & Actions */}
+          {showPreview && manualPost.generatedReply && (
+            <div className="space-y-4 pt-4 border-t border-slate-700">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-yellow-500/20 text-yellow-300">Preview</Badge>
+              </div>
+              
+              {/* Original Tweet Preview */}
+              <div className="bg-slate-800/70 rounded-lg p-4 border-l-4 border-blue-500">
+                <p className="text-xs text-blue-400 mb-1">Original Tweet {manualPost.originalAuthor && `from ${manualPost.originalAuthor}`}</p>
+                <p className="text-sm text-gray-300">{manualPost.originalTweet}</p>
+              </div>
+
+              {/* Generated Reply */}
+              <div className="bg-slate-800/70 rounded-lg p-4 border-l-4 border-purple-500">
+                <p className="text-xs text-purple-400 mb-1">Your Reply</p>
+                <Textarea
+                  value={manualPost.generatedReply}
+                  onChange={(e) => setManualPost({ ...manualPost, generatedReply: e.target.value })}
+                  rows={4}
+                  className="bg-transparent border-none p-0 resize-none"
+                />
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-xs text-gray-500">{manualPost.generatedReply.length}/280 characters</span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyToClipboard(manualPost.generatedReply)}
+                    >
+                      <Copy className="w-4 h-4 mr-1" />
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Arena Link Verification */}
+              {manualPost.arenaUrl && (
+                <div className="bg-green-900/30 rounded-lg p-3 border border-green-600/50 flex items-center gap-3">
+                  <span className="text-green-400 text-xl">✓</span>
+                  <div className="flex-1">
+                    <p className="text-xs text-green-400 font-medium">Arena Link Included</p>
+                    <a 
+                      href={manualPost.arenaUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-green-300 hover:underline truncate block"
+                    >
+                      {manualPost.arenaUrl}
+                    </a>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.open(manualPost.arenaUrl, '_blank')}
+                    className="text-green-400"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <Button
+                  onClick={saveManualPost}
+                  disabled={addPostToCampaign.isPending}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {addPostToCampaign.isPending ? "Saving..." : "Save to Campaign"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => copyToClipboard(manualPost.generatedReply)}
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy & Post Manually
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Quick Add Post (Simple) */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Plus className="w-4 h-4" />
+            Quick Add Post
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Textarea
+            id="content"
+            value={newPost.content}
+            onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
+            placeholder="Write a quick post..."
+            rows={2}
+          />
           <Button
+            size="sm"
             onClick={handleAddPost}
             disabled={!newPost.content.trim() || addPostToCampaign.isPending}
           >

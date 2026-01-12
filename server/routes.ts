@@ -2584,8 +2584,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Postcard Drafts Endpoints
 
+  // Generate AI Reply for Manual Post Creator
+  app.post("/api/generate-reply", async (req, res) => {
+    try {
+      const { originalTweet, originalAuthor, strategy } = req.body;
+      
+      if (!originalTweet) {
+        return res.status(400).json({ error: "Original tweet text is required" });
+      }
 
+      // Generate reply using the PostcardDrafter's AI methods
+      const { reply, arenaUrl } = await postcardDrafter.generateManualReply(originalTweet, originalAuthor || "someone", strategy || "vibe_scout");
+      
+      res.json({ success: true, reply, arenaUrl });
+    } catch (error) {
+      console.error("Generate reply error:", error);
+      res.status(500).json({ error: "Failed to generate reply" });
+    }
+  });
 
+  // Generate AI Image for Manual Post Creator
+  app.post("/api/generate-image", async (req, res) => {
+    try {
+      const { context, style } = req.body;
+      
+      // Generate image using Pollinations AI
+      const imageUrl = await postcardDrafter.generateManualImage(context || "technology and coding");
+      
+      res.json({ success: true, imageUrl });
+    } catch (error) {
+      console.error("Generate image error:", error);
+      res.status(500).json({ error: "Failed to generate image" });
+    }
+  });
 
 
   app.post("/api/postcard-drafts/:id/regenerate-text", async (req, res) => {

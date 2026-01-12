@@ -819,6 +819,121 @@ Visual theme (2-5 words):` }]
         }
     }
 
+    // Generate reply for Manual Post Creator (used from Campaign Details page)
+    async generateManualReply(originalTweet: string, author: string, strategy: string): Promise<{ reply: string; arenaUrl: string }> {
+        const arenaUrl = this.generateArenaUrl(originalTweet);
+        
+        // Strategy-specific personas with distinct tones and approaches
+        const strategyConfig: Record<string, { persona: string; style: string; focus: string }> = {
+            vibe_scout: {
+                persona: "The Vibe Scout - a friendly senior developer who spots coders needing help",
+                style: "Warm, encouraging, uses casual tech speak. Emojis: 🔍 💡 ⚡",
+                focus: "Acknowledge their struggle, offer the AI Arena as a collaborative debugging tool"
+            },
+            spaghetti_detective: {
+                persona: "The Spaghetti Detective - an expert at untangling messy, chaotic code",
+                style: "Playful but sharp, uses food/detective metaphors. Emojis: 🍝 🔎 🧵",
+                focus: "Reference the complexity of their code problem, promise to help untangle it"
+            },
+            bootcamp_savior: {
+                persona: "The Bootcamp Savior - a patient mentor who helps struggling learners",
+                style: "Nurturing, patient, no jargon. Emojis: 📚 🌟 💪",
+                focus: "Be extra encouraging, acknowledge learning is hard, emphasize getting multiple perspectives"
+            },
+            arena_referee: {
+                persona: "The Arena Referee - an expert at comparing different AI approaches",
+                style: "Authoritative but fun, uses competition metaphors. Emojis: 🥊 🏆 ⚔️",
+                focus: "Emphasize the AI competition aspect, which model will win for their problem"
+            },
+            code_flowchart: {
+                persona: "The Flowchart Wizard - a specialist in visualizing and mapping code logic",
+                style: "Methodical, visual thinker, diagram references. Emojis: 📊 🗺️ 🎨",
+                focus: "Offer to break down their problem visually, map out the logic flow"
+            }
+        };
+        
+        const config = strategyConfig[strategy] || strategyConfig.vibe_scout;
+        
+        try {
+            const response = await genAI.models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: [{
+                    role: 'user',
+                    parts: [{
+                        text: `You are ${config.persona} on Twitter/X.
+
+Style: ${config.style}
+Focus: ${config.focus}
+
+Write a helpful, engaging reply to this tweet from @${author}:
+"${originalTweet}"
+
+CRITICAL REQUIREMENTS:
+1. Be genuinely helpful and match the persona's style
+2. Acknowledge their specific issue in a way that shows you understand
+3. Mention that 4 AI models will compete to help them
+4. YOU MUST include this EXACT link: ${arenaUrl}
+5. Use appropriate emojis for your persona
+6. Keep under 260 characters total (including the link!)
+
+Just output the reply text with the link included, nothing else.`
+                    }]
+                }]
+            });
+            
+            let reply = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+            
+            // Ensure the Arena URL is included (safeguard)
+            if (reply && !reply.includes('x.logic.art')) {
+                reply = reply.trim() + ` ${arenaUrl}`;
+            }
+            
+            return {
+                reply: reply || `Hey @${author}! Interesting challenge. I set up your question for the AI Arena - watch 4 AIs battle it out: ${arenaUrl} 🥊`,
+                arenaUrl
+            };
+        } catch (error) {
+            console.error("Error generating manual reply:", error);
+            return {
+                reply: `Hey @${author}! That's a tricky one. I loaded your question for 4 AI models to compete on: ${arenaUrl} 🥊`,
+                arenaUrl
+            };
+        }
+    }
+
+    // Generate image for Manual Post Creator
+    async generateManualImage(context: string): Promise<string> {
+        try {
+            // Extract a visual theme from the context
+            const themeResponse = await genAI.models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: [{
+                    role: 'user',
+                    parts: [{
+                        text: `Based on this coding/tech context: "${context.substring(0, 200)}"
+                        
+Generate a short image prompt for a tech-themed illustration.
+Focus on: code, algorithms, AI, debugging, programming concepts.
+Style: Modern, professional, abstract tech art.
+Keep it under 50 words. Just output the image prompt, nothing else.`
+                    }]
+                }]
+            });
+            
+            const imagePrompt = themeResponse.candidates?.[0]?.content?.parts?.[0]?.text?.trim() 
+                || "abstract technology visualization with code symbols and neural network patterns";
+            
+            // Use Pollinations AI for image generation
+            const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?nologo=true&width=800&height=450`;
+            
+            return pollinationsUrl;
+        } catch (error) {
+            console.error("Error generating manual image:", error);
+            // Fallback to a generic tech image
+            return `https://image.pollinations.ai/prompt/${encodeURIComponent("abstract coding technology visualization with glowing code symbols")}?nologo=true&width=800&height=450`;
+        }
+    }
+
     async generateReplyText(author: string, location: string, originalText: string): Promise<{ text: string; score: number }> {
         try {
             const systemPrompt = `
