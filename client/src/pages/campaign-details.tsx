@@ -282,6 +282,8 @@ export default function CampaignDetails() {
 
   // Generate AI image for the post
   const generateAIImage = async () => {
+    // Clear existing image first so user sees it's regenerating
+    setManualPost(prev => ({ ...prev, imageUrl: "" }));
     setIsGeneratingImage(true);
     try {
       const response = await fetch("/api/generate-image", {
@@ -297,7 +299,9 @@ export default function CampaignDetails() {
       if (!response.ok) throw new Error("Failed to generate image");
       const data = await response.json();
       
-      setManualPost(prev => ({ ...prev, imageUrl: data.imageUrl }));
+      // Add cache-busting timestamp to force browser to fetch new image
+      const imageUrlWithCache = data.imageUrl + `&t=${Date.now()}`;
+      setManualPost(prev => ({ ...prev, imageUrl: imageUrlWithCache }));
       toast({ title: "Image Generated", description: "AI image is ready" });
     } catch (error) {
       toast({ title: "Error", description: "Failed to generate image", variant: "destructive" });
