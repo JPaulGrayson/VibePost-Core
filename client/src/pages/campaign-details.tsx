@@ -30,7 +30,9 @@ export default function CampaignDetails() {
   const [newPost, setNewPost] = useState({
     content: "",
     template: "custom" as const,
+    imageUrl: "",
   });
+  const quickPostFileRef = useRef<HTMLInputElement>(null);
 
   const [automationResults, setAutomationResults] = useState<any[]>([]);
   const [keywordList, setKeywordList] = useState("vibe coding, app development, AI tools");
@@ -111,7 +113,7 @@ export default function CampaignDetails() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/campaigns/${campaignId}/posts`] });
-      setNewPost({ content: "", template: "custom" });
+      setNewPost({ content: "", template: "custom", imageUrl: "" });
       toast({
         title: "Post added",
         description: "Post has been added to the campaign.",
@@ -376,7 +378,23 @@ export default function CampaignDetails() {
     addPostToCampaign.mutate({
       content: newPost.content,
       template: newPost.template,
+      mediaUrl: newPost.imageUrl || undefined,
+    }, {
+      onSuccess: () => {
+        setNewPost({ content: "", template: "custom", imageUrl: "" });
+      }
     });
+  };
+
+  const handleQuickPostImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewPost(prev => ({ ...prev, imageUrl: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const strategyOptions = [
@@ -797,6 +815,47 @@ export default function CampaignDetails() {
             placeholder="Write a quick post..."
             rows={2}
           />
+          
+          {/* Image Upload for Quick Post */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => quickPostFileRef.current?.click()}
+            >
+              <Upload className="w-4 h-4 mr-1" />
+              Add Image
+            </Button>
+            <input
+              type="file"
+              ref={quickPostFileRef}
+              onChange={handleQuickPostImageUpload}
+              accept="image/*"
+              className="hidden"
+            />
+            {newPost.imageUrl && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setNewPost({ ...newPost, imageUrl: "" })}
+                className="text-red-400"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+          
+          {/* Image Preview */}
+          {newPost.imageUrl && (
+            <div className="mt-2">
+              <img 
+                src={newPost.imageUrl} 
+                alt="Post image" 
+                className="max-w-[200px] rounded-lg border border-slate-600"
+              />
+            </div>
+          )}
+          
           <Button
             size="sm"
             onClick={handleAddPost}
