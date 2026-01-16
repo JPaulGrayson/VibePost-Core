@@ -401,7 +401,7 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         id: 'vibe_scout',
         name: 'Vibe Coding Scout',
         emoji: '🎯',
-        description: 'Find users debating AI model performance - Cage Match reply',
+        description: 'Find users debating AI model performance - Grudge Match reply',
         keywords: [
             // ===== VIBE CODING PLATFORMS =====
             "vibe coding", "vibe coder", "vibecoding",
@@ -431,9 +431,9 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
             negative: ["hiring", "job", "course", "tutorial", "sponsor", "discount", "affiliate", "founder", "CEO", "we're building", "launching", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto]
         },
         replyPersona: {
-            tone: 'Competitive, Fun - "Let\'s settle this in the Cage Match"',
-            hook: 'Position the Cage Match as the ultimate tie-breaker between AI models',
-            templateExample: "I noticed you're debating Claude vs GPT. 🥊 Why not settle it? I just ran a similar problem in the AI Cage Match - the results might surprise you: [Link]"
+            tone: 'Competitive, Fun - "Let\'s settle this in the Grudge Match"',
+            hook: 'Position the Grudge Match as the ultimate tie-breaker between AI models',
+            templateExample: "I noticed you're debating Claude vs GPT. ⚡ Why not settle it? I just ran a similar problem in the AI Grudge Match - the results might surprise you: [Link]"
         },
         replyImage: 'attached_assets/TheWinnerIs_1767810718250.jpg' // Winner Card screenshot
     },

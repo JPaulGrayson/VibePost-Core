@@ -252,7 +252,7 @@ As Chairman, evaluate each response and pick the WINNER based on:
 Provide your official verdict with detailed reasoning (2-3 sentences explaining WHY the winner's response was best).
 
 Reply with JSON only: {"winner": "ModelName", "reasoning": "Your detailed 2-3 sentence explanation as Chairman Judge"}`
-      : `You are the Chairman Judge of the AI Cage Match. Different AI models were asked this question:
+      : `You are the Chairman Judge of the AI Grudge Match. Different AI models were asked this question:
 
 Question: "${context.substring(0, 500)}"
 

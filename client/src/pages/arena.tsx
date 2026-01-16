@@ -96,16 +96,16 @@ export default function ArenaPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-12">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <span className="text-5xl">🥊</span>
+            <span className="text-5xl">⚡</span>
             <h1 className="text-5xl font-bold bg-gradient-to-r from-red-500 via-yellow-400 to-orange-500 bg-clip-text text-transparent" data-testid="title-arena">
-              AI Cage Match
+              AI Grudge Match
             </h1>
-            <span className="text-5xl">🥊</span>
+            <span className="text-5xl">⚡</span>
           </div>
           <p className="text-xl text-gray-300 max-w-2xl mx-auto mb-6">
             {mode === "debug" 
-              ? "4 AI gladiators enter. Only one survives. Who will debug your code best?"
-              : "4 AI titans face off. Watch them battle for the best answer!"
+              ? "4 AI models square off. Which one cracks your code best?"
+              : "4 AI brains go head-to-head. See who gives the best answer!"
             }
           </p>
           
@@ -165,8 +165,8 @@ export default function ArenaPage() {
                   <Loader2 className="h-6 w-6 animate-spin" />
                 ) : (
                   <span className="flex flex-col items-center gap-1">
-                    <span className="text-2xl">🥊</span>
-                    <span>FIGHT!</span>
+                    <span className="text-2xl">⚡</span>
+                    <span>GO!</span>
                   </span>
                 )}
               </Button>
@@ -226,10 +226,10 @@ export default function ArenaPage() {
                 {arenaMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Battling...
+                    Thinking...
                   </>
                 ) : (
-                  <>🥊 LET'S RUMBLE!</>
+                  <>⚡ LET'S GO!</>
                 )}
               </Button>
             </div>
