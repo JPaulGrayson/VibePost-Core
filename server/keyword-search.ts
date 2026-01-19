@@ -51,12 +51,19 @@ export class KeywordSearchEngine {
   private async getTwitterClient(): Promise<TwitterApi | null> {
     try {
       // Get stored Twitter credentials from database
-      // Get stored Twitter credentials from database
       const twitterConnection = await storage.getPlatformConnection("twitter");
       const credentials = twitterConnection?.credentials;
 
-      // Check for env vars first
-      const hasEnvVars = process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET;
+      // Check for env vars first - log which are present (never log values!)
+      const hasApiKey = !!process.env.TWITTER_API_KEY;
+      const hasApiSecret = !!process.env.TWITTER_API_SECRET;
+      const hasAccessToken = !!process.env.TWITTER_ACCESS_TOKEN;
+      const hasAccessSecret = !!process.env.TWITTER_ACCESS_TOKEN_SECRET;
+      const hasDbCreds = credentials && Object.keys(credentials).length > 0;
+      
+      console.log(`🔑 Twitter credentials check: ENV[key:${hasApiKey}, secret:${hasApiSecret}, access:${hasAccessToken}, accessSecret:${hasAccessSecret}] DB[${hasDbCreds}]`);
+      
+      const hasEnvVars = hasApiKey && hasApiSecret;
 
       if ((!twitterConnection || !credentials || Object.keys(credentials).length === 0) && !hasEnvVars) {
         console.log('No stored credentials and no env vars, cannot search X without authentication');
