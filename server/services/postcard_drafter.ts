@@ -268,6 +268,8 @@ export async function generateDraft(
     }
 
     // 2. Generate Image based on campaign
+    // NOTE: Image generation DISABLED for LogicArt during testing to save tokens
+    // Images can be generated on-demand when approving a draft
     let imageUrl = "";
     let imageAttribution: string | null = null;
 
@@ -276,8 +278,9 @@ export async function generateDraft(
         imageUrl = imageResult.imageUrl;
         imageAttribution = imageResult.attribution;
     } else if (campaignType === 'logicart') {
-        // For LogicArt: use a code visualization themed image
-        imageUrl = await drafter.generateLogicArtImage(contextInfo!);
+        // DISABLED: Image generation during hunt to save tokens
+        // imageUrl = await drafter.generateLogicArtImage(contextInfo!);
+        console.log("   📷 Image generation SKIPPED (generate on approval)");
     }
 
     // 2b. Extract Theme

@@ -49,6 +49,11 @@ export class SniperManager {
     private dailyLimit = 500;
     private draftsGeneratedToday = 0;
     private lastResetDate = new Date().getDate();
+    
+    // Per-hunt limit to prevent excessive token usage during testing
+    // Lower this during testing, raise when ready for production
+    private perHuntLimit = 10;
+    private draftsThisHunt = 0;
 
     async startHunting() {
         if (this.isStarted) return;
@@ -245,8 +250,10 @@ export class SniperManager {
             return stats;
         }
         this.isHunting = true;
+        this.draftsThisHunt = 0; // Reset per-hunt counter
 
         console.log("🦅 Sniper Hunting Cycle Started...");
+        console.log(`   📊 Limits: ${this.perHuntLimit}/hunt, ${this.dailyLimit}/day (used: ${this.draftsGeneratedToday})`);
 
         try {
             // 0. Run Janitor
@@ -322,8 +329,15 @@ export class SniperManager {
                         
                         if (created) {
                             this.draftsGeneratedToday++;
+                            this.draftsThisHunt++;
                             stats.draftsCreated++;
-                            console.log(`   ✅ Draft created for @${result.author}`);
+                            console.log(`   ✅ Draft created for @${result.author} (${this.draftsThisHunt}/${this.perHuntLimit} this hunt)`);
+                            
+                            // Check per-hunt limit to save tokens during testing
+                            if (this.draftsThisHunt >= this.perHuntLimit) {
+                                console.log(`   🛑 Per-hunt limit reached (${this.perHuntLimit}). Stopping hunt.`);
+                                break;
+                            }
                         } else {
                             console.log(`   ❌ Draft NOT created for @${result.author} (filtered by intent/spam check)`);
                         }
@@ -349,6 +363,9 @@ export class SniperManager {
 
                         if (!this.checkDailyLimit()) break;
                     }
+                    
+                    // Break out of keyword loop if per-hunt limit reached
+                    if (this.draftsThisHunt >= this.perHuntLimit) break;
                 } catch (error) {
                     console.error(`❌ Error hunting for "${keyword}":`, error);
                     stats.errors++;
@@ -357,6 +374,9 @@ export class SniperManager {
 
                 // Wait 3 seconds between keywords
                 await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                // Also check at keyword level
+                if (this.draftsThisHunt >= this.perHuntLimit) break;
             }
         } catch (error) {
             console.error("Sniper hunt failed:", error);
