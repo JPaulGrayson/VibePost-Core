@@ -21,6 +21,7 @@ import DailyPostcard from "@/pages/daily-postcard";
 import VideoSlideshows from "@/pages/video-slideshows";
 import ThreadTours from "@/pages/thread-tours";
 import Arena from "@/pages/arena";
+import QuackLanding from "@/pages/quack-landing";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -38,6 +39,7 @@ function Router() {
       <Switch>
         <Route path="/arena" component={Arena} />
         <Route path="/x" component={Arena} />
+        <Route path="/quack" component={QuackLanding} />
         <Route component={Landing} />
       </Switch>
     );
