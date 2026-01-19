@@ -65,6 +65,29 @@ import { twitterListener } from "./services/twitter_listener";
 (async () => {
   const server = await registerRoutes(app);
 
+  // Sync Twitter credentials from env vars to database (restore if DB was reset)
+  try {
+    const { storage } = await import("./storage");
+    const twitterCreds = await storage.getPlatformConnection("twitter");
+    const hasDbCreds = twitterCreds?.credentials && Object.keys(twitterCreds.credentials).length > 0;
+    
+    if (!hasDbCreds && process.env.TWITTER_API_KEY && process.env.TWITTER_ACCESS_TOKEN) {
+      console.log("🔄 Syncing Twitter credentials from env vars to database...");
+      await storage.updatePlatformConnection("twitter", {
+        isConnected: true,
+        credentials: {
+          apiKey: process.env.TWITTER_API_KEY,
+          apiSecret: process.env.TWITTER_API_SECRET,
+          accessToken: process.env.TWITTER_ACCESS_TOKEN,
+          accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET
+        }
+      });
+      console.log("✅ Twitter credentials synced to database");
+    }
+  } catch (error) {
+    console.error("Failed to sync Twitter credentials:", error);
+  }
+
   // Start Twitter Listener
   try {
     console.log("Starting Twitter Listener...");
