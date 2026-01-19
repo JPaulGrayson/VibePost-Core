@@ -49,6 +49,7 @@ function Router() {
     <Switch>
       <Route path="/arena" component={Arena} />
       <Route path="/x" component={Arena} />
+      <Route path="/quack" component={QuackLanding} />
       <Route>
         <MainLayout>
           <Switch>
