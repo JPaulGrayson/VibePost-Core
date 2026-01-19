@@ -14,9 +14,18 @@ export default function QuackLanding() {
     }
   }, []);
 
+  const playQuack = () => {
+    const audio = new Audio("https://www.myinstants.com/media/sounds/quack.mp3");
+    audio.volume = 0.5;
+    audio.play().catch(() => {});
+  };
+
   const handleEnter = () => {
+    playQuack();
     localStorage.setItem(QUACK_VISITED_KEY, "true");
-    window.location.href = "https://quack.us.com";
+    setTimeout(() => {
+      window.location.href = "https://quack.us.com";
+    }, 500);
   };
 
   const features = [
