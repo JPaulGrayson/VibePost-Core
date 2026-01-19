@@ -286,13 +286,18 @@ export async function generateDraft(
         : await drafter.extractCodingTheme(tweet.text);
     console.log(`Detected theme: ${theme}`);
 
+    // Determine strategy for LogicArt campaigns BEFORE generating reply
+    // (needed to choose quack.us.com vs x.logic.art link)
+    const activeStrategy = campaignType === 'logicart' ? getActiveLogicArtStrategy() : null;
+
     // 3. Generate Reply Text based on campaign
     console.log("Generating reply text...");
     const { text: draftReplyText, score } = await drafter.generateCampaignReply(
         authorHandle,
         contextInfo!,
         tweet.text,
-        campaignType
+        campaignType,
+        activeStrategy
     );
     console.log(`Generated reply text: ${draftReplyText.substring(0, 20)}... (Score: ${score})`);
 
@@ -310,9 +315,6 @@ export async function generateDraft(
 
     // 5. Save to DB with campaign type
     console.log("Saving draft to DB...");
-    
-    // Determine strategy for LogicArt campaigns (default to current active strategy)
-    const activeStrategy = campaignType === 'logicart' ? getActiveLogicArtStrategy() : null;
     
     try {
         await db.insert(postcardDrafts).values({
@@ -699,19 +701,27 @@ Visual theme (2-5 words):` }]
         author: string,
         context: string,
         originalText: string,
-        campaignType: CampaignType
+        campaignType: CampaignType,
+        strategy: LogicArtStrategy | null = null
     ): Promise<{ text: string; score: number; extractedCode?: string; arenaUrl?: string }> {
         if (campaignType === 'logicart') {
-            // Pre-populate Arena with the user's original tweet/question
-            // This lets them immediately run it through the AI Council when they click
-            const arenaUrl = this.generateArenaUrl(originalText);
+            // Quack Duck strategy uses quack.us.com instead of x.logic.art
+            const isQuackStrategy = strategy === 'quack_duck';
             
-            console.log(`   🔗 Arena URL pre-populated with user's question`);
+            let targetUrl: string;
+            if (isQuackStrategy) {
+                targetUrl = 'https://quack.us.com';
+                console.log(`   🦆 Quack Duck strategy - using quack.us.com`);
+            } else {
+                // Pre-populate Arena with the user's original tweet/question
+                targetUrl = this.generateArenaUrl(originalText);
+                console.log(`   🔗 Arena URL pre-populated with user's question`);
+            }
             
-            const result = await this.generateLogicArtReply(author, context, originalText, arenaUrl);
+            const result = await this.generateLogicArtReply(author, context, originalText, targetUrl, isQuackStrategy);
             return {
                 ...result,
-                arenaUrl
+                arenaUrl: targetUrl
             };
         }
         // Default to Turai travel reply
@@ -719,12 +729,17 @@ Visual theme (2-5 words):` }]
     }
 
     // LogicArt-specific reply generation
-    async generateLogicArtReply(author: string, context: string, originalText: string, arenaUrl?: string): Promise<{ text: string; score: number }> {
+    async generateLogicArtReply(author: string, context: string, originalText: string, arenaUrl?: string, isQuackStrategy: boolean = false): Promise<{ text: string; score: number }> {
         // Use the dynamic URL - it's pre-populated with their question
         const linkToUse = arenaUrl || PostcardDrafter.LOGICART_LINK;
         const isPreloaded = arenaUrl?.includes('q=');
         
         try {
+            // Quack Duck strategy uses different messaging focused on agent-to-agent communication
+            if (isQuackStrategy) {
+                return this.generateQuackDuckReply(author, context, originalText, linkToUse);
+            }
+            
             // When pre-loaded, tell them we've set up their question - they just need to click
             const codeSpecificInstructions = isPreloaded
                 ? `The link already has their question pre-loaded! When they click, they'll see 4 AI models compete to answer.
@@ -814,6 +829,94 @@ Visual theme (2-5 words):` }]
             console.error("Error generating LogicArt reply:", error);
             return {
                 text: `That's a tricky one, @${author}! Your question is ready in the AI Arena - 4 models will battle it out: ${linkToUse} 🥊`,
+                score: 50
+            };
+        }
+    }
+
+    // Quack Duck strategy - focuses on agent-to-agent communication for multi-AI workflows
+    async generateQuackDuckReply(author: string, context: string, originalText: string, quackUrl: string): Promise<{ text: string; score: number }> {
+        try {
+            const systemPrompt = `
+            You are "The Quack Duck" 🦆 - a friendly helper who understands the pain of copying/pasting between AI tools.
+            
+            Your Goal: 
+            1. Analyze the tweet for "Quack Lead Quality" and assign a Score (0-99).
+               - 80-99: Strong Lead. Frustrated with switching between Claude/GPT/Cursor/Replit, multi-tool workflow pain.
+               - 60-79: Moderate Lead. General AI tool discussion, might benefit from better workflows.
+               - 0-59: Weak Lead. Not actually struggling with multi-AI workflows.
+            
+            2. Write a short, helpful reply that:
+               - Acknowledges their multi-AI workflow frustration
+               - Introduces Quack as the solution where AI agents talk directly
+               - Includes the quack.us.com link
+            
+            Rules:
+            1. Tone: Playful, relatable, uses duck references. Key emoji: 🦆 (always include!)
+            2. Other emojis: 🔗 ⚡ 🚀
+            3. Key messaging: "Agents talking to each other" / "No more copy/paste" / "Your AIs can communicate"
+            4. Structure your reply:
+               - Acknowledge their tool-switching frustration
+               - Mention Quack as the solution
+               - Include the link naturally
+            5. Example patterns:
+               - "Sounds like you're waddling between too many AI tabs! 🦆 Quack lets your agents talk directly: [LINK]"
+               - "The clipboard fatigue is real! 🦆 What if your AIs could just... talk to each other? [LINK] 🔗"
+               - "No more copy/paste relay race! 🦆 Quack connects your AI tools so they communicate: [LINK] ⚡"
+            6. **CRITICAL**: You MUST include "[LINK]" placeholder - I will replace it with the actual URL.
+            7. Length: Keep it under 240 characters (Twitter limit with link).
+
+            Output Format: JSON
+            {
+                "score": 85,
+                "reply": "Your example reply with [LINK] placeholder"
+            }
+            `;
+
+            const userPrompt = `Reply to @${author} who tweeted: "${originalText}". Context: ${context}. Return JSON.`;
+
+            const response = await genAI.models.generateContent({
+                model: 'gemini-pro-latest',
+                contents: [{
+                    role: 'user',
+                    parts: [
+                        { text: systemPrompt },
+                        { text: userPrompt }
+                    ]
+                }]
+            });
+
+            const resultText = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+            try {
+                const jsonStr = resultText?.replace(/```json/g, '').replace(/```/g, '').trim();
+                const parsed = JSON.parse(jsonStr || '{}');
+                let replyText = parsed.reply || `The tool-switching struggle is real, @${author}! 🦆 What if your AIs could just talk to each other? [LINK] ⚡`;
+                
+                // Replace [LINK] placeholder with quack.us.com URL
+                if (/\[LINK\]/gi.test(replyText)) {
+                    replyText = replyText.replace(/\[LINK\]/gi, quackUrl);
+                } else {
+                    console.log("   ⚠️ Gemini omitted [LINK] placeholder, appending URL");
+                    replyText = replyText.trim() + ` ${quackUrl}`;
+                }
+                
+                return {
+                    text: replyText,
+                    score: parsed.score || 50
+                };
+            } catch (e) {
+                console.error("Failed to parse Quack Duck AI JSON response:", resultText);
+                return {
+                    text: `The clipboard fatigue is real, @${author}! 🦆 What if your AIs could just talk to each other? ${quackUrl} ⚡`,
+                    score: 50
+                };
+            }
+
+        } catch (error) {
+            console.error("Error generating Quack Duck reply:", error);
+            return {
+                text: `No more copy/paste relay race, @${author}! 🦆 Quack connects your AI tools: ${quackUrl} ⚡`,
                 score: 50
             };
         }
