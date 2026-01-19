@@ -271,13 +271,17 @@ export class SniperManager {
             }
             
             const keywords = this.getKeywords();
-            console.log(`   🎯 Hunting for ${currentCampaign} campaign (${keywords.length} keywords)`);
+            const activeStrategy = currentCampaign === 'logicart' ? getActiveLogicArtStrategy() : null;
+            const strategyConfig = activeStrategy ? LOGICART_STRATEGIES[activeStrategy] : null;
+            const rankingMode = strategyConfig?.rankingMode || 'opportunity';
+            
+            console.log(`   🎯 Hunting for ${currentCampaign} campaign (${keywords.length} keywords, mode: ${rankingMode})`);
 
             for (const keyword of keywords) {
                 stats.keywordsSearched++;
                 try {
-                    // Search for keyword on Twitter
-                    const results = await keywordSearchEngine.searchAllPlatforms(keyword, ['twitter']);
+                    // Search for keyword on Twitter with strategy-specific ranking
+                    const results = await keywordSearchEngine.searchAllPlatforms(keyword, ['twitter'], false, rankingMode);
                     stats.tweetsFound += results.length;
 
                     if (results.length === 0) continue;
@@ -302,8 +306,7 @@ export class SniperManager {
                             author_id: "unknown"
                         };
 
-                        // Check if we're using a special Quote Tweet strategy
-                        const activeStrategy = currentCampaign === 'logicart' ? getActiveLogicArtStrategy() : null;
+                        // Check if we're using a special Quote Tweet strategy (activeStrategy already defined above)
                         let created = false;
                         
                         if (activeStrategy === 'arena_referee') {
@@ -313,7 +316,7 @@ export class SniperManager {
                             // Use Code Flowchart handler (generates flowchart image)
                             created = await generateCodeFlowchartDraft(postObj, result.author);
                         } else {
-                            // Standard reply draft generation
+                            // Standard reply draft generation (includes quack_duck - uses strategy config for actionType)
                             created = await generateDraft(postObj, result.author, currentCampaign);
                         }
                         

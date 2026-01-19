@@ -432,6 +432,7 @@ export default function CampaignDetails() {
     { value: "bootcamp_savior", label: "🎓 Bootcamp Savior", description: "Help learning devs" },
     { value: "arena_referee", label: "🏛️ Arena Referee", description: "AI model comparison" },
     { value: "code_flowchart", label: "📊 Code Flowchart", description: "Visualize code logic" },
+    { value: "quack_duck", label: "🦆 Quack Duck", description: "Promote agent-to-agent comms" },
   ];
 
   const getPlatformBadgeColor = (platform: string) => {

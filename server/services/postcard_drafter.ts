@@ -849,18 +849,41 @@ Visual theme (2-5 words):` }]
                 persona: "The Flowchart Wizard - a specialist in visualizing and mapping code logic",
                 style: "Methodical, visual thinker, diagram references. Emojis: 📊 🗺️ 🎨",
                 focus: "Offer to break down their problem visually, map out the logic flow"
+            },
+            quack_duck: {
+                persona: "The Quack Duck - a friendly helper who hates copy/paste between AI tools",
+                style: "Playful, relatable, uses duck references. Emojis: 🦆 🔗 ⚡",
+                focus: "Relate to their multi-AI frustration, introduce Quack as the solution to clipboard fatigue"
             }
         };
         
         const config = strategyConfig[strategy] || strategyConfig.vibe_scout;
         
-        try {
-            const response = await genAI.models.generateContent({
-                model: 'gemini-2.0-flash',
-                contents: [{
-                    role: 'user',
-                    parts: [{
-                        text: `You are ${config.persona} on Twitter/X.
+        // Use quack.us.com for Quack strategy, Arena URL for others
+        const isQuackStrategy = strategy === 'quack_duck';
+        const linkUrl = isQuackStrategy ? 'https://quack.us.com' : arenaUrl;
+        const linkDomain = isQuackStrategy ? 'quack.us.com' : 'x.logic.art';
+        
+        // Different prompt structure for Quack vs Arena strategies
+        const quackPrompt = `You are ${config.persona} on Twitter/X.
+
+Style: ${config.style}
+Focus: ${config.focus}
+
+Write a helpful, engaging reply to this tweet from @${author}:
+"${originalTweet}"
+
+CRITICAL REQUIREMENTS:
+1. Be genuinely helpful and match the persona's style
+2. Relate to their frustration with switching between AI tools (Claude, GPT, Cursor, Replit, etc.)
+3. Position Quack as the solution - agents can talk directly, no more copy/paste
+4. YOU MUST include this EXACT link: ${linkUrl}
+5. Use appropriate emojis for your persona (🦆 is key!)
+6. Keep under 260 characters total (including the link!)
+
+Just output the reply text with the link included, nothing else.`;
+
+        const arenaPrompt = `You are ${config.persona} on Twitter/X.
 
 Style: ${config.style}
 Focus: ${config.focus}
@@ -872,31 +895,47 @@ CRITICAL REQUIREMENTS:
 1. Be genuinely helpful and match the persona's style
 2. Acknowledge their specific issue in a way that shows you understand
 3. Mention that 4 AI models will compete to help them
-4. YOU MUST include this EXACT link: ${arenaUrl}
+4. YOU MUST include this EXACT link: ${linkUrl}
 5. Use appropriate emojis for your persona
 6. Keep under 260 characters total (including the link!)
 
-Just output the reply text with the link included, nothing else.`
+Just output the reply text with the link included, nothing else.`;
+        
+        try {
+            const response = await genAI.models.generateContent({
+                model: 'gemini-2.0-flash',
+                contents: [{
+                    role: 'user',
+                    parts: [{
+                        text: isQuackStrategy ? quackPrompt : arenaPrompt
                     }]
                 }]
             });
             
             let reply = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
             
-            // Ensure the Arena URL is included (safeguard)
-            if (reply && !reply.includes('x.logic.art')) {
-                reply = reply.trim() + ` ${arenaUrl}`;
+            // Ensure the correct URL is included (safeguard)
+            if (reply && !reply.includes(linkDomain)) {
+                reply = reply.trim() + ` ${linkUrl}`;
             }
             
+            // Strategy-specific fallback messages
+            const fallbackReply = isQuackStrategy 
+                ? `Hey @${author}! Tired of copy/paste between AI tools? 🦆 Quack lets your agents talk directly - Claude to Replit, GPT to Cursor. ${linkUrl}`
+                : `Hey @${author}! Interesting challenge. I set up your question for the AI Arena - watch 4 AIs battle it out: ${linkUrl} 🥊`;
+            
             return {
-                reply: reply || `Hey @${author}! Interesting challenge. I set up your question for the AI Arena - watch 4 AIs battle it out: ${arenaUrl} 🥊`,
-                arenaUrl
+                reply: reply || fallbackReply,
+                arenaUrl: linkUrl
             };
         } catch (error) {
             console.error("Error generating manual reply:", error);
+            const errorFallback = isQuackStrategy
+                ? `Hey @${author}! Stop being a human clipboard! 🦆 Quack connects your AI tools directly: ${linkUrl}`
+                : `Hey @${author}! That's a tricky one. I loaded your question for 4 AI models to compete on: ${linkUrl} 🥊`;
             return {
-                reply: `Hey @${author}! That's a tricky one. I loaded your question for 4 AI models to compete on: ${arenaUrl} 🥊`,
-                arenaUrl
+                reply: errorFallback,
+                arenaUrl: linkUrl
             };
         }
     }

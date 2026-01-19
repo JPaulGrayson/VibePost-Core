@@ -1534,8 +1534,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sniper/strategy", (req, res) => {
     const { strategy } = req.body;
     
-    if (!strategy || !['vibe_scout', 'spaghetti_detective', 'bug_hunter', 'arena_referee', 'code_flowchart'].includes(strategy)) {
-      return res.status(400).json({ error: 'Invalid strategy. Choose: vibe_scout, spaghetti_detective, bug_hunter, arena_referee, or code_flowchart' });
+    if (!strategy || !['vibe_scout', 'spaghetti_detective', 'bug_hunter', 'arena_referee', 'code_flowchart', 'quack_duck'].includes(strategy)) {
+      return res.status(400).json({ error: 'Invalid strategy. Choose: vibe_scout, spaghetti_detective, bug_hunter, arena_referee, code_flowchart, or quack_duck' });
     }
     
     setActiveLogicArtStrategy(strategy as any);

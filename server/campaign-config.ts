@@ -363,7 +363,7 @@ export function calculateCampaignScore(
 export default CAMPAIGN_CONFIGS;
 
 // ============= LOGICART STRATEGY SYSTEM =============
-export type LogicArtStrategy = 'vibe_scout' | 'spaghetti_detective' | 'bug_hunter' | 'arena_referee' | 'code_flowchart';
+export type LogicArtStrategy = 'vibe_scout' | 'spaghetti_detective' | 'bug_hunter' | 'arena_referee' | 'code_flowchart' | 'quack_duck';
 
 export interface StrategyConfig {
     id: string;
@@ -383,6 +383,7 @@ export interface StrategyConfig {
     };
     replyImage?: string; // Optional image to attach to replies
     actionType?: 'reply' | 'quote_tweet'; // Default is 'reply', 'quote_tweet' triggers Quote Tweet flow
+    rankingMode?: 'opportunity' | 'hot'; // 'opportunity' = low replies, 'hot' = high replies (trending)
 }
 
 // Global Safety Rules - tweets matching these patterns should be DISCARDED
@@ -540,6 +541,41 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
             templateExample: "We ran this debate through the AI Council. 🏛️\n\nThe verdict? [Summary]\n\nHere's the full breakdown 👇"
         },
         actionType: 'quote_tweet' // Triggers Quote Tweet flow instead of Reply
+    },
+
+    quack_duck: {
+        id: 'quack_duck',
+        name: 'Quack Duck',
+        emoji: '🦆',
+        description: 'Find devs frustrated with copy/paste between AI tools - promote Quack',
+        keywords: [
+            // ===== INFLUENCER WATCH (from: operators) =====
+            "from:karpathy", "from:levelsio", "from:swyx", "from:sama",
+            "from:skiaborr", "from:amasad", "from:jxnlco",
+            
+            // ===== SINGLE-WORD HIGH VOLUME =====
+            "Claude", "Cursor", "Replit", "Copilot", "Windsurf",
+            "ChatGPT", "GPT4", "Gemini", "Grok", "Anthropic",
+            
+            // ===== VIBE CODING TRENDING =====
+            "vibecoding", "agentic", "MCP",
+            
+            // ===== COPY/PASTE PAIN =====
+            "copy paste AI", "clipboard AI", "switching between AI",
+            "Claude to GPT", "context window"
+        ],
+        intentType: 'Multi-AI Tool Frustration / Copy-Paste Pain',
+        intentSignals: {
+            positive: ["copy", "paste", "switch", "between", "multiple AI", "Claude and", "GPT and", "agents", "MCP", "tool calling", "context", "workflow"],
+            negative: ["hiring", "job", "sponsor", "discount", "affiliate", "founder", "CEO", "we're building", "launching", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto]
+        },
+        replyPersona: {
+            tone: 'Friendly, Problem-Solver - "No more human clipboard"',
+            hook: 'Position Quack as the solution to copy/paste fatigue between AI tools',
+            templateExample: "Tired of being a human clipboard between AI tools? 🦆\n\nQuack lets Claude talk to Replit, GPT talk to Cursor - no copy/paste.\n\nquack.us.com"
+        },
+        actionType: 'quote_tweet', // Quote Tweet for visibility
+        rankingMode: 'hot' // Sort by reply_count to find trending convos
     },
 
     code_flowchart: {

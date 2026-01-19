@@ -357,14 +357,22 @@ export class KeywordSearchEngine {
     throw new Error('Discord search not implemented - requires Discord bot integration with server access');
   }
 
-  async searchAllPlatforms(keyword: string, platforms: string[] = ['twitter', 'reddit'], strictMode: boolean = false): Promise<SearchResult[]> {
+  async searchAllPlatforms(
+    keyword: string, 
+    platforms: string[] = ['twitter', 'reddit'], 
+    strictMode: boolean = false,
+    rankingMode: 'opportunity' | 'hot' = 'opportunity'
+  ): Promise<SearchResult[]> {
     const allResults: SearchResult[] = [];
     const errors: string[] = [];
+    
+    // In 'hot' mode, fetch more results to find trending conversations
+    const maxResults = rankingMode === 'hot' ? 50 : 10;
 
     // Search Twitter if requested
     if (platforms.includes('twitter')) {
       try {
-        const twitterResults = await this.searchTwitter(keyword, 10, strictMode);
+        const twitterResults = await this.searchTwitter(keyword, maxResults, strictMode);
         allResults.push(...twitterResults);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown Twitter error';
@@ -412,8 +420,14 @@ export class KeywordSearchEngine {
     // Deduplicate results by ID (prevent same post from appearing multiple times if cross-posted or fetched twice)
     const uniqueResults = Array.from(new Map(allResults.map(item => [item.id, item])).values());
 
-    // Sort by Relevance Score (descending)
-    return uniqueResults.sort((a, b) => (b.score || 0) - (a.score || 0));
+    // Sort based on ranking mode
+    if (rankingMode === 'hot') {
+      // Hot mode: Sort by reply count (find trending conversations)
+      return uniqueResults.sort((a, b) => (b.metadata?.replies || 0) - (a.metadata?.replies || 0));
+    } else {
+      // Opportunity mode: Sort by relevance score (find unanswered questions)
+      return uniqueResults.sort((a, b) => (b.score || 0) - (a.score || 0));
+    }
   }
 
   async replyToTwitterPost(postId: string, replyText: string): Promise<boolean> {
