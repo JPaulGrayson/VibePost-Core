@@ -40,9 +40,9 @@ export class SniperManager {
             allKeywords = config.keywords;
         }
         
-        // In Hunt All mode, use only 2 keywords per strategy (faster)
-        // In single hunt mode, use 5 keywords
-        const keywordLimit = this.huntAllMode ? 2 : 5;
+        // In Hunt All mode, use only 3 keywords per strategy (faster)
+        // In single hunt mode, use 10 keywords for better coverage
+        const keywordLimit = this.huntAllMode ? 3 : 10;
         return allKeywords.slice(0, keywordLimit);
     }
 

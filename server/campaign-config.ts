@@ -403,13 +403,13 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         emoji: '🎯',
         description: 'Find users debating AI model performance - Grudge Match reply',
         keywords: [
-            // ===== HIGH-VOLUME KEYWORDS (more likely to find tweets) =====
-            "Claude hallucinating", "GPT-4 wrong", "AI gave me bad code",
-            "Copilot not working", "Cursor keeps breaking",
+            // ===== TOP PRIORITY - HIGH VOLUME =====
+            "vibe coding", "Cursor AI", "Claude hallucinating",
+            "Copilot not working", "AI coding",
             
             // ===== VIBE CODING PLATFORMS =====
-            "vibe coding", "vibe coder", "vibecoding",
-            "Cursor AI", "Cursor vs", "Cursor hallucinating", "Cursor agent",
+            "vibe coder", "vibecoding",
+            "Cursor vs", "Cursor agent",
             "Windsurf ai", "Windsurf vs", "Windsurf code",
             "Replit agent", "Replit AI", "Replit ghostwriter",
             "Bolt ai", "Bolt.new", "bolt new",
