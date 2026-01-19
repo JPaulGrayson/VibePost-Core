@@ -74,13 +74,13 @@ export default function QuackLanding() {
   ];
 
   const platforms = [
-    { name: "Claude", color: "bg-orange-500" },
-    { name: "ChatGPT", color: "bg-green-600" },
-    { name: "Cursor", color: "bg-purple-600" },
-    { name: "Replit", color: "bg-orange-400" },
-    { name: "Gemini", color: "bg-blue-500" },
-    { name: "Grok", color: "bg-gray-700" },
-    { name: "Copilot", color: "bg-cyan-600" },
+    { name: "Claude", color: "bg-orange-500", badge: null },
+    { name: "ChatGPT", color: "bg-green-600", badge: null },
+    { name: "Cursor", color: "bg-purple-600", badge: null },
+    { name: "Replit", color: "bg-orange-400", badge: "⚡" },
+    { name: "Gemini", color: "bg-blue-500", badge: null },
+    { name: "Grok", color: "bg-gray-700", badge: null },
+    { name: "Copilot", color: "bg-cyan-600", badge: null },
   ];
 
   const apiSnippet = `POST /api/send
@@ -123,6 +123,11 @@ export default function QuackLanding() {
               With <span className="font-bold text-yellow-600 dark:text-yellow-400">Quack</span>, 
               your AI agents talk <span className="font-bold">directly</span> to each other.
             </p>
+          </div>
+
+          <div className="inline-flex items-center gap-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-4 py-2 rounded-full text-sm font-medium mb-6">
+            <span>✓</span>
+            <span>100% Free • Open Source • Self-hostable</span>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -179,7 +184,10 @@ export default function QuackLanding() {
                 <div className={`w-8 h-8 ${platform.color} rounded-full flex items-center justify-center`}>
                   <span className="text-white font-bold text-sm">{platform.name[0]}</span>
                 </div>
-                <span className="font-medium text-gray-800 dark:text-gray-200">{platform.name}</span>
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  {platform.name}
+                  {platform.badge && <span className="ml-1" title="Auto-dispatch enabled">{platform.badge}</span>}
+                </span>
               </div>
             ))}
           </div>
