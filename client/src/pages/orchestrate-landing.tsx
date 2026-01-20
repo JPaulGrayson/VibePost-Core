@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -17,10 +18,23 @@ import {
   ChevronDown,
   ChevronUp
 } from "lucide-react";
-import { useState } from "react";
+
+const ORCHESTRATE_VISITED_KEY = "orchestrate_landing_visited";
 
 export default function OrchestrateLanding() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  useEffect(() => {
+    const hasVisited = localStorage.getItem(ORCHESTRATE_VISITED_KEY);
+    if (hasVisited) {
+      window.location.href = "https://orchestrate.us.com";
+    }
+  }, []);
+
+  const handleGetOrchestrate = () => {
+    localStorage.setItem(ORCHESTRATE_VISITED_KEY, "true");
+    window.location.href = "https://orchestrate.us.com";
+  };
 
   const bundles = [
     {
@@ -136,7 +150,7 @@ export default function OrchestrateLanding() {
             <Button 
               size="lg" 
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all"
-              onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={handleGetOrchestrate}
             >
               Get Orchestrate
               <Zap className="ml-2 w-5 h-5" />
@@ -533,7 +547,7 @@ export default function OrchestrateLanding() {
                     Priority support
                   </li>
                 </ul>
-                <Button className="w-full mt-6 bg-indigo-600 hover:bg-indigo-700">
+                <Button className="w-full mt-6 bg-indigo-600 hover:bg-indigo-700" onClick={handleGetOrchestrate}>
                   Get Orchestrate
                 </Button>
               </CardContent>
@@ -595,6 +609,7 @@ export default function OrchestrateLanding() {
             <Button 
               size="lg" 
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-6 text-lg rounded-xl shadow-lg"
+              onClick={handleGetOrchestrate}
             >
               Get Orchestrate
               <Zap className="ml-2 w-5 h-5" />
