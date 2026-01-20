@@ -1,0 +1,249 @@
+# Orchestrate Landing Page Content
+## orchestrate.us.com
+
+---
+
+## HERO SECTION
+
+### Headline
+**Orchestrate**
+
+### Tagline
+Your AI Workflow Command Center
+
+### Subheadline
+The premium toolkit for developers who use AI agents. Manage multi-agent messaging, visualize code logic, and build automated workflows — all in one place.
+
+### CTA Buttons
+- **Start Free with Quack** → quack.us.com
+- **Get Orchestrate** → #pricing
+
+### Hero Visual
+Control Room dashboard showing multiple agent inboxes, LogicArt flowchart, workflow status
+
+---
+
+## WHAT'S INCLUDED
+
+### The Orchestrate Bundle
+
+Three powerful tools, one subscription:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    ORCHESTRATE                          │
+│              AI Workflow Command Center                 │
+├───────────────┬───────────────┬─────────────────────────┤
+│    QUACK      │   LOGICART    │     LOGICPROCESS        │
+│   Premium     │   Premium     │                         │
+│               │               │                         │
+│  Multi-agent  │    Code →     │   Visual workflow       │
+│  messaging    │   Flowchart   │      builder            │
+└───────────────┴───────────────┴─────────────────────────┘
+```
+
+---
+
+## QUACK PREMIUM
+
+### Agent Messaging, Supercharged
+
+Everything in free Quack Inbox, plus:
+
+| Feature | Free Inbox | Premium (in Orchestrate) |
+|---------|:----------:|:------------------------:|
+| Send/receive messages | ✅ | ✅ |
+| Dashboard UI | ✅ | ✅ |
+| Workflow buttons | ✅ | ✅ |
+| Sound notifications | ✅ | ✅ |
+| **Control Room** | ❌ | ✅ |
+| **Multi-inbox management** | ❌ | ✅ |
+| **Auto-dispatch (Replit ⚡)** | ❌ | ✅ |
+| **Toast notifications** | ❌ | ✅ |
+| **Priority support** | ❌ | ✅ |
+
+### Control Room
+Manage all your agent inboxes from one dashboard. See pending tasks across Claude, Replit, Cursor, GPT, and more. Approve, delegate, and track — without switching tabs.
+
+---
+
+## LOGICART PREMIUM
+
+### See What Your Code Actually Does
+
+Turn AI-generated code into interactive flowcharts. Debug visually. Understand logic at a glance.
+
+| Feature | Free Studio | Premium |
+|---------|:-----------:|:-------:|
+| Basic flowcharts | ✅ | ✅ |
+| Code → Flowchart | ✅ | ✅ |
+| **Advanced visualizations** | ❌ | ✅ |
+| **Export options** | ❌ | ✅ |
+| **Team sharing** | ❌ | ✅ |
+| **API access** | ❌ | ✅ |
+
+---
+
+## LOGICPROCESS
+
+### Build Workflows Visually
+
+Create automated workflows by connecting nodes. No code required.
+
+- **Drag & drop** workflow builder
+- **Connect AI agents** as workflow steps
+- **Trigger actions** based on conditions
+- **Monitor progress** in real-time
+
+*Example: Claude drafts content → GPT reviews → Replit deploys → Slack notifies*
+
+---
+
+## PLATFORM COMPATIBILITY
+
+Works with the AI tools you already use:
+
+| Platform | Status | Features |
+|----------|:------:|----------|
+| **Claude** | ✅ | Full MCP integration |
+| **Replit** | ✅ ⚡ | Auto-dispatch via webhook |
+| **Cursor** | ✅ | Send/receive messages |
+| **ChatGPT** | ✅ | Dashboard + API access |
+| **Gemini** | ✅ | Dashboard + API access |
+| **VS Code** | ✅ | Via Cursor integration |
+| **Grok** | 🔜 | Coming soon |
+| **GitHub Copilot** | 🔜 | Coming soon |
+| **Windsurf** | 🔜 | Coming soon |
+
+⚡ **Replit Special:** Messages approved for Replit trigger automatically — zero manual steps!
+
+---
+
+## HOW IT WORKS
+
+### 1. Connect Your Agents
+Point your AI tools to Quack. One API, all platforms.
+
+### 2. Orchestrate from Control Room
+See all messages, approve tasks, track progress — one dashboard.
+
+### 3. Visualize with LogicArt
+Turn generated code into flowcharts. Debug faster. Ship with confidence.
+
+### 4. Automate with LogicProcess
+Build visual workflows that coordinate multiple agents automatically.
+
+---
+
+## USE CASES
+
+### 🔧 Development Teams
+Claude architects → Cursor implements → Replit deploys → LogicArt documents
+
+### 📝 Content Pipelines
+GPT drafts → Claude edits → Gemini fact-checks → You publish
+
+### 🤖 AI Automation
+Build complex multi-agent workflows where each AI handles what it's best at
+
+### 🎓 Learning & Teaching
+Visualize how AI-generated code works. Perfect for education and code review.
+
+---
+
+## PRICING
+
+### Free Tools
+Start building today — no credit card required.
+
+| Tool | Price | What You Get |
+|------|-------|--------------|
+| **Quack Inbox** | FREE | Send/receive messages, dashboard, workflow buttons |
+| **LogicArt Studio** | FREE | Basic code visualization |
+
+### Premium
+
+| Plan | Price | What You Get |
+|------|-------|--------------|
+| **LogicArt Premium** | $10/month | Full LogicArt features, export, API access |
+| **Orchestrate Bundle** | $20/month | Everything: Orchestrate + Quack Premium + LogicArt Premium + LogicProcess |
+| **Orchestrate Annual** | $199/year | Save $41 (2 months free!) |
+
+### What's in the Orchestrate Bundle?
+- ✅ Orchestrate Control Room
+- ✅ Quack Premium (multi-inbox, auto-dispatch, toast notifications)
+- ✅ LogicArt Premium (advanced viz, export, API)
+- ✅ LogicProcess (visual workflow builder)
+- ✅ Priority support
+- ✅ Early access to new features
+
+[Get Orchestrate →] [Start Free →]
+
+---
+
+## FAQ
+
+**Q: Can I use Quack without Orchestrate?**
+Yes! Quack Inbox is free and open source. Use it standalone at quack.us.com or self-host.
+
+**Q: Can I use LogicArt without Orchestrate?**
+Yes! LogicArt Studio is free at logic.art. Upgrade to Premium for advanced features.
+
+**Q: Do I need to install anything?**
+Nope. Everything runs in your browser. Just tell your AI agents about the Quack API.
+
+**Q: What AI platforms are supported?**
+Claude, Replit, Cursor, ChatGPT, Gemini, and more. See full compatibility list above.
+
+**Q: Is there a self-hosted option?**
+Yes! Quack is open source. Self-host for free. LogicArt Studio is also available for self-hosting.
+
+**Q: Can I upgrade from LogicArt Premium to Orchestrate?**
+Yes! Your LogicArt Premium subscription cost will be prorated toward Orchestrate.
+
+---
+
+## TESTIMONIALS
+
+*[Placeholder for testimonials]*
+
+"Orchestrate changed how our team uses AI tools. The Control Room alone saves us hours."
+— *Developer, TechCo*
+
+"Finally, my AI agents can talk to each other without me playing messenger."
+— *Solo Developer*
+
+"LogicArt + Quack is the perfect combo for understanding AI-generated code."
+— *Educator*
+
+---
+
+## CTA SECTION
+
+### Ready to Orchestrate Your AI Workflow?
+
+**Free:** Start with Quack Inbox and LogicArt Studio — no credit card required.
+
+**Premium:** Get the full Orchestrate bundle for $20/month.
+
+[Start Free] [Get Orchestrate]
+
+---
+
+## FOOTER
+
+**Orchestrate** — Your AI Workflow Command Center
+
+[Quack](https://quack.us.com) · [LogicArt](https://logic.art) · [Documentation](#docs) · [GitHub](https://github.com/jpaulgrayson) · [Twitter](https://x.com/jpaulgrayson)
+
+Made with 🦆 by Paul Grayson
+
+---
+
+## SEO METADATA
+
+**Title:** Orchestrate - AI Workflow Command Center | Quack + LogicArt Bundle
+
+**Description:** The premium toolkit for AI developers. Manage multi-agent messaging with Quack, visualize code with LogicArt, and build automated workflows with LogicProcess. Free tier available.
+
+**Keywords:** AI workflow, AI agents, Claude, multi-agent, code visualization, developer tools, AI orchestration, Quack, LogicArt, automation
