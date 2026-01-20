@@ -24,12 +24,13 @@ const ORCHESTRATE_VISITED_KEY = "orchestrate_landing_visited";
 export default function OrchestrateLanding() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  useEffect(() => {
-    const hasVisited = localStorage.getItem(ORCHESTRATE_VISITED_KEY);
-    if (hasVisited) {
-      window.location.href = "https://orchestrate.us.com";
-    }
-  }, []);
+  // First-visit redirect disabled until orchestrate.us.com is live
+  // useEffect(() => {
+  //   const hasVisited = localStorage.getItem(ORCHESTRATE_VISITED_KEY);
+  //   if (hasVisited) {
+  //     window.location.href = "https://orchestrate.us.com";
+  //   }
+  // }, []);
 
   const handleGetOrchestrate = () => {
     localStorage.setItem(ORCHESTRATE_VISITED_KEY, "true");
