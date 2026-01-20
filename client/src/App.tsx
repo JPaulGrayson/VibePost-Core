@@ -22,6 +22,7 @@ import VideoSlideshows from "@/pages/video-slideshows";
 import ThreadTours from "@/pages/thread-tours";
 import Arena from "@/pages/arena";
 import QuackLanding from "@/pages/quack-landing";
+import OrchestrateLanding from "@/pages/orchestrate-landing";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -40,6 +41,7 @@ function Router() {
         <Route path="/arena" component={Arena} />
         <Route path="/x" component={Arena} />
         <Route path="/quack" component={QuackLanding} />
+        <Route path="/orchestrate" component={OrchestrateLanding} />
         <Route component={Landing} />
       </Switch>
     );
@@ -50,6 +52,7 @@ function Router() {
       <Route path="/arena" component={Arena} />
       <Route path="/x" component={Arena} />
       <Route path="/quack" component={QuackLanding} />
+      <Route path="/orchestrate" component={OrchestrateLanding} />
       <Route>
         <MainLayout>
           <Switch>
