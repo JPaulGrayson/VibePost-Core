@@ -435,19 +435,19 @@ export default function OrchestrateLanding() {
           
           <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             {/* Free Tier */}
-            <Card className="border-2">
+            <Card className="border-2 bg-white dark:bg-gray-800">
               <CardHeader>
-                <CardTitle className="text-xl">Free Tools</CardTitle>
-                <CardDescription>Get started for free</CardDescription>
+                <CardTitle className="text-xl text-gray-900 dark:text-white">Free Tools</CardTitle>
+                <p className="text-gray-600 dark:text-gray-400">Get started for free</p>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-gray-900 dark:text-white mb-6">$0</div>
                 <ul className="space-y-3">
-                  <li className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                     <Check className="w-4 h-4 text-green-500" />
                     Quack Inbox
                   </li>
-                  <li className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                     <Check className="w-4 h-4 text-green-500" />
                     LogicArt Studio
                   </li>
@@ -463,25 +463,25 @@ export default function OrchestrateLanding() {
             </Card>
 
             {/* LogicArt Premium */}
-            <Card className="border-2 border-purple-200 dark:border-purple-800">
+            <Card className="border-2 border-purple-200 dark:border-purple-800 bg-white dark:bg-gray-800">
               <CardHeader>
-                <CardTitle className="text-xl">LogicArt Premium</CardTitle>
-                <CardDescription>Full visualization power</CardDescription>
+                <CardTitle className="text-xl text-gray-900 dark:text-white">LogicArt Premium</CardTitle>
+                <p className="text-gray-600 dark:text-gray-400">Full visualization power</p>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-gray-900 dark:text-white mb-6">
-                  $10<span className="text-lg font-normal text-gray-500">/month</span>
+                  $10<span className="text-lg font-normal text-gray-600 dark:text-gray-400">/month</span>
                 </div>
                 <ul className="space-y-3">
-                  <li className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                     <Check className="w-4 h-4 text-green-500" />
                     Full LogicArt features
                   </li>
-                  <li className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                     <Check className="w-4 h-4 text-green-500" />
                     Export options
                   </li>
-                  <li className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                     <Check className="w-4 h-4 text-green-500" />
                     API access
                   </li>
@@ -496,39 +496,39 @@ export default function OrchestrateLanding() {
             </Card>
 
             {/* Orchestrate Bundle */}
-            <Card className="border-2 border-indigo-400 dark:border-indigo-600 relative overflow-hidden">
+            <Card className="border-2 border-indigo-400 dark:border-indigo-600 relative overflow-hidden bg-white dark:bg-gray-800">
               <div className="absolute top-0 right-0 bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
                 BEST VALUE
               </div>
               <CardHeader>
-                <CardTitle className="text-xl">Orchestrate Bundle</CardTitle>
-                <CardDescription>Everything included</CardDescription>
+                <CardTitle className="text-xl text-gray-900 dark:text-white">Orchestrate Bundle</CardTitle>
+                <p className="text-gray-600 dark:text-gray-400">Everything included</p>
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                  $20<span className="text-lg font-normal text-gray-500">/month</span>
+                  $20<span className="text-lg font-normal text-gray-600 dark:text-gray-400">/month</span>
                 </div>
                 <p className="text-sm text-green-600 dark:text-green-400 mb-4">
                   or $199/year (save $41!)
                 </p>
                 <ul className="space-y-3">
-                  <li className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                     <Check className="w-4 h-4 text-green-500" />
                     Orchestrate Control Room
                   </li>
-                  <li className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                     <Check className="w-4 h-4 text-green-500" />
                     Quack Premium
                   </li>
-                  <li className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                     <Check className="w-4 h-4 text-green-500" />
                     LogicArt Premium
                   </li>
-                  <li className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                     <Check className="w-4 h-4 text-green-500" />
                     LogicProcess
                   </li>
-                  <li className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  <li className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                     <Check className="w-4 h-4 text-green-500" />
                     Priority support
                   </li>
