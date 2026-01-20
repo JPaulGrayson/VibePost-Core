@@ -8,6 +8,10 @@ const QUACK_VISITED_KEY = "quack_landing_visited";
 
 export default function QuackLanding() {
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isPreview = params.get("preview") === "1";
+    if (isPreview) return; // Skip redirect for reviewers
+    
     const hasVisited = localStorage.getItem(QUACK_VISITED_KEY);
     if (hasVisited) {
       window.location.href = "https://quack.us.com";

@@ -25,6 +25,10 @@ export default function OrchestrateLanding() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isPreview = params.get("preview") === "1";
+    if (isPreview) return; // Skip redirect for reviewers
+    
     const hasVisited = localStorage.getItem(ORCHESTRATE_VISITED_KEY);
     if (hasVisited) {
       window.location.href = "https://orchestrate.us.com";
