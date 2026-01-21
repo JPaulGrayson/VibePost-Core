@@ -572,7 +572,7 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         replyPersona: {
             tone: 'Friendly, Problem-Solver - "No more human clipboard"',
             hook: 'Position Quack as the solution to copy/paste fatigue between AI tools',
-            templateExample: "Tired of being a human clipboard between AI tools? 🦆\n\nQuack lets Claude talk to Replit, GPT talk to Cursor - no copy/paste.\n\nquack.us.com"
+            templateExample: "Tired of being a human clipboard between AI tools? 🦆\n\nQuack lets Claude talk to Replit, GPT talk to Cursor - no copy/paste.\n\nx.quack.us.com"
         },
         actionType: 'quote_tweet', // Quote Tweet for visibility
         rankingMode: 'hot' // Sort by reply_count to find trending convos

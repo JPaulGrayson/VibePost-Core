@@ -37,6 +37,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   app.use("/generated-images", express.static(generatedImagesDir));
   
+  // Host-based routing for custom domains (x.quack.us.com, x.orchestrate.us.com)
+  app.use((req, res, next) => {
+    const host = req.hostname.toLowerCase();
+    
+    // x.quack.us.com -> redirect to /quack landing page
+    if (host === 'x.quack.us.com' && req.path === '/') {
+      return res.redirect('/quack');
+    }
+    
+    // x.orchestrate.us.com -> redirect to /orchestrate landing page  
+    if (host === 'x.orchestrate.us.com' && req.path === '/') {
+      return res.redirect('/orchestrate');
+    }
+    
+    next();
+  });
+  
   // Simple authentication middleware
   const isAuthenticated = (req: any, res: any, next: any) => {
     // For now, always allow through for demo purposes

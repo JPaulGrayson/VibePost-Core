@@ -290,7 +290,7 @@ export async function generateDraft(
     console.log(`Detected theme: ${theme}`);
 
     // Determine strategy for LogicArt campaigns BEFORE generating reply
-    // (needed to choose quack.us.com vs x.logic.art link)
+    // (needed to choose x.quack.us.com vs x.logic.art link)
     const activeStrategy = campaignType === 'logicart' ? getActiveLogicArtStrategy() : null;
 
     // 3. Generate Reply Text based on campaign
@@ -481,6 +481,10 @@ export class PostcardDrafter {
     
     // Arena URL for replies - custom domain with A record preserves ?q= parameter
     public static readonly ARENA_URL = "https://x.logic.art/x";
+    
+    // Quack and Orchestrate product URLs - landing pages with first-visit tracking
+    private static readonly QUACK_URL = "https://x.quack.us.com";
+    private static readonly ORCHESTRATE_URL = "https://x.orchestrate.us.com";
 
     // Extract code snippet from a tweet
     extractCodeFromTweet(text: string): string | null {
@@ -708,13 +712,13 @@ Visual theme (2-5 words):` }]
         strategy: LogicArtStrategy | null = null
     ): Promise<{ text: string; score: number; extractedCode?: string; arenaUrl?: string }> {
         if (campaignType === 'logicart') {
-            // Quack Duck strategy uses quack.us.com instead of x.logic.art
+            // Quack Duck strategy uses x.quack.us.com instead of x.logic.art
             const isQuackStrategy = strategy === 'quack_duck';
             
             let targetUrl: string;
             if (isQuackStrategy) {
-                targetUrl = 'https://quack.us.com';
-                console.log(`   🦆 Quack Duck strategy - using quack.us.com`);
+                targetUrl = PostcardDrafter.QUACK_URL;
+                console.log(`   🦆 Quack Duck strategy - using x.quack.us.com`);
             } else {
                 // Pre-populate Arena with the user's original tweet/question
                 targetUrl = this.generateArenaUrl(originalText);
@@ -852,7 +856,7 @@ Visual theme (2-5 words):` }]
             2. Write a short, helpful reply that:
                - Acknowledges their multi-AI workflow frustration
                - Introduces Quack as the solution where AI agents talk directly
-               - Includes the quack.us.com link
+               - Includes the x.quack.us.com link
             
             Rules:
             1. Tone: Playful, relatable, uses duck references. Key emoji: 🦆 (always include!)
@@ -896,7 +900,7 @@ Visual theme (2-5 words):` }]
                 const parsed = JSON.parse(jsonStr || '{}');
                 let replyText = parsed.reply || `The tool-switching struggle is real, @${author}! 🦆 What if your AIs could just talk to each other? [LINK] ⚡`;
                 
-                // Replace [LINK] placeholder with quack.us.com URL
+                // Replace [LINK] placeholder with x.quack.us.com URL
                 if (/\[LINK\]/gi.test(replyText)) {
                     replyText = replyText.replace(/\[LINK\]/gi, quackUrl);
                 } else {
@@ -965,10 +969,10 @@ Visual theme (2-5 words):` }]
         
         const config = strategyConfig[strategy] || strategyConfig.vibe_scout;
         
-        // Use quack.us.com for Quack strategy, Arena URL for others
+        // Use x.quack.us.com for Quack strategy, Arena URL for others
         const isQuackStrategy = strategy === 'quack_duck';
-        const linkUrl = isQuackStrategy ? 'https://quack.us.com' : arenaUrl;
-        const linkDomain = isQuackStrategy ? 'quack.us.com' : 'x.logic.art';
+        const linkUrl = isQuackStrategy ? PostcardDrafter.QUACK_URL : arenaUrl;
+        const linkDomain = isQuackStrategy ? 'x.quack.us.com' : 'x.logic.art';
         
         // Different prompt structure for Quack vs Arena strategies
         const quackPrompt = `You are ${config.persona} on Twitter/X.
