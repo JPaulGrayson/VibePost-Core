@@ -7,16 +7,16 @@ import { SiOpenai, SiGoogle } from "react-icons/si";
 const QUACK_VISITED_KEY = "quack_landing_visited";
 
 export default function QuackLanding() {
-  // First-visit redirect temporarily disabled for testing
-  // useEffect(() => {
-  //   const params = new URLSearchParams(window.location.search);
-  //   const isPreview = params.get("preview") === "1";
-  //   if (isPreview) return;
-  //   const hasVisited = localStorage.getItem(QUACK_VISITED_KEY);
-  //   if (hasVisited) {
-  //     window.location.href = "https://quack.us.com";
-  //   }
-  // }, []);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isPreview = params.get("preview") === "1";
+    if (isPreview) return;
+    
+    const hasVisited = localStorage.getItem(QUACK_VISITED_KEY);
+    if (hasVisited) {
+      window.location.href = "https://quack.us.com";
+    }
+  }, []);
 
   const playQuack = () => {
     const audio = new Audio("https://www.myinstants.com/media/sounds/quack.mp3");
