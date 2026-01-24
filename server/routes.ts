@@ -39,15 +39,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Host-based routing for custom domains (x.quack.us.com, x.orchestrate.us.com)
   app.use((req, res, next) => {
-    const host = req.hostname.toLowerCase();
+    const host = req.hostname?.toLowerCase() || '';
+    const xForwardedHost = (req.headers['x-forwarded-host'] as string)?.toLowerCase() || '';
+    const hostHeader = (req.headers['host'] as string)?.toLowerCase() || '';
+    
+    // Log for debugging
+    console.log(`🔗 Host check - hostname: ${host}, x-forwarded-host: ${xForwardedHost}, host header: ${hostHeader}, path: ${req.path}`);
+    
+    // Check all possible host sources for custom domains
+    const effectiveHost = xForwardedHost || hostHeader || host;
     
     // x.quack.us.com -> redirect to /quack landing page
-    if (host === 'x.quack.us.com' && req.path === '/') {
+    if (effectiveHost.includes('x.quack.us.com') && req.path === '/') {
+      console.log('   ➡️ Redirecting to /quack');
       return res.redirect('/quack');
     }
     
     // x.orchestrate.us.com -> redirect to /orchestrate landing page  
-    if (host === 'x.orchestrate.us.com' && req.path === '/') {
+    if (effectiveHost.includes('x.orchestrate.us.com') && req.path === '/') {
+      console.log('   ➡️ Redirecting to /orchestrate');
       return res.redirect('/orchestrate');
     }
     
