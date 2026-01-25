@@ -1,3 +1,4 @@
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -14,6 +15,35 @@ import {
 export default function WizardLanding() {
   // No automatic redirect - let users always see the Wizard landing page
   // They can click on any product to go to that app
+
+  const [quackFeedback, setQuackFeedback] = useState<{ x: number; y: number } | null>(null);
+  const lastQuackTime = useRef(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const playQuack = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const now = Date.now();
+    // 400ms cooldown
+    if (now - lastQuackTime.current < 400) return;
+    lastQuackTime.current = now;
+
+    // Get click position relative to the container
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top - 30; // Offset above click point
+
+    // Show visual feedback
+    setQuackFeedback({ x, y });
+    setTimeout(() => setQuackFeedback(null), 800);
+
+    // Play sound
+    if (!audioRef.current) {
+      audioRef.current = new Audio('https://quack.us.com/sounds/receive.mp3');
+    }
+    audioRef.current.currentTime = 0;
+    audioRef.current.play().catch(() => {
+      console.log('Audio play blocked');
+    });
+  }, []);
 
   const handleGetStarted = (url: string) => {
     window.location.href = url;
@@ -96,15 +126,47 @@ export default function WizardLanding() {
             </p>
           </div>
 
-          {/* Architecture Diagram */}
-          <div className="mt-12">
+          {/* Architecture Diagram - Click the ducks to quack! */}
+          <div className="mt-12 relative">
             <img
               src="/images/wizard-architecture.jpg"
               alt="Wizard of Quack - How AI agents communicate"
               className="max-w-4xl mx-auto rounded-2xl shadow-2xl border border-white/20"
             />
+
+            {/* Invisible click zone for the ducks at the bottom */}
+            <div
+              className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-full h-[18%] cursor-pointer hover:bg-yellow-400/5 transition-all rounded-b-2xl"
+              onClick={playQuack}
+              title="🦆 Click the ducks to quack!"
+              role="button"
+              aria-label="Play quack sound"
+            />
+
+            {/* Quack feedback bubble */}
+            {quackFeedback && (
+              <div
+                className="absolute pointer-events-none text-2xl animate-bounce"
+                style={{
+                  left: quackFeedback.x,
+                  top: quackFeedback.y,
+                  animation: 'quackBubble 0.8s ease-out forwards'
+                }}
+              >
+                🦆 Quack!
+              </div>
+            )}
+
+            <style>{`
+              @keyframes quackBubble {
+                0% { opacity: 1; transform: translateY(0) scale(1); }
+                50% { opacity: 1; transform: translateY(-30px) scale(1.2); }
+                100% { opacity: 0; transform: translateY(-60px) scale(0.8); }
+              }
+            `}</style>
+
             <p className="text-center text-gray-400 mt-4 text-sm">
-              One wizard. Many agents. Zero copy-paste.
+              One wizard. Many agents. Zero copy-paste. <span className="text-yellow-400 ml-2">(Click the ducks! 🦆)</span>
             </p>
           </div>
         </div>
