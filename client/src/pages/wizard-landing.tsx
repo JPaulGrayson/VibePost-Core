@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  ArrowRight, 
+import {
+  ArrowRight,
   Sparkles,
   Wand2,
   MessageSquare,
@@ -19,7 +19,7 @@ export default function WizardLanding() {
     const params = new URLSearchParams(window.location.search);
     const isPreview = params.get("preview") === "1";
     if (isPreview) return;
-    
+
     const hasVisited = localStorage.getItem(WIZARD_VISITED_KEY);
     if (hasVisited) {
       window.location.href = "https://quack.us.com";
@@ -80,27 +80,39 @@ export default function WizardLanding() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-950">
       <div className="container mx-auto px-4 py-12 max-w-6xl">
-        
+
         <div className="text-center mb-16">
           <div className="inline-flex items-center justify-center mb-6 relative">
             <span className="text-8xl">🧙‍♂️</span>
             <span className="text-6xl absolute -right-4 -bottom-2">🦆</span>
           </div>
-          
+
           <h1 className="text-5xl md:text-7xl font-bold text-white mb-4">
             Wizard of Quack
           </h1>
-          
+
           <p className="text-2xl md:text-3xl text-yellow-400 font-semibold mb-6">
             <Sparkles className="inline w-6 h-6 mr-2" />
             AI Agent Magic, Simplified
             <Sparkles className="inline w-6 h-6 ml-2" />
           </p>
-          
+
           <div className="max-w-3xl mx-auto mb-8">
             <p className="text-xl text-gray-300">
-              A suite of tools for developers who vibe with AI. 
+              A suite of tools for developers who vibe with AI.
               Make your agents communicate, visualize their code, and orchestrate workflows — like magic.
+            </p>
+          </div>
+
+          {/* Architecture Diagram */}
+          <div className="mt-12">
+            <img
+              src="/images/wizard-architecture.jpg"
+              alt="Wizard of Quack - How AI agents communicate"
+              className="max-w-4xl mx-auto rounded-2xl shadow-2xl border border-white/20"
+            />
+            <p className="text-center text-gray-400 mt-4 text-sm">
+              One wizard. Many agents. Zero copy-paste.
             </p>
           </div>
         </div>
@@ -130,11 +142,11 @@ export default function WizardLanding() {
           <p className="text-center text-gray-400 mb-10">
             Start free, upgrade when you need more power
           </p>
-          
+
           <div className="grid md:grid-cols-3 gap-6">
             {products.map((product) => (
-              <Card 
-                key={product.name} 
+              <Card
+                key={product.name}
                 className={`bg-gray-900/80 backdrop-blur border-2 ${product.borderColor} ${product.premium ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-indigo-950' : ''}`}
               >
                 <CardHeader>
@@ -166,15 +178,15 @@ export default function WizardLanding() {
                     ))}
                   </ul>
                   <div className="space-y-2">
-                    <Button 
+                    <Button
                       className={`w-full ${product.color} hover:opacity-90 text-white font-bold`}
                       onClick={() => handleGetStarted(product.url)}
                     >
                       {product.cta}
                       <ArrowRight className="ml-2 w-4 h-4" />
                     </Button>
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       className="w-full text-gray-400 hover:text-white hover:bg-white/10"
                       onClick={() => window.open(product.landingUrl + "?preview=1", "_blank")}
                     >
@@ -198,7 +210,7 @@ export default function WizardLanding() {
             <p className="text-gray-300 mb-6">
               <strong className="text-white">Already using multiple AI tools daily?</strong> Go straight to <span className="text-indigo-400 font-bold">Orchestrate</span> — you'll save hours every week.
             </p>
-            <Button 
+            <Button
               size="lg"
               className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold px-8 py-6 text-lg rounded-xl shadow-lg"
               onClick={() => handleGetStarted("https://quack.us.com")}
@@ -220,6 +232,7 @@ export default function WizardLanding() {
             <span className="bg-white/10 px-4 py-2 rounded-lg">ChatGPT</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">Gemini</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">VS Code</span>
+            <span className="bg-white/10 px-4 py-2 rounded-lg">Antigravity</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg text-gray-500">Grok 🔜</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg text-gray-500">Copilot 🔜</span>
           </div>

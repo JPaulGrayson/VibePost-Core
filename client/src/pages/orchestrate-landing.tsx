@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  ArrowRight, 
-  ExternalLink, 
-  Check, 
-  X, 
-  Zap, 
+import {
+  ArrowRight,
+  ExternalLink,
+  Check,
+  X,
+  Zap,
   Clock,
   Inbox,
   GitBranch,
@@ -28,7 +28,7 @@ export default function OrchestrateLanding() {
     const params = new URLSearchParams(window.location.search);
     const isPreview = params.get("preview") === "1";
     if (isPreview) return;
-    
+
     const hasVisited = localStorage.getItem(ORCHESTRATE_VISITED_KEY);
     if (hasVisited) {
       window.location.href = "https://orchestrate.us.com";
@@ -49,7 +49,7 @@ export default function OrchestrateLanding() {
     },
     {
       name: "LOGICART",
-      subtitle: "Premium", 
+      subtitle: "Premium",
       description: "Code → Flowchart",
       color: "bg-purple-500",
     },
@@ -92,6 +92,7 @@ export default function OrchestrateLanding() {
     { name: "Grok", status: "coming", features: "Coming soon" },
     { name: "GitHub Copilot", status: "coming", features: "Coming soon" },
     { name: "Windsurf", status: "coming", features: "Coming soon" },
+    { name: "Antigravity", status: "available", features: "Full agent integration" },
   ];
 
   const howItWorks = [
@@ -119,40 +120,46 @@ export default function OrchestrateLanding() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-indigo-900/20">
+      {/* Ecosystem Breadcrumb */}
+      <div className="bg-gradient-to-r from-yellow-500/20 to-purple-500/20 text-center py-2 border-b border-yellow-500/20">
+        <a href="https://wizardofquack.com" className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
+          🧙‍♂️ Part of the Wizard of Quack Suite
+        </a>
+      </div>
       <div className="container mx-auto px-4 py-12 max-w-6xl">
-        
+
         {/* Hero Section */}
         <div className="text-center mb-20">
           <div className="inline-flex items-center justify-center mb-6">
             <span className="text-7xl">🎛️</span>
           </div>
-          
+
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-4">
             Orchestrate
           </h1>
-          
+
           <p className="text-2xl md:text-3xl text-indigo-600 dark:text-indigo-400 font-semibold mb-6">
             Your AI Workflow Command Center
           </p>
-          
+
           <div className="max-w-3xl mx-auto mb-8">
             <p className="text-lg text-gray-600 dark:text-gray-300">
-              The premium toolkit for developers who use AI agents. Manage multi-agent messaging, 
+              The premium toolkit for developers who use AI agents. Manage multi-agent messaging,
               visualize code logic, and build automated workflows — all in one place.
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all"
               onClick={() => window.open("https://quack.us.com", "_blank")}
             >
               Start Free with Quack
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all"
               onClick={handleGetOrchestrate}
             >
@@ -170,7 +177,7 @@ export default function OrchestrateLanding() {
           <p className="text-center text-gray-600 dark:text-gray-300 mb-8">
             Three powerful tools, one subscription
           </p>
-          
+
           <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-indigo-200 dark:border-indigo-800 overflow-hidden shadow-xl">
             <div className="bg-indigo-600 text-white text-center py-4">
               <h3 className="text-2xl font-bold">ORCHESTRATE</h3>
@@ -204,7 +211,7 @@ export default function OrchestrateLanding() {
           <p className="text-center text-xl text-yellow-600 dark:text-yellow-400 font-semibold mb-8">
             Agent Messaging, Supercharged
           </p>
-          
+
           <div className="bg-white dark:bg-gray-800 rounded-xl border shadow-lg overflow-hidden max-w-3xl mx-auto">
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-700">
@@ -232,7 +239,7 @@ export default function OrchestrateLanding() {
               </tbody>
             </table>
           </div>
-          
+
           <div className="mt-8 max-w-3xl mx-auto">
             <Card className="border-2 border-yellow-400 bg-white dark:bg-gray-800">
               <CardHeader>
@@ -243,7 +250,7 @@ export default function OrchestrateLanding() {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-700 dark:text-gray-200">
-                  Manage all your agent inboxes from one dashboard. See pending tasks across Claude, Replit, Cursor, GPT, and more. 
+                  Manage all your agent inboxes from one dashboard. See pending tasks across Claude, Replit, Cursor, GPT, and more.
                   Approve, delegate, and track — without switching tabs.
                 </p>
               </CardContent>
@@ -262,11 +269,11 @@ export default function OrchestrateLanding() {
           <p className="text-center text-xl text-purple-600 dark:text-purple-400 font-semibold mb-8">
             See What Your Code Actually Does
           </p>
-          
+
           <p className="text-center text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
             Turn AI-generated code into interactive flowcharts. Debug visually. Understand logic at a glance.
           </p>
-          
+
           <div className="bg-white dark:bg-gray-800 rounded-xl border shadow-lg overflow-hidden max-w-3xl mx-auto">
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-700">
@@ -307,11 +314,11 @@ export default function OrchestrateLanding() {
           <p className="text-center text-xl text-blue-600 dark:text-blue-400 font-semibold mb-8">
             Build Workflows Visually
           </p>
-          
+
           <p className="text-center text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto">
             Create automated workflows by connecting nodes. No code required.
           </p>
-          
+
           <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
             <div className="flex items-start gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl border">
               <GitBranch className="w-6 h-6 text-blue-500 flex-shrink-0 mt-1" />
@@ -342,7 +349,7 @@ export default function OrchestrateLanding() {
               </div>
             </div>
           </div>
-          
+
           <div className="mt-6 text-center">
             <p className="text-gray-500 dark:text-gray-400 italic">
               Example: Claude drafts content → GPT reviews → Replit deploys → Slack notifies
@@ -358,7 +365,7 @@ export default function OrchestrateLanding() {
           <p className="text-center text-gray-600 dark:text-gray-300 mb-8">
             Works with the AI tools you already use
           </p>
-          
+
           <div className="bg-white dark:bg-gray-800 rounded-xl border shadow-lg overflow-hidden max-w-3xl mx-auto">
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-700">
@@ -390,7 +397,7 @@ export default function OrchestrateLanding() {
               </tbody>
             </table>
           </div>
-          
+
           <div className="mt-6 text-center">
             <p className="text-orange-600 dark:text-orange-400 font-medium">
               ⚡ <strong>Replit Special:</strong> Messages approved for Replit trigger automatically — zero manual steps!
@@ -403,7 +410,7 @@ export default function OrchestrateLanding() {
           <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-12">
             How It Works
           </h2>
-          
+
           <div className="grid md:grid-cols-4 gap-6">
             {howItWorks.map((item) => (
               <div key={item.step} className="text-center">
@@ -422,7 +429,7 @@ export default function OrchestrateLanding() {
           <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-12">
             Use Cases
           </h2>
-          
+
           <div className="grid md:grid-cols-2 gap-6">
             {useCases.map((useCase) => (
               <Card key={useCase.title} className="hover:shadow-lg transition-shadow">
@@ -450,7 +457,7 @@ export default function OrchestrateLanding() {
           <p className="text-center text-gray-600 dark:text-gray-300 mb-12">
             Start building today — no credit card required
           </p>
-          
+
           <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             {/* Free Tier */}
             <Card className="border-2 bg-white dark:bg-gray-800">
@@ -470,8 +477,8 @@ export default function OrchestrateLanding() {
                     LogicArt Studio
                   </li>
                 </ul>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="w-full mt-6"
                   onClick={() => window.open("https://quack.us.com", "_blank")}
                 >
@@ -504,7 +511,7 @@ export default function OrchestrateLanding() {
                     API access
                   </li>
                 </ul>
-                <Button 
+                <Button
                   className="w-full mt-6 bg-purple-600 hover:bg-purple-700"
                   onClick={() => window.open("https://logic.art", "_blank")}
                 >
@@ -564,10 +571,10 @@ export default function OrchestrateLanding() {
           <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-12">
             FAQ
           </h2>
-          
+
           <div className="max-w-2xl mx-auto space-y-4">
             {faqs.map((faq, index) => (
-              <div 
+              <div
                 key={index}
                 className="bg-white dark:bg-gray-800 rounded-xl border overflow-hidden"
               >
@@ -602,16 +609,16 @@ export default function OrchestrateLanding() {
             <strong>Premium:</strong> Get the full Orchestrate bundle for $20/month.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               variant="outline"
               className="px-8 py-6 text-lg rounded-xl border-2"
               onClick={() => window.open("https://quack.us.com", "_blank")}
             >
               Start Free
             </Button>
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-6 text-lg rounded-xl shadow-lg"
               onClick={handleGetOrchestrate}
             >
