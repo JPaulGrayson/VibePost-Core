@@ -53,7 +53,7 @@ export default function WizardLanding() {
       borderColor: "border-purple-400",
       features: ["Code → Flowchart", "Visual debugging", "Export & share"],
       url: "https://logic.art",
-      landingUrl: "https://x.logic.art",
+      landingUrl: "https://logic.art/landing.html",
       cta: "Try LogicArt Free"
     },
     {
