@@ -234,15 +234,15 @@ export default function OrchestrateLanding() {
           </div>
           
           <div className="mt-8 max-w-3xl mx-auto">
-            <Card className="border-2 border-yellow-200 dark:border-yellow-800">
+            <Card className="border-2 border-yellow-400 bg-white dark:bg-gray-800">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                   <Inbox className="w-6 h-6 text-yellow-500" />
                   Control Room
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="text-gray-700 dark:text-gray-200">
                   Manage all your agent inboxes from one dashboard. See pending tasks across Claude, Replit, Cursor, GPT, and more. 
                   Approve, delegate, and track — without switching tabs.
                 </p>
