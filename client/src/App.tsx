@@ -23,6 +23,7 @@ import ThreadTours from "@/pages/thread-tours";
 import Arena from "@/pages/arena";
 import QuackLanding from "@/pages/quack-landing";
 import OrchestrateLanding from "@/pages/orchestrate-landing";
+import WizardLanding from "@/pages/wizard-landing";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -42,13 +43,14 @@ function Router() {
         <Route path="/x" component={Arena} />
         <Route path="/quack" component={QuackLanding} />
         <Route path="/orchestrate" component={OrchestrateLanding} />
+        <Route path="/wizard" component={WizardLanding} />
         <Route component={Landing} />
       </Switch>
     );
   }
 
   // Public landing pages (no layout wrapper)
-  const publicPages = ["/arena", "/x", "/quack", "/orchestrate"];
+  const publicPages = ["/arena", "/x", "/quack", "/orchestrate", "/wizard"];
   const currentPath = window.location.pathname;
   
   if (publicPages.includes(currentPath)) {
@@ -58,6 +60,7 @@ function Router() {
         <Route path="/x" component={Arena} />
         <Route path="/quack" component={QuackLanding} />
         <Route path="/orchestrate" component={OrchestrateLanding} />
+        <Route path="/wizard" component={WizardLanding} />
       </Switch>
     );
   }

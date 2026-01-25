@@ -61,6 +61,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.redirect('/orchestrate');
     }
     
+    // wizardofquack.com -> redirect to /wizard landing page  
+    if (effectiveHost.includes('wizardofquack.com') && req.path === '/') {
+      console.log('   ➡️ Redirecting to /wizard');
+      return res.redirect('/wizard');
+    }
+    
     next();
   });
   
