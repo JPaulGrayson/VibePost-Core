@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -12,22 +11,11 @@ import {
   CheckCircle2
 } from "lucide-react";
 
-const WIZARD_VISITED_KEY = "wizard_landing_visited";
-
 export default function WizardLanding() {
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const isPreview = params.get("preview") === "1";
-    if (isPreview) return;
-
-    const hasVisited = localStorage.getItem(WIZARD_VISITED_KEY);
-    if (hasVisited) {
-      window.location.href = "https://quack.us.com";
-    }
-  }, []);
+  // No automatic redirect - let users always see the Wizard landing page
+  // They can click on any product to go to that app
 
   const handleGetStarted = (url: string) => {
-    localStorage.setItem(WIZARD_VISITED_KEY, "true");
     window.location.href = url;
   };
 
