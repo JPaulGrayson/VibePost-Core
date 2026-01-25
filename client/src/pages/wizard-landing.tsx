@@ -83,8 +83,12 @@ export default function WizardLanding() {
 
         <div className="text-center mb-16">
           <div className="inline-flex items-center justify-center mb-6 relative">
-            <span className="text-8xl">🧙‍♂️</span>
-            <span className="text-6xl absolute -right-4 -bottom-2">🦆</span>
+            <img
+              src="/images/wizard-hero.png"
+              alt="The Wizard of Quack"
+              className="w-48 h-48 object-contain drop-shadow-2xl"
+            />
+            <span className="text-5xl absolute -right-2 bottom-0">🦆</span>
           </div>
 
           <h1 className="text-5xl md:text-7xl font-bold text-white mb-4">
