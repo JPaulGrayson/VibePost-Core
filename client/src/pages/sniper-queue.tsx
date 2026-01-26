@@ -549,8 +549,8 @@ export default function SniperQueue() {
                                     className="flex-1"
                                     onClick={() => {
                                         const link = document.createElement('a');
-                                        link.href = '/quack_video.mp4';
-                                        link.download = 'quack_video.mp4';
+                                        link.href = '/quack_video.mov';
+                                        link.download = 'quack_video.mov';
                                         document.body.appendChild(link);
                                         link.click();
                                         document.body.removeChild(link);
