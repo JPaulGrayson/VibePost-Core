@@ -1999,3 +1999,51 @@ function generateFlowchartQuoteText(language: string, authorHandle: string): str
     
     return templates[Math.floor(Math.random() * templates.length)];
 }
+
+/**
+ * QUACK LAUNCH CAMPAIGN
+ * 
+ * Simple mystery campaign - just quote tweets code posts with "Quack?"
+ * No AI generation needed - just the word "Quack?" with a video attachment (future)
+ * The goal is to create curiosity - people will ask Grok what it means
+ */
+export async function generateQuackLaunchDraft(
+    tweet: { id: string; text: string; author_id?: string },
+    authorHandle: string
+): Promise<boolean> {
+    console.log(`🚀 Generating Quack Launch draft for tweet ${tweet.id} from @${authorHandle}`);
+    
+    // Check if draft already exists
+    const existing = await db.query.postcardDrafts.findFirst({
+        where: eq(postcardDrafts.originalTweetId, tweet.id),
+    });
+    
+    if (existing) {
+        console.log(`   Draft already exists for tweet ${tweet.id}. Skipping.`);
+        return false;
+    }
+    
+    // Simple "Quack?" text - no AI needed
+    const draftText = "Quack?";
+    
+    try {
+        await db.insert(postcardDrafts).values({
+            campaignType: "logicart",
+            strategy: "quack_launch",
+            originalTweetId: tweet.id,
+            originalAuthorHandle: authorHandle,
+            originalTweetText: tweet.text,
+            detectedLocation: "quack_launch", // Reusing field for campaign marker
+            status: "pending_review",
+            draftReplyText: draftText,
+            actionType: "quote_tweet",
+            // Note: Video attachment will be handled separately in twitter_publisher
+        });
+        
+        console.log(`   ✅ Quack Launch draft created: "${draftText}"`);
+        return true;
+    } catch (error) {
+        console.error(`   ❌ Error creating Quack Launch draft:`, error);
+        return false;
+    }
+}

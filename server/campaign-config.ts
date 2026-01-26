@@ -363,7 +363,7 @@ export function calculateCampaignScore(
 export default CAMPAIGN_CONFIGS;
 
 // ============= LOGICART STRATEGY SYSTEM =============
-export type LogicArtStrategy = 'vibe_scout' | 'spaghetti_detective' | 'bug_hunter' | 'arena_referee' | 'code_flowchart' | 'quack_duck';
+export type LogicArtStrategy = 'vibe_scout' | 'spaghetti_detective' | 'bug_hunter' | 'arena_referee' | 'code_flowchart' | 'quack_duck' | 'quack_launch';
 
 export interface StrategyConfig {
     id: string;
@@ -626,6 +626,47 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
             templateExample: "Your code mapped out 📊\n\n[flowchart image]\n\nWant 4 AI models to debug this? → x.logic.art/x"
         },
         actionType: 'quote_tweet' // Quote Tweet with flowchart image
+    },
+
+    quack_launch: {
+        id: 'quack_launch',
+        name: 'Quack Launch',
+        emoji: '🚀',
+        description: 'Mystery "Quack?" campaign - quote tweet code posts with just "Quack?" and video',
+        keywords: [
+            // ===== VIBE CODING PLATFORMS =====
+            "Cursor AI", "Claude code", "Replit agent", "Copilot",
+            "vibe coding", "vibecoding", "agentic coding",
+            
+            // ===== CODE SHARING =====
+            "here's my code", "check this out", "just built",
+            "shipping", "deployed", "just launched",
+            "```python", "```javascript", "```typescript",
+            
+            // ===== AI CODING =====
+            "AI wrote this", "Claude helped", "GPT generated",
+            "Cursor built", "vibe coded this", "no-code",
+            
+            // ===== DEBUGGING =====
+            "finally fixed", "bug fixed", "it works",
+            "why doesn't this work", "help with code",
+            
+            // ===== INFLUENCER WATCH =====
+            "from:karpathy", "from:levelsio", "from:swyx",
+            "from:amasad", "from:jxnlco"
+        ],
+        intentType: 'Code-Related Post (Launch Campaign Target)',
+        intentSignals: {
+            positive: ["code", "coding", "built", "shipped", "deployed", "launched", "AI", "Claude", "GPT", "Cursor", "Replit", "vibe", "agent"],
+            negative: ["hiring", "job", "sponsor", "discount", "affiliate", "founder", "CEO", "we're building", "promo", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto]
+        },
+        replyPersona: {
+            tone: 'Mysterious, Playful - Just "Quack?" with video',
+            hook: 'Create curiosity - people will ask Grok what Quack means',
+            templateExample: "Quack?"
+        },
+        actionType: 'quote_tweet',
+        rankingMode: 'hot' // Target trending/popular code posts for maximum visibility
     }
 };
 
