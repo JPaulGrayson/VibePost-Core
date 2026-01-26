@@ -635,18 +635,21 @@ export default function SniperQueue() {
                                                     body: formData,
                                                 });
                                                 
-                                                if (!res.ok) throw new Error('Upload failed');
-                                                
                                                 const data = await res.json();
+                                                
+                                                if (!res.ok) {
+                                                    throw new Error(data.error || 'Upload failed');
+                                                }
                                                 queryClient.invalidateQueries({ queryKey: ["/api/sniper/quack-launch/media"] });
                                                 toast({
                                                     title: "Video Uploaded! 🎥",
                                                     description: `${file.name} is now set for all Quack Launch posts`,
                                                 });
-                                            } catch (error) {
+                                            } catch (error: any) {
+                                                const errorMsg = error?.message || "Could not upload video. Try a smaller file.";
                                                 toast({
                                                     title: "Upload Failed",
-                                                    description: "Could not upload video. Try a smaller file.",
+                                                    description: errorMsg,
                                                     variant: "destructive",
                                                 });
                                             } finally {

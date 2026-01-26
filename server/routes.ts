@@ -1603,28 +1603,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Video upload endpoint for Quack Launch
-  app.post("/api/sniper/quack-launch/upload-video", upload.single('video'), (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: 'No video file uploaded' });
+  app.post("/api/sniper/quack-launch/upload-video", (req, res) => {
+    upload.single('video')(req, res, (err) => {
+      if (err) {
+        console.error('Video upload multer error:', err);
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: 'File too large. Maximum size is 50MB.' });
+        }
+        return res.status(400).json({ error: err.message || 'Upload failed' });
       }
       
-      // Set the new video path
-      const videoPath = `public/uploads/${req.file.filename}`;
-      setQuackLaunchMediaPath(videoPath);
-      
-      console.log(`🎥 Quack Launch video uploaded: ${videoPath} (${req.file.size} bytes)`);
-      
-      res.json({
-        success: true,
-        mediaPath: videoPath,
-        filename: req.file.filename,
-        size: req.file.size
-      });
-    } catch (error) {
-      console.error('Video upload error:', error);
-      res.status(500).json({ error: 'Failed to upload video' });
-    }
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: 'No video file uploaded' });
+        }
+        
+        // Set the new video path
+        const videoPath = `public/uploads/${req.file.filename}`;
+        setQuackLaunchMediaPath(videoPath);
+        
+        console.log(`🎥 Quack Launch video uploaded: ${videoPath} (${req.file.size} bytes)`);
+        
+        res.json({
+          success: true,
+          mediaPath: videoPath,
+          filename: req.file.filename,
+          size: req.file.size
+        });
+      } catch (error) {
+        console.error('Video upload error:', error);
+        res.status(500).json({ error: 'Failed to upload video' });
+      }
+    });
   });
 
   // Pause/Resume sniper auto-hunting - per campaign
