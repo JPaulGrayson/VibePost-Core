@@ -341,3 +341,47 @@ Error: Connection terminated unexpectedly
 2026-01-26T23:52:49.245Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
 2026-01-26T23:52:51.369Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
 2026-01-26T23:52:51.369Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:52:55.019Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:52:55.019Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:52:57.076Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:52:57.076Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:01.080Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:01.081Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:02.872Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:02.872Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:07.597Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:07.597Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:08.683Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:08.683Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:13.316Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:13.317Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:14.881Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:14.881Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:19.154Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:19.154Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:20.565Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:20.565Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:24.999Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:24.999Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:26.463Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:26.463Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:32.431Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:32.431Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:34.375Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:34.375Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:40.052Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:40.052Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:41.963Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:41.963Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:47.133Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:47.133Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:49.147Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:49.147Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:55.153Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:55.153Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:53:56.990Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:53:56.990Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:54:02.834Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:54:02.834Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:54:04.811Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:54:04.811Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
