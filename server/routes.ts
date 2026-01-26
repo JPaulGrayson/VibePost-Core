@@ -3261,9 +3261,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const drafts = await storage.getPostcardDrafts();
       // Filter for high-quality pending drafts (score >= 80)
       // Lower quality leads are auto-discarded, premium leads are shown or auto-published
+      // Exception: quack_launch drafts don't need scoring - they're simple mystery posts
       const pendingDrafts = drafts.filter(d =>
         (d.status === "pending_review" || d.status === "pending_retry") &&
-        (d.score || 0) >= 80
+        ((d.score || 0) >= 80 || d.strategy === 'quack_launch')
       );
       res.json(pendingDrafts);
     } catch (error) {
