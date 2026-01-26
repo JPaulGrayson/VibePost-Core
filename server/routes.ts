@@ -97,14 +97,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   const upload = multer({
     storage: multerStorage,
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+    limits: { fileSize: 100 * 1024 * 1024 }, // 100MB limit for videos
     fileFilter: (req, file, cb) => {
-      const allowedTypes = /jpeg|jpg|png|gif|webp|mp4|mov|webm|avi/;
-      const ext = path.extname(file.originalname).toLowerCase().slice(1);
-      if (allowedTypes.test(ext)) {
+      // Check both extension and mimetype
+      const allowedExtensions = /\.(jpeg|jpg|png|gif|webp|mp4|mov|webm|avi|m4v|mkv)$/i;
+      const allowedMimeTypes = /^(image\/(jpeg|jpg|png|gif|webp)|video\/(mp4|quicktime|webm|x-msvideo|x-m4v|x-matroska))$/i;
+      
+      const extMatch = allowedExtensions.test(file.originalname);
+      const mimeMatch = allowedMimeTypes.test(file.mimetype);
+      
+      // Accept if either extension or mimetype matches
+      if (extMatch || mimeMatch) {
         cb(null, true);
       } else {
-        cb(new Error('Invalid file type'));
+        console.log(`File rejected: ${file.originalname}, mimetype: ${file.mimetype}`);
+        cb(new Error(`Invalid file type: ${file.originalname}. Allowed: mp4, mov, webm, avi`));
       }
     }
   });
