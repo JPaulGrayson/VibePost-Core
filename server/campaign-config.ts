@@ -634,6 +634,12 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         emoji: '🚀',
         description: 'Mystery "Quack?" campaign - quote tweet code posts with just "Quack?" and video',
         keywords: [
+            // ===== AGENT SWARMS (HOT TOPIC) =====
+            "agent swarm", "swarm agents", "multi-agent", "agent orchestration",
+            "swarm intelligence", "AI swarm", "swarm of agents",
+            "agents working together", "agent collaboration", "agent fleet",
+            "swarm coding", "swarm architecture", "agent mesh",
+            
             // ===== VIBE CODING PLATFORMS =====
             "Cursor AI", "Claude code", "Replit agent", "Copilot",
             "vibe coding", "vibecoding", "agentic coding",
@@ -657,7 +663,7 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         ],
         intentType: 'Code-Related Post (Launch Campaign Target)',
         intentSignals: {
-            positive: ["code", "coding", "built", "shipped", "deployed", "launched", "AI", "Claude", "GPT", "Cursor", "Replit", "vibe", "agent"],
+            positive: ["code", "coding", "built", "shipped", "deployed", "launched", "AI", "Claude", "GPT", "Cursor", "Replit", "vibe", "agent", "swarm", "multi-agent", "orchestration", "agents", "collaboration"],
             negative: ["hiring", "job", "sponsor", "discount", "affiliate", "founder", "CEO", "we're building", "promo", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto]
         },
         replyPersona: {
