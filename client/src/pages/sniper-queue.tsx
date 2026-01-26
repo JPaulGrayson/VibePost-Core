@@ -543,8 +543,91 @@ export default function SniperQueue() {
                 </Button>
             </div>
 
-            {/* Top 10 Display - Special view with checkboxes */}
-            {activeCampaign === 'top_10' ? (
+            {/* Quack Launch Display - Show ALL drafts with checkboxes */}
+            {activeCampaign === 'quack_launch' ? (
+                <div className="space-y-4">
+                    {/* Quack Launch Header with actions */}
+                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-yellow-900/20 to-orange-900/20 border border-yellow-400/50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl">🦆</span>
+                            <span className="font-bold text-yellow-300">Quack Launch Targets</span>
+                            <Badge className="bg-yellow-500/20 text-yellow-300">
+                                {filteredDrafts?.length || 0} leads
+                            </Badge>
+                            <Badge className="bg-green-500/20 text-green-300">
+                                {selectedIds.size} selected
+                            </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    const allIds = filteredDrafts?.map(d => d.id) || [];
+                                    if (selectedIds.size === allIds.length && allIds.length > 0) {
+                                        setSelectedIds(new Set());
+                                    } else {
+                                        setSelectedIds(new Set(allIds));
+                                    }
+                                }}
+                            >
+                                {selectedIds.size === (filteredDrafts?.length || 0) && filteredDrafts?.length ? 'Deselect All' : 'Select All'}
+                            </Button>
+                            <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() => bulkApprove.mutate(Array.from(selectedIds))}
+                                disabled={selectedIds.size === 0 || bulkApprove.isPending}
+                            >
+                                {bulkApprove.isPending ? (
+                                    <>
+                                        <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                                        Sending...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send className="h-4 w-4 mr-1" />
+                                        Send Selected ({selectedIds.size})
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Quack Launch List - ALL drafts */}
+                    {isLoading ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                            <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                            <p>Loading leads...</p>
+                        </div>
+                    ) : filteredDrafts?.length === 0 ? (
+                        <p className="text-center py-8 text-muted-foreground">No Quack Launch leads found. Run a hunt to find agent swarm discussions!</p>
+                    ) : (
+                        <div className="space-y-3">
+                            {filteredDrafts?.map((draft, index) => (
+                                <Top10Card 
+                                    key={draft.id} 
+                                    draft={draft} 
+                                    rank={index + 1}
+                                    isSelected={selectedIds.has(draft.id)}
+                                    onToggle={(id) => {
+                                        setSelectedIds(prev => {
+                                            const next = new Set(prev);
+                                            if (next.has(id)) {
+                                                next.delete(id);
+                                            } else {
+                                                next.add(id);
+                                            }
+                                            return next;
+                                        });
+                                    }}
+                                    onDelete={(id) => deleteDraft.mutate(id)}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            ) : activeCampaign === 'top_10' ? (
                 <div className="space-y-4">
                     {/* Top 10 Header with actions */}
                     <div className="flex items-center justify-between p-3 bg-gradient-to-r from-amber-900/20 to-yellow-900/20 border border-amber-400/50 rounded-lg">
