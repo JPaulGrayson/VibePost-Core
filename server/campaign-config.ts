@@ -18,6 +18,9 @@ export interface CampaignConfig {
 
     // Keywords to search for on X/Twitter
     keywords: string[];
+    
+    // Keyword popularity bonuses (optional) - keywords with higher engagement get bonus points
+    keywordPopularity?: Record<string, number>;
 
     // Intent detection - what phrases indicate genuine interest
     intentSignals: {
@@ -303,6 +306,40 @@ export const CAMPAIGN_CONFIGS: Record<CampaignType, CampaignConfig> = {
             "this should work but doesn't"
         ],
 
+        // Keyword popularity bonuses - based on search volume/engagement
+        // Higher bonus = more active conversations = better lead quality
+        keywordPopularity: {
+            // TOP TIER (+25 bonus) - Highest volume, most engaged
+            "vibe coder": 25,
+            "Claude Code": 25,
+            "replit agent": 25,
+            "v0 dev": 25,
+            "karpathy": 25,
+            "Andrej Karpathy": 25,
+            
+            // HIGH TIER (+20 bonus) - Strong engagement
+            "AI coding": 20,
+            "cursor ai": 20,
+            "Opus 4": 20,
+            "AI pair programming": 20,
+            "simon willison": 20,
+            
+            // MID TIER (+15 bonus) - Good engagement
+            "vibe coding": 15,
+            "coding with AI": 15,
+            "lovable dev": 15,
+            "spaghetti code": 15,
+            "levelsio": 15,
+            "pieter levels": 15,
+            
+            // STANDARD TIER (+10 bonus) - Moderate engagement
+            "cursor IDE": 10,
+            "bolt new": 10,
+            "code visualization": 10,
+            "AI debugging": 10,
+            "swyx": 10,
+        } as Record<string, number>,
+
         intentSignals: {
             positive: [
                 "help", "struggling", "confused", "don't understand", "can't figure",
@@ -366,11 +403,36 @@ export function hasPositiveIntent(content: string, type: CampaignType): boolean 
     return positiveCount >= 1;
 }
 
+// Get keyword popularity bonus for a matched keyword
+export function getKeywordPopularityBonus(content: string, type: CampaignType, matchedKeyword?: string): number {
+    const config = CAMPAIGN_CONFIGS[type];
+    if (!config.keywordPopularity) return 0;
+    
+    const lower = content.toLowerCase();
+    let maxBonus = 0;
+    
+    // If we have a matched keyword, check it first
+    if (matchedKeyword) {
+        const bonus = config.keywordPopularity[matchedKeyword];
+        if (bonus) return bonus;
+    }
+    
+    // Otherwise scan content for any popular keywords
+    for (const [keyword, bonus] of Object.entries(config.keywordPopularity)) {
+        if (lower.includes(keyword.toLowerCase())) {
+            maxBonus = Math.max(maxBonus, bonus);
+        }
+    }
+    
+    return maxBonus;
+}
+
 // Calculate campaign-specific score adjustments
 export function calculateCampaignScore(
     content: string,
     type: CampaignType,
-    baseScore: number
+    baseScore: number,
+    matchedKeyword?: string
 ): number {
     const config = CAMPAIGN_CONFIGS[type];
     let score = baseScore;
@@ -386,8 +448,14 @@ export function calculateCampaignScore(
     if (frustrationKeywords.some(k => lower.includes(k))) {
         score += config.scoring.frustrationBonus;
     }
+    
+    // Keyword popularity bonus - boost score for high-engagement keywords
+    const popularityBonus = getKeywordPopularityBonus(content, type, matchedKeyword);
+    if (popularityBonus > 0) {
+        score += popularityBonus;
+    }
 
-    return Math.min(100, Math.max(0, score));
+    return Math.min(150, Math.max(0, score)); // Allow up to 150 for hot leads
 }
 
 export default CAMPAIGN_CONFIGS;
