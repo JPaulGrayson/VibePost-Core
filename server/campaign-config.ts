@@ -487,12 +487,20 @@ export interface StrategyConfig {
 }
 
 // Global Safety Rules - tweets matching these patterns should be DISCARDED
-// Updated: Jan 7, 2026 - Bootcamp Savior strategy added
+// Updated: Jan 26, 2026 - Added currency symbols and code fragments
 export const GLOBAL_SAFETY_FILTERS = {
     // No hate/politics - if tweet involves race, politics, gender war -> DISCARD
     hatePolitics: ["maga", "woke", "leftist", "rightist", "trump", "biden", "gender war", "pronouns", "racist", "fascist"],
-    // No crypto - if profile has .eth or discusses tokens -> DISCARD
-    crypto: [".eth", "crypto", "token", "nft", "blockchain", "web3", "defi", "hodl", "wagmi"],
+    // No crypto/currency - if profile has .eth or discusses tokens/money -> DISCARD
+    crypto: [
+        ".eth", "crypto", "token", "nft", "blockchain", "web3", "defi", "hodl", "wagmi",
+        // Digital currencies
+        "btc", "bitcoin", "ethereum", "eth", "solana", "sol", "dogecoin", "doge", "xrp", "cardano",
+        // Currency symbols (detect money/trading content)
+        "$", "€", "£", "¥", "₿"
+    ],
+    // Code fragments - skip tweets that are just raw code dumps
+    codeFragments: ["}", "{", "();", "=>", "&&", "||", "===", "!==", "function(", "const {", "import {"],
     // Expert detection for Agent 3 (don't use bootcamp tone for seniors)
     expertSignals: ["staff engineer", "principal engineer", "tech lead", "CTO", "architect", "10+ years", "senior dev", "founding engineer"]
 };
@@ -667,7 +675,7 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         intentType: 'Multi-AI Tool Frustration / Copy-Paste Pain',
         intentSignals: {
             positive: ["copy", "paste", "switch", "between", "multiple AI", "Claude and", "GPT and", "agents", "MCP", "tool calling", "context", "workflow"],
-            negative: ["hiring", "job", "sponsor", "discount", "affiliate", "founder", "CEO", "we're building", "launching", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto]
+            negative: ["hiring", "job", "sponsor", "discount", "affiliate", "founder", "CEO", "we're building", "launching", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto, ...GLOBAL_SAFETY_FILTERS.codeFragments]
         },
         replyPersona: {
             tone: 'Friendly, Problem-Solver - "No more human clipboard"',
@@ -764,7 +772,7 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         intentType: 'Code-Related Post (Launch Campaign Target)',
         intentSignals: {
             positive: ["code", "coding", "built", "shipped", "deployed", "launched", "AI", "Claude", "GPT", "Cursor", "Replit", "vibe", "agent", "swarm", "multi-agent", "orchestration", "agents", "collaboration"],
-            negative: ["hiring", "job", "sponsor", "discount", "affiliate", "founder", "CEO", "we're building", "promo", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto]
+            negative: ["hiring", "job", "sponsor", "discount", "affiliate", "founder", "CEO", "we're building", "promo", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto, ...GLOBAL_SAFETY_FILTERS.codeFragments]
         },
         replyPersona: {
             tone: 'Mysterious, Playful - Just "Quack?" with video',

@@ -73,3 +73,15 @@ Error: Connection terminated unexpectedly
     at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
     at async DatabaseStorage.getPostcardDrafts (/home/runner/workspace/server/storage.ts:668:12)
     at async <anonymous> (/home/runner/workspace/server/routes.ts:3303:22)
+2026-01-26T23:46:03.066Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:46:03.218Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:46:03.284Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:46:03.284Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:46:09.008Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:46:09.008Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:46:09.527Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:46:09.527Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:46:14.862Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:46:14.862Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
+2026-01-26T23:46:15.223Z - Error: {"error":{"type":"about:blank"},"type":"response","code":429,"headers":{},"rateLimit":{}}
+2026-01-26T23:46:15.223Z - API Data: {"title":"Too Many Requests","detail":"Too Many Requests","type":"about:blank","status":429}
