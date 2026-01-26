@@ -2025,10 +2025,12 @@ export async function generateQuackLaunchDraft(
     
     // Filter out bot/spam patterns - templated content from coordinated accounts
     const botPatterns = [
-        /late night rabbit hole on @\w+ pulled me in deep/i,
+        /late night rabbit hole on @/i,
         /threw an agent swarm at a mock/i,
-        /fed it .* oracle .* spikes/i,
+        /fed it .* oracle/i,
         /zk-trails/i,
+        /oracle.*spikes/i,
+        /pulled me in deep again/i,
     ];
     
     if (botPatterns.some(pattern => pattern.test(tweet.text))) {
