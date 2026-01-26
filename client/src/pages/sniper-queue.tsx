@@ -524,6 +524,49 @@ export default function SniperQueue() {
                         <p className="text-xs text-muted-foreground mt-2 text-center">
                             Posts your 6-tweet product launch thread with images and videos
                         </p>
+                        
+                        {/* Copy Quack Reply Section */}
+                        <div className="mt-4 pt-4 border-t">
+                            <p className="text-sm font-medium mb-3">📋 Manual Quack Reply</p>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText("Quack?");
+                                        toast({
+                                            title: "Copied!",
+                                            description: '"Quack?" copied to clipboard',
+                                        });
+                                    }}
+                                >
+                                    📋 Copy "Quack?"
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1"
+                                    onClick={() => {
+                                        const link = document.createElement('a');
+                                        link.href = '/quack_video.mp4';
+                                        link.download = 'quack_video.mp4';
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                        toast({
+                                            title: "Downloading...",
+                                            description: "Duck video saved for manual upload",
+                                        });
+                                    }}
+                                >
+                                    🎬 Download Video
+                                </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-2">
+                                Copy text + download video for manual replies on X
+                            </p>
+                        </div>
                     </div>
                 )}
 
