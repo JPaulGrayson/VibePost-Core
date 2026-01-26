@@ -125,8 +125,16 @@ class AutoPublisher {
                 return; // No eligible drafts
             }
 
+            // Filter out quack_launch drafts - they should only be manually approved
+            // Quack Launch uses simple "Quack?" text, not AI-generated content
+            const filteredDrafts = eligibleDrafts.filter(d => d.strategy !== 'quack_launch');
+            
+            if (filteredDrafts.length === 0) {
+                return; // No eligible drafts after filtering
+            }
+
             // Already sorted by score DESC from the database query
-            const draft = eligibleDrafts[0];
+            const draft = filteredDrafts[0];
 
             console.log(`🤖 Auto-publishing: ${draft.detectedLocation} (Score: ${draft.score}) by @${draft.originalAuthorHandle}`);
 
