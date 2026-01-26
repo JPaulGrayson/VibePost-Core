@@ -52,7 +52,7 @@ export class SniperManager {
     
     // Per-hunt limit to prevent excessive token usage during testing
     // Lower this during testing, raise when ready for production
-    private perHuntLimit = 10;
+    private perHuntLimit = 50;
     private draftsThisHunt = 0;
 
     async startHunting() {
