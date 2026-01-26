@@ -1736,7 +1736,7 @@ Enter LogicArt—The Art of Logic 🎨
 Watch your code transform into living flowcharts in real-time.
 
 logic.art`,
-          mediaPath: "public/launch_4a_arena.mov",
+          mediaPath: "public/launch_4a_arena.mp4",
           mediaType: "video" as const
         },
         {
@@ -1745,7 +1745,7 @@ logic.art`,
 No more scrolling through walls of text. See the logic. Fix the bug.
 
 LogicArt turns complexity into clarity. 🔍`,
-          mediaPath: "public/launch_4b_debug.mov",
+          mediaPath: "public/launch_4b_debug.mp4",
           mediaType: "video" as const
         },
         {
