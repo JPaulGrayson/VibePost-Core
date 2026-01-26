@@ -2038,6 +2038,25 @@ export async function generateQuackLaunchDraft(
         return false;
     }
     
+    // Filter out off-topic content (law enforcement, politics, etc. using "agent" in wrong context)
+    const offTopicPatterns = [
+        /border patrol/i,
+        /federal agent/i,
+        /fbi agent/i,
+        /cia agent/i,
+        /ice agent/i,
+        /secret service/i,
+        /law enforcement/i,
+        /real estate agent/i,
+        /travel agent/i,
+        /insurance agent/i,
+    ];
+    
+    if (offTopicPatterns.some(pattern => pattern.test(tweet.text))) {
+        console.log(`   🚫 Off-topic content (wrong type of 'agent'). Skipping: "${tweet.text.substring(0, 50)}..."`);
+        return false;
+    }
+    
     // Check for duplicate content - compare first 60 chars to catch templated tweets
     const textFingerprint = tweet.text.substring(0, 60).toLowerCase().trim();
     const similarDraft = await db.query.postcardDrafts.findFirst({
