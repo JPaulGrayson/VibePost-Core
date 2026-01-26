@@ -236,7 +236,35 @@ export const CAMPAIGN_CONFIGS: Record<CampaignType, CampaignConfig> = {
         description: 'Target developers struggling with code - promote code visualization',
 
         keywords: [
-            // VIBE CODING / AI CODING
+            // VIBE CODING / AI CODING - Core terms
+            "vibe coding",
+            "vibe coder",
+            "vibe code",
+            "AI coding",
+            "coding with AI",
+            "AI pair programming",
+            "AI debugging",
+            
+            // VIBE CODING TOOLS
+            "Claude Code",
+            "cursor ai",
+            "cursor IDE",
+            "replit agent",
+            "Opus 4",
+            "lovable dev",
+            "bolt new",
+            "v0 dev",
+            "windsurf",
+            
+            // INFLUENCERS (vibe coding community)
+            "Andrej Karpathy",
+            "karpathy",
+            "simon willison",
+            "levelsio",
+            "pieter levels",
+            "swyx",
+            
+            // ORIGINAL: VIBE CODING HELP
             "vibe coding help",
             "vibe coder struggling",
             "cursor ai help",
@@ -252,6 +280,7 @@ export const CAMPAIGN_CONFIGS: Record<CampaignType, CampaignConfig> = {
             "inherited legacy code help",
             "code review help",
             "can't figure out this bug",
+            "spaghetti code",
 
             // VISUALIZATION NEEDS
             "flowchart from code",
@@ -279,7 +308,8 @@ export const CAMPAIGN_CONFIGS: Record<CampaignType, CampaignConfig> = {
                 "help", "struggling", "confused", "don't understand", "can't figure",
                 "stuck", "frustrated", "nightmare", "hours", "debug",
                 "explain", "visualize", "understand", "learn", "why doesn't",
-                "code", "programming", "developer", "coding", "algorithm"
+                "code", "programming", "developer", "coding", "algorithm",
+                "vibe", "claude", "cursor", "replit", "opus", "karpathy", "AI"
             ],
             negative: [
                 "hiring", "job posting", "we're looking for", "apply now",
