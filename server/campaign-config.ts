@@ -384,6 +384,8 @@ export interface StrategyConfig {
     replyImage?: string; // Optional image to attach to replies
     actionType?: 'reply' | 'quote_tweet'; // Default is 'reply', 'quote_tweet' triggers Quote Tweet flow
     rankingMode?: 'opportunity' | 'hot'; // 'opportunity' = low replies, 'hot' = high replies (trending)
+    mediaPath?: string; // Path to video/media file for campaigns like Quack Launch
+    mediaType?: 'image' | 'video'; // Type of media attachment
 }
 
 // Global Safety Rules - tweets matching these patterns should be DISCARDED
@@ -672,9 +674,24 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
             templateExample: "Quack?"
         },
         actionType: 'quote_tweet',
-        rankingMode: 'hot' // Target trending/popular code posts for maximum visibility
+        rankingMode: 'hot', // Target trending/popular code posts for maximum visibility
+        // Video attachment for Quack Launch campaign (path relative to project root)
+        mediaPath: 'attached_assets/Video_Ready_Missing_Quack_Sound_1769435167874.mp4',
+        mediaType: 'video' as const
     }
 };
+
+// Store for configurable Quack Launch media
+let quackLaunchMediaPath = 'attached_assets/Video_Ready_Missing_Quack_Sound_1769435167874.mp4';
+
+export function getQuackLaunchMediaPath(): string {
+    return quackLaunchMediaPath;
+}
+
+export function setQuackLaunchMediaPath(path: string): void {
+    quackLaunchMediaPath = path;
+    console.log(`🎥 Quack Launch media updated: ${path}`);
+}
 
 // State management for active strategy - defaults to Vibe Coding Scout
 let currentLogicArtStrategy: LogicArtStrategy = 'vibe_scout';

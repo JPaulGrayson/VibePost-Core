@@ -74,6 +74,8 @@ export default function SniperQueue() {
                 setActiveCampaign('arena_referee');
             } else if (campaignData.currentCampaign === 'logicart' && campaignData.activeStrategy === 'code_flowchart') {
                 setActiveCampaign('code_flowchart');
+            } else if (campaignData.currentCampaign === 'logicart' && campaignData.activeStrategy === 'quack_launch') {
+                setActiveCampaign('quack_launch');
             } else {
                 setActiveCampaign(campaignData.currentCampaign);
             }
@@ -115,13 +117,19 @@ export default function SniperQueue() {
             return isFlowchart && matchesSearch;
         }
         
+        // Quack Launch tab - show only quack_launch drafts
+        if (activeCampaign === 'quack_launch') {
+            const isQuackLaunch = draft.strategy === 'quack_launch';
+            return isQuackLaunch && matchesSearch;
+        }
+        
         const campaignMatch = draft.campaignType === activeCampaign || 
             (!(draft.campaignType) && activeCampaign === 'turai'); // Legacy drafts default to turai
         
         if (!campaignMatch) return false;
         
         // For logicart, exclude Quote Tweet strategies (they have their own tabs)
-        if (activeCampaign === 'logicart' && (['arena_referee', 'code_flowchart'].includes(draft.strategy || '') || draft.actionType === 'quote_tweet')) {
+        if (activeCampaign === 'logicart' && (['arena_referee', 'code_flowchart', 'quack_launch'].includes(draft.strategy || '') || draft.actionType === 'quote_tweet')) {
             return false;
         }
         
@@ -132,11 +140,13 @@ export default function SniperQueue() {
     const switchCampaign = useMutation({
         mutationFn: async (campaignType: string) => {
             // Arena Referee and Code Flowchart use logicart campaign + specific strategy
-            if (campaignType === 'arena_referee' || campaignType === 'code_flowchart') {
+            if (campaignType === 'arena_referee' || campaignType === 'code_flowchart' || campaignType === 'quack_launch') {
                 await apiRequest("POST", "/api/sniper/campaign", { campaignType: 'logicart' });
                 const strategyRes = await apiRequest("POST", "/api/sniper/strategy", { strategy: campaignType });
-                const strategyName = campaignType === 'arena_referee' ? 'Arena Referee' : 'Code Flowchart';
-                const emoji = campaignType === 'arena_referee' ? '🏛️' : '📊';
+                const strategyName = campaignType === 'arena_referee' ? 'Arena Referee' : 
+                    campaignType === 'code_flowchart' ? 'Code Flowchart' : 'Quack Launch';
+                const emoji = campaignType === 'arena_referee' ? '🏛️' : 
+                    campaignType === 'code_flowchart' ? '📊' : '🚀';
                 return { 
                     config: { emoji, name: strategyName },
                     isQuoteTweet: true,
@@ -174,12 +184,12 @@ export default function SniperQueue() {
     const manualHunt = useMutation({
         mutationFn: async () => {
             // Arena Referee and Code Flowchart use logicart campaign + specific strategy
-            if (activeCampaign === 'arena_referee' || activeCampaign === 'code_flowchart') {
+            if (activeCampaign === 'arena_referee' || activeCampaign === 'code_flowchart' || activeCampaign === 'quack_launch') {
                 await apiRequest("POST", "/api/sniper/campaign", { campaignType: 'logicart' });
                 await apiRequest("POST", "/api/sniper/strategy", { strategy: activeCampaign });
             }
             // Send the actual backend campaign type
-            const backendCampaign = (activeCampaign === 'arena_referee' || activeCampaign === 'code_flowchart') ? 'logicart' : activeCampaign;
+            const backendCampaign = (activeCampaign === 'arena_referee' || activeCampaign === 'code_flowchart' || activeCampaign === 'quack_launch') ? 'logicart' : activeCampaign;
             const res = await apiRequest("POST", "/api/debug/hunt", { campaignType: backendCampaign });
             return res.json();
         },
@@ -368,7 +378,7 @@ export default function SniperQueue() {
                         <Code2 className="h-4 w-4 mb-1" />
                         <span className="font-medium text-xs">🧠 Replies</span>
                         <Badge variant="secondary" className="text-[10px] px-1">
-                            {drafts?.filter(d => d.campaignType === 'logicart' && !['arena_referee', 'code_flowchart'].includes(d.strategy || '') && d.actionType !== 'quote_tweet').length || 0}
+                            {drafts?.filter(d => d.campaignType === 'logicart' && !['arena_referee', 'code_flowchart', 'quack_launch'].includes(d.strategy || '') && d.actionType !== 'quote_tweet').length || 0}
                         </Badge>
                     </Button>
                     
@@ -404,6 +414,22 @@ export default function SniperQueue() {
                         </Badge>
                     </Button>
                     
+                    {/* Quack Launch - Mystery Campaign */}
+                    <Button
+                        variant={activeCampaign === 'quack_launch' ? "default" : "outline"}
+                        size="sm"
+                        className="flex flex-col items-center h-[64px] py-2 px-2"
+                        onClick={() => switchCampaign.mutate('quack_launch')}
+                        disabled={switchCampaign.isPending}
+                        data-testid="campaign-quack-launch"
+                    >
+                        <Send className="h-4 w-4 mb-1" />
+                        <span className="font-medium text-xs">🚀 Quack</span>
+                        <Badge variant="secondary" className="text-[10px] px-1">
+                            {drafts?.filter(d => d.strategy === 'quack_launch').length || 0}
+                        </Badge>
+                    </Button>
+                    
                     {/* Top 10 - Best Candidates */}
                     <Button
                         variant={activeCampaign === 'top_10' ? "default" : "outline"}
@@ -425,6 +451,7 @@ export default function SniperQueue() {
                     {activeCampaign === 'logicart' && 'Hunting for developers with coding questions - promoting AI Debug Arena'}
                     {activeCampaign === 'arena_referee' && 'AI debates → Run through Arena → Quote Tweet with verdict'}
                     {activeCampaign === 'code_flowchart' && 'Code snippets → Generate flowchart → Quote Tweet with CTA'}
+                    {activeCampaign === 'quack_launch' && '🦆 Mystery campaign → "Quack?" quote tweets with video → Drive curiosity'}
                     {activeCampaign === 'top_10' && '⭐ Your top 10 highest-scoring candidates across all queues - select and batch send!'}
                 </p>
 
@@ -433,7 +460,7 @@ export default function SniperQueue() {
                     <div className="mt-4 pt-4 border-t">
                         <label className="text-sm font-medium text-muted-foreground mb-2 block">Active Strategy</label>
                         <div className="grid grid-cols-3 gap-2">
-                            {campaignData.availableStrategies.filter(s => !['arena_referee', 'code_flowchart'].includes(s.id)).map((strategy) => (
+                            {campaignData.availableStrategies.filter(s => !['arena_referee', 'code_flowchart', 'quack_launch'].includes(s.id)).map((strategy) => (
                                 <Button
                                     key={strategy.id}
                                     variant={campaignData.activeStrategy === strategy.id ? "default" : "outline"}
@@ -635,6 +662,7 @@ function Top10Card({ draft, rank, isSelected, onToggle, onDelete }: {
     const getStrategyBadge = () => {
         if (draft.strategy === 'arena_referee') return { text: '🏛️ Arena', color: 'bg-purple-600' };
         if (draft.strategy === 'code_flowchart') return { text: '📊 Flowchart', color: 'bg-blue-600' };
+        if (draft.strategy === 'quack_launch') return { text: '🚀 Quack', color: 'bg-yellow-600' };
         if (draft.campaignType === 'turai') return { text: '✈️ Turai', color: 'bg-cyan-600' };
         return { text: '🧠 LogicArt', color: 'bg-green-600' };
     };

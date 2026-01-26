@@ -4,6 +4,9 @@ const require = createRequire(import.meta.url);
 import { PostcardDraft } from "@shared/schema";
 import { storage } from "../storage";
 import { postcardDrafter } from "./postcard_drafter";
+import { getQuackLaunchMediaPath, LOGICART_STRATEGIES } from "../campaign-config";
+import * as fs from "fs/promises";
+import * as path from "path";
 
 // Rate limiting to prevent Twitter 429 errors
 const MIN_DELAY_BETWEEN_TWEETS_MS = 30000; // 30 seconds
@@ -47,22 +50,47 @@ export async function publishDraft(draft: PostcardDraft) {
         const me = await client.v2.me();
         console.log(`Authenticated as @${me.data.username}`);
 
-        // Generate image on-demand if missing (deferred image generation)
-        let imageUrl = draft.turaiImageUrl;
-        if (!imageUrl) {
-            console.log(`🎨 No image in draft - generating on-demand before posting...`);
-            try {
-                imageUrl = await postcardDrafter.regenerateImage(draft.id);
-                console.log(`✅ Image generated on-demand: ${imageUrl}`);
-            } catch (imgError) {
-                console.error(`❌ Failed to generate image on-demand:`, imgError);
-                return { success: false, error: "Failed to generate image for posting" };
-            }
-        }
-
-        // 1. Upload the Image
+        // Check if this is a Quack Launch draft - use video instead of image
+        const isQuackLaunch = draft.strategy === 'quack_launch';
         let mediaId;
-        console.log(`Fetching image from ${imageUrl}`);
+        
+        if (isQuackLaunch) {
+            // Use the configured Quack Launch video
+            const videoPath = getQuackLaunchMediaPath();
+            console.log(`🎥 Quack Launch draft - uploading video: ${videoPath}`);
+            
+            try {
+                const fullPath = path.join(process.cwd(), videoPath);
+                const videoBuffer = await fs.readFile(fullPath);
+                console.log(`Video loaded: ${videoBuffer.length} bytes`);
+                
+                // Upload video using chunked upload
+                mediaId = await client.v1.uploadMedia(videoBuffer, { 
+                    mimeType: 'video/mp4',
+                    target: 'tweet'
+                });
+                console.log(`✅ Video uploaded successfully, ID: ${mediaId}`);
+            } catch (videoError: any) {
+                console.error(`❌ Failed to upload video:`, videoError);
+                return { success: false, error: `Video upload failed: ${videoError.message}` };
+            }
+        } else {
+            // Standard image flow for other strategies
+            // Generate image on-demand if missing (deferred image generation)
+            let imageUrl = draft.turaiImageUrl;
+            if (!imageUrl) {
+                console.log(`🎨 No image in draft - generating on-demand before posting...`);
+                try {
+                    imageUrl = await postcardDrafter.regenerateImage(draft.id);
+                    console.log(`✅ Image generated on-demand: ${imageUrl}`);
+                } catch (imgError) {
+                    console.error(`❌ Failed to generate image on-demand:`, imgError);
+                    return { success: false, error: "Failed to generate image for posting" };
+                }
+            }
+
+            // 1. Upload the Image
+            console.log(`Fetching image from ${imageUrl}`);
 
         let buffer: Buffer;
         let mimeType = 'image/jpeg'; // Default
@@ -137,6 +165,7 @@ export async function publishDraft(draft: PostcardDraft) {
                 throw uploadError;
             }
         }
+        } // End of else block for non-quack-launch image uploads
 
         // 2. Prepare the Payload
         let tweetText = draft.draftReplyText || "";

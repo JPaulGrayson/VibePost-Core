@@ -24,7 +24,7 @@ import { getThreadTourSchedulerStatus, setNextThreadDestination, clearNextThread
 import { autoPublisher } from "./services/auto_publisher";
 import { previewVideoPost, generateVideoPost, generateVideoCaption, refreshPreviewData } from "./services/video_post_generator";
 import { getDailyVideoSchedulerStatus, setNextVideoDestination, clearNextVideoDestination, triggerDailyVideoNow, getVideoDestinationQueue } from "./services/daily_video_scheduler";
-import { CAMPAIGN_CONFIGS, LOGICART_STRATEGIES, getActiveLogicArtStrategy, setActiveLogicArtStrategy, getActiveStrategyConfig } from "./campaign-config";
+import { CAMPAIGN_CONFIGS, LOGICART_STRATEGIES, getActiveLogicArtStrategy, setActiveLogicArtStrategy, getActiveStrategyConfig, getQuackLaunchMediaPath, setQuackLaunchMediaPath } from "./campaign-config";
 import { getActiveCampaign, setActiveCampaign, isValidCampaignType } from "./campaign-state";
 import { arenaService, type ArenaRequest, getRandomChallenge, getAllChallenges, runAutoArena } from "./services/arena_service";
 import { requireTier, checkFeature, getTierLimits, TIER_LIMITS } from "./middleware/tier-guard";
@@ -1577,6 +1577,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       success: true,
       activeStrategy: getActiveLogicArtStrategy(),
       strategyConfig: getActiveStrategyConfig()
+    });
+  });
+
+  // Get/Set Quack Launch video
+  app.get("/api/sniper/quack-launch/media", (req, res) => {
+    res.json({
+      mediaPath: getQuackLaunchMediaPath()
+    });
+  });
+
+  app.post("/api/sniper/quack-launch/media", (req, res) => {
+    const { mediaPath } = req.body;
+    
+    if (!mediaPath || typeof mediaPath !== 'string') {
+      return res.status(400).json({ error: 'mediaPath is required' });
+    }
+    
+    setQuackLaunchMediaPath(mediaPath);
+    
+    res.json({
+      success: true,
+      mediaPath: getQuackLaunchMediaPath()
     });
   });
 
