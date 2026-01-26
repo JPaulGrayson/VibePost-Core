@@ -2026,6 +2026,24 @@ export async function generateQuackLaunchDraft(
     // Simple "Quack?" text - no AI needed
     const draftText = "Quack?";
     
+    // Score based on target tweet quality for agent swarm relevance
+    const text = tweet.text.toLowerCase();
+    let score = 80; // Base score - all quack_launch targets are pre-filtered by keywords
+    
+    // Boost for high-value agent swarm keywords
+    const highValueKeywords = ['agent swarm', 'multi-agent', 'swarm intelligence', 'agent orchestration', 'agent-to-agent'];
+    const mediumKeywords = ['autonomous agent', 'ai agent', 'agent framework', 'mcp', 'a2a', 'langchain', 'autogen', 'crewai'];
+    
+    if (highValueKeywords.some(kw => text.includes(kw))) score += 10;
+    if (mediumKeywords.some(kw => text.includes(kw))) score += 5;
+    
+    // Boost for engagement signals
+    if (text.includes('?')) score += 3; // Questions = engagement opportunity
+    if (text.length > 100) score += 2; // Substantial content
+    
+    // Cap at 95
+    score = Math.min(95, score);
+    
     try {
         await db.insert(postcardDrafts).values({
             campaignType: "logicart",
@@ -2037,6 +2055,7 @@ export async function generateQuackLaunchDraft(
             status: "pending_review",
             draftReplyText: draftText,
             actionType: "quote_tweet",
+            score: score,
             // Note: Video attachment will be handled separately in twitter_publisher
         });
         
