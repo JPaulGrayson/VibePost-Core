@@ -349,3 +349,96 @@ export async function publishDraftWithVideo(
         };
     }
 }
+
+// Thread posting interface
+export interface ThreadTweet {
+    text: string;
+    mediaPath: string; // Path to local file (image or video)
+    mediaType: 'image' | 'video';
+}
+
+// Post a thread (multiple tweets in sequence)
+export async function postThread(tweets: ThreadTweet[]): Promise<{ success: boolean; tweetIds?: string[]; error?: string }> {
+    try {
+        // Get Twitter credentials
+        const twitterConnection = await storage.getPlatformConnection("twitter");
+        const dbCreds = twitterConnection?.credentials || {};
+        
+        const appKey = dbCreds.apiKey || process.env.TWITTER_API_KEY;
+        const appSecret = dbCreds.apiSecret || process.env.TWITTER_API_SECRET;
+        const accessToken = dbCreds.accessToken || process.env.TWITTER_ACCESS_TOKEN;
+        const accessSecret = dbCreds.accessTokenSecret || process.env.TWITTER_ACCESS_TOKEN_SECRET;
+        
+        if (!appKey || !appSecret || !accessToken || !accessSecret) {
+            throw new Error("Missing Twitter API credentials");
+        }
+        
+        const client = new TwitterApi({
+            appKey,
+            appSecret,
+            accessToken,
+            accessSecret,
+        });
+        
+        // Verify credentials
+        const me = await client.v2.me();
+        console.log(`🧵 Starting thread as @${me.data.username}`);
+        
+        const tweetIds: string[] = [];
+        let previousTweetId: string | null = null;
+        
+        for (let i = 0; i < tweets.length; i++) {
+            const tweet = tweets[i];
+            console.log(`📝 Posting tweet ${i + 1}/${tweets.length}: "${tweet.text.substring(0, 50)}..."`);
+            
+            // Wait for rate limit between tweets
+            if (i > 0) {
+                console.log(`⏳ Waiting 30s before next tweet...`);
+                await new Promise(resolve => setTimeout(resolve, 30000));
+            }
+            
+            // Upload media
+            const fullPath = path.join(process.cwd(), tweet.mediaPath);
+            const mediaBuffer = await fs.readFile(fullPath);
+            console.log(`📎 Uploading media: ${tweet.mediaPath} (${(mediaBuffer.length / 1024).toFixed(1)} KB)`);
+            
+            const mimeType = tweet.mediaType === 'video' ? 'video/mp4' : 
+                            tweet.mediaPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+            
+            const mediaId = await client.v1.uploadMedia(mediaBuffer, {
+                mimeType,
+                target: 'tweet'
+            });
+            console.log(`✅ Media uploaded: ${mediaId}`);
+            
+            // Build tweet payload
+            const payload: any = {
+                text: tweet.text,
+                media: { media_ids: [mediaId] }
+            };
+            
+            // If this is a reply in the thread, add reply_to
+            if (previousTweetId) {
+                payload.reply = { in_reply_to_tweet_id: previousTweetId };
+            }
+            
+            // Post the tweet
+            const result = await client.v2.tweet(payload);
+            console.log(`✅ Tweet ${i + 1} posted: ${result.data.id}`);
+            
+            tweetIds.push(result.data.id);
+            previousTweetId = result.data.id;
+            lastTweetTimestamp = Date.now();
+        }
+        
+        console.log(`🎉 Thread complete! ${tweetIds.length} tweets posted`);
+        return { success: true, tweetIds };
+        
+    } catch (error: any) {
+        console.error("Error posting thread:", error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error"
+        };
+    }
+}

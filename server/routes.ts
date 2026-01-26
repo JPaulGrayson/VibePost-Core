@@ -1688,6 +1688,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // ==================== LAUNCH THREAD API ====================
+  
+  // Post the Quack launch thread
+  app.post("/api/launch-thread", async (req, res) => {
+    try {
+      const { postThread, ThreadTweet } = await import("./services/twitter_publisher");
+      
+      // Launch thread tweets with their media
+      const launchTweets = [
+        {
+          text: `AI Agents have a fatal flaw: Amnesia.
+
+They forget everything between sessions. No memory. No continuity. Just chaos.
+
+That's why I built Quack 🦆
+
+A Universal Message Bus that lets your agents talk to each other—and remember.`,
+          mediaPath: "public/launch_1_architecture.png",
+          mediaType: "image" as const
+        },
+        {
+          text: `Once your agents have a memory, they need a leader.
+
+Orchestrate turns Claude into "The Conductor"—coordinating Cursor, Replit, GPT, and Grok in perfect harmony.
+
+Left: Manual chaos (per-message approval hell)
+Right: Autonomous swarm with human override 🎯`,
+          mediaPath: "public/launch_2_ducks.jpg",
+          mediaType: "image" as const
+        },
+        {
+          text: `But how do you SEE what the swarm is thinking?
+
+Enter LogicArt—The Art of Logic 🎨
+
+Watch your code transform into living flowcharts. Debug visually. Understand instantly.
+
+logic.art`,
+          mediaPath: "public/launch_3_logicart.mov",
+          mediaType: "video" as const
+        },
+        {
+          text: `This isn't my first rodeo with distributed systems.
+
+Back in the 80s, I linked IBM 360 mainframes to local printers. 
+
+In the 2000s, I pioneered distributed solid modeling at Alibre (US 2003/0078974).
+
+We were doing "Vibe Coding" with 3D objects before the cloud even existed.
+
+The tech changes. The architecture stays the same. 🧙‍♂️`,
+          mediaPath: "public/launch_4_patent.jpg",
+          mediaType: "image" as const
+        }
+      ];
+      
+      console.log("🚀 Starting Quack Launch Thread...");
+      const result = await postThread(launchTweets);
+      
+      if (result.success) {
+        res.json({
+          success: true,
+          message: `Thread posted successfully! ${result.tweetIds?.length} tweets`,
+          tweetIds: result.tweetIds,
+          threadUrl: `https://x.com/WizardofQuack/status/${result.tweetIds?.[0]}`
+        });
+      } else {
+        res.status(500).json({ success: false, error: result.error });
+      }
+    } catch (error: any) {
+      console.error("Launch thread error:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   // ==================== ARENA API ====================
   
   // Get user's tier and feature limits
