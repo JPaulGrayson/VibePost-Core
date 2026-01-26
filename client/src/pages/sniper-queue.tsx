@@ -255,14 +255,30 @@ export default function SniperQueue() {
     // Launch the main announcement thread
     const launchThread = useMutation({
         mutationFn: async () => {
-            const res = await apiRequest("POST", "/api/launch-thread");
-            return res.json();
+            const res = await fetch("/api/launch-thread", {
+                method: "POST",
+                credentials: "include"
+            });
+            const text = await res.text();
+            try {
+                return JSON.parse(text);
+            } catch {
+                throw new Error(text || "Empty response from server");
+            }
         },
         onSuccess: (data) => {
-            toast({
-                title: "🚀 Thread Launched!",
-                description: `Posted ${data.tweetIds?.length || 6} tweets. View: ${data.threadUrl}`,
-            });
+            if (data.success) {
+                toast({
+                    title: "🚀 Thread Launched!",
+                    description: `Posted ${data.tweetIds?.length || 6} tweets. View: ${data.threadUrl}`,
+                });
+            } else {
+                toast({
+                    variant: "destructive",
+                    title: "Launch Failed",
+                    description: data.error || "Unknown error",
+                });
+            }
         },
         onError: (error) => {
             console.error("Launch failed:", error);
