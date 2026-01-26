@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useState, useEffect } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { PostcardDraft, ArenaVerdict } from "@shared/schema";
-import { RefreshCw, Plane, Code2, Quote, Eye, Star, ExternalLink, Send, Trash2 } from "lucide-react";
+import { RefreshCw, Plane, Code2, Quote, Eye, Star, ExternalLink, Send, Trash2, Upload, Video } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
@@ -62,6 +62,13 @@ export default function SniperQueue() {
     const [searchQuery, setSearchQuery] = useState("");
     const [activeCampaign, setActiveCampaign] = useState<string>("logicart"); // Default to LogicArt
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set()); // For Top 10 batch selection
+    const [isUploadingVideo, setIsUploadingVideo] = useState(false);
+
+    // Fetch current quack launch video path
+    const { data: quackMediaData } = useQuery<{ mediaPath: string }>({
+        queryKey: ["/api/sniper/quack-launch/media"],
+        enabled: activeCampaign === 'quack_launch',
+    });
 
     // Sync local state when campaign data loads from server (only on initial load)
     // Skip sync if user is on top_10 tab - that's a local-only view
@@ -591,6 +598,99 @@ export default function SniperQueue() {
                                     </>
                                 )}
                             </Button>
+                        </div>
+                    </div>
+
+                    {/* Video Upload Section */}
+                    <div className="p-3 bg-muted/30 border border-muted rounded-lg">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Video className="h-5 w-5 text-yellow-400" />
+                                <div>
+                                    <span className="font-medium text-sm">Video Attachment</span>
+                                    <p className="text-xs text-muted-foreground">
+                                        {quackMediaData?.mediaPath ? 
+                                            `Current: ${quackMediaData.mediaPath.split('/').pop()}` : 
+                                            'No video configured'}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <label className="cursor-pointer">
+                                    <input
+                                        type="file"
+                                        accept="video/mp4,video/webm,video/quicktime"
+                                        className="hidden"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (!file) return;
+                                            
+                                            setIsUploadingVideo(true);
+                                            try {
+                                                const formData = new FormData();
+                                                formData.append('video', file);
+                                                
+                                                const res = await fetch('/api/sniper/quack-launch/upload-video', {
+                                                    method: 'POST',
+                                                    body: formData,
+                                                });
+                                                
+                                                if (!res.ok) throw new Error('Upload failed');
+                                                
+                                                const data = await res.json();
+                                                queryClient.invalidateQueries({ queryKey: ["/api/sniper/quack-launch/media"] });
+                                                toast({
+                                                    title: "Video Uploaded! 🎥",
+                                                    description: `${file.name} is now set for all Quack Launch posts`,
+                                                });
+                                            } catch (error) {
+                                                toast({
+                                                    title: "Upload Failed",
+                                                    description: "Could not upload video. Try a smaller file.",
+                                                    variant: "destructive",
+                                                });
+                                            } finally {
+                                                setIsUploadingVideo(false);
+                                                e.target.value = ''; // Reset input
+                                            }
+                                        }}
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={isUploadingVideo}
+                                        asChild
+                                    >
+                                        <span>
+                                            {isUploadingVideo ? (
+                                                <>
+                                                    <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                                                    Uploading...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload className="h-4 w-4 mr-1" />
+                                                    Upload New Video
+                                                </>
+                                            )}
+                                        </span>
+                                    </Button>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Preview Box - Show what the quote tweet will look like */}
+                    <div className="p-3 bg-blue-900/20 border border-blue-400/30 rounded-lg">
+                        <div className="flex items-start gap-3">
+                            <Quote className="h-5 w-5 text-blue-400 mt-0.5" />
+                            <div>
+                                <span className="font-medium text-sm text-blue-300">Quote Tweet Preview</span>
+                                <p className="text-sm mt-1 text-white font-medium">"Quack?"</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    + Video attachment + Quoted original tweet
+                                </p>
+                            </div>
                         </div>
                     </div>
 

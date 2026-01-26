@@ -1602,6 +1602,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Video upload endpoint for Quack Launch
+  app.post("/api/sniper/quack-launch/upload-video", upload.single('video'), (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No video file uploaded' });
+      }
+      
+      // Set the new video path
+      const videoPath = `public/uploads/${req.file.filename}`;
+      setQuackLaunchMediaPath(videoPath);
+      
+      console.log(`🎥 Quack Launch video uploaded: ${videoPath} (${req.file.size} bytes)`);
+      
+      res.json({
+        success: true,
+        mediaPath: videoPath,
+        filename: req.file.filename,
+        size: req.file.size
+      });
+    } catch (error) {
+      console.error('Video upload error:', error);
+      res.status(500).json({ error: 'Failed to upload video' });
+    }
+  });
+
   // Pause/Resume sniper auto-hunting - per campaign
   app.post("/api/sniper/pause", (req, res) => {
     const { campaign } = req.body; // Optional: 'turai' or 'logicart'
