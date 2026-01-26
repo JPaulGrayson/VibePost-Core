@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { postcardDrafts } from "@shared/schema";
 import { GoogleGenAI, Modality } from "@google/genai";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { CampaignType, CAMPAIGN_CONFIGS, LogicArtStrategy, getActiveLogicArtStrategy, LOGICART_STRATEGIES } from "../campaign-config";
 import { runArena } from "./arena_service";
 import * as fs from "fs";
@@ -2020,6 +2020,46 @@ export async function generateQuackLaunchDraft(
     
     if (existing) {
         console.log(`   Draft already exists for tweet ${tweet.id}. Skipping.`);
+        return false;
+    }
+    
+    // Filter out bot/spam patterns - templated content from coordinated accounts
+    const botPatterns = [
+        /late night rabbit hole on @\w+ pulled me in deep/i,
+        /threw an agent swarm at a mock/i,
+        /fed it .* oracle .* spikes/i,
+        /zk-trails/i,
+    ];
+    
+    if (botPatterns.some(pattern => pattern.test(tweet.text))) {
+        console.log(`   🤖 Bot/spam pattern detected. Skipping: "${tweet.text.substring(0, 50)}..."`);
+        return false;
+    }
+    
+    // Check for duplicate content - compare first 60 chars to catch templated tweets
+    const textFingerprint = tweet.text.substring(0, 60).toLowerCase().trim();
+    const similarDraft = await db.query.postcardDrafts.findFirst({
+        where: and(
+            eq(postcardDrafts.strategy, 'quack_launch'),
+            eq(postcardDrafts.status, 'pending_review')
+        ),
+    });
+    
+    // Get all pending quack_launch drafts and check for similar content
+    const pendingDrafts = await db.select().from(postcardDrafts).where(
+        and(
+            eq(postcardDrafts.strategy, 'quack_launch'),
+            eq(postcardDrafts.status, 'pending_review')
+        )
+    );
+    
+    const hasSimilarContent = pendingDrafts.some(draft => {
+        const existingFingerprint = (draft.originalTweetText || '').substring(0, 60).toLowerCase().trim();
+        return existingFingerprint === textFingerprint;
+    });
+    
+    if (hasSimilarContent) {
+        console.log(`   📋 Duplicate content detected. Skipping: "${textFingerprint}..."`);
         return false;
     }
     
