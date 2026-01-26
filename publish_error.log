@@ -66,3 +66,10 @@ Error: Connection terminated unexpectedly
     at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
     at async DatabaseStorage.getPostcardDrafts (/home/runner/workspace/server/storage.ts:668:12)
     at async <anonymous> (/home/runner/workspace/server/routes.ts:3261:22)
+[2026-01-26T16:30:36.188Z] - Error: {}
+Error: Connection terminated unexpectedly
+    at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async NeonPreparedQuery.execute (/home/runner/workspace/node_modules/src/neon-serverless/session.ts:102:18)
+    at async DatabaseStorage.getPostcardDrafts (/home/runner/workspace/server/storage.ts:668:12)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:3303:22)

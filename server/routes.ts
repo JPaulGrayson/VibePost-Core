@@ -1693,9 +1693,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Post the Quack launch thread
   app.post("/api/launch-thread", async (req, res) => {
     try {
-      const { postThread, ThreadTweet } = await import("./services/twitter_publisher");
+      const { postThread } = await import("./services/twitter_publisher");
       
-      // Launch thread tweets with their media
+      // Launch thread tweets with their media (5 tweets)
       const launchTweets = [
         {
           text: `AI Agents have a fatal flaw: Amnesia.
@@ -1709,13 +1709,23 @@ A Universal Message Bus that lets your agents talk to each other—and remember.
           mediaType: "image" as const
         },
         {
-          text: `Once your agents have a memory, they need a leader.
+          text: `This is what managing agents looks like WITHOUT Quack...
 
-Orchestrate turns Claude into "The Conductor"—coordinating Cursor, Replit, GPT, and Grok in perfect harmony.
+Copy-pasting between windows. Manual approval for every message. Context lost. Chaos.
 
-Left: Manual chaos (per-message approval hell)
-Right: Autonomous swarm with human override 🎯`,
-          mediaPath: "public/launch_2_ducks.jpg",
+Sound familiar? 🤯`,
+          mediaPath: "public/launch_2_ducks_before.jpg",
+          mediaType: "image" as const
+        },
+        {
+          text: `And THIS is what happens when you add Quack + Orchestrate...
+
+Claude becomes "The Conductor" 🎼
+
+Your agents walk in formation. Coordinated. Harmonized. Beautiful.
+
+One human. One swarm. Zero chaos.`,
+          mediaPath: "public/launch_3_ducks_after.jpg",
           mediaType: "image" as const
         },
         {
@@ -1726,7 +1736,7 @@ Enter LogicArt—The Art of Logic 🎨
 Watch your code transform into living flowcharts. Debug visually. Understand instantly.
 
 logic.art`,
-          mediaPath: "public/launch_3_logicart.mov",
+          mediaPath: "public/launch_4_logicart.mov",
           mediaType: "video" as const
         },
         {
@@ -1739,7 +1749,7 @@ In the 2000s, I pioneered distributed solid modeling at Alibre (US 2003/0078974)
 We were doing "Vibe Coding" with 3D objects before the cloud even existed.
 
 The tech changes. The architecture stays the same. 🧙‍♂️`,
-          mediaPath: "public/launch_4_patent.jpg",
+          mediaPath: "public/launch_5_patent.jpg",
           mediaType: "image" as const
         }
       ];
