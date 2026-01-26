@@ -252,6 +252,28 @@ export default function SniperQueue() {
         }
     });
 
+    // Launch the main announcement thread
+    const launchThread = useMutation({
+        mutationFn: async () => {
+            const res = await apiRequest("POST", "/api/launch-thread");
+            return res.json();
+        },
+        onSuccess: (data) => {
+            toast({
+                title: "🚀 Thread Launched!",
+                description: `Posted ${data.tweetIds?.length || 6} tweets. View: ${data.threadUrl}`,
+            });
+        },
+        onError: (error) => {
+            console.error("Launch failed:", error);
+            toast({
+                variant: "destructive",
+                title: "Launch Failed",
+                description: String(error),
+            });
+        }
+    });
+
     // Hunt ALL strategies at once
     const huntAll = useMutation({
         mutationFn: async () => {
@@ -461,6 +483,33 @@ export default function SniperQueue() {
                     {activeCampaign === 'quack_launch' && '🦆 Mystery campaign → "Quack?" quote tweets with video → Drive curiosity'}
                     {activeCampaign === 'top_10' && '⭐ Your top 10 highest-scoring candidates across all queues - select and batch send!'}
                 </p>
+                
+                {/* Launch Thread Button - Quack Campaign Only */}
+                {activeCampaign === 'quack_launch' && (
+                    <div className="mt-4 pt-4 border-t">
+                        <Button
+                            variant="default"
+                            size="lg"
+                            className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                            onClick={() => launchThread.mutate()}
+                            disabled={launchThread.isPending}
+                        >
+                            {launchThread.isPending ? (
+                                <>
+                                    <span className="animate-spin mr-2">🚀</span>
+                                    Launching Thread (~3 min)...
+                                </>
+                            ) : (
+                                <>
+                                    🧵 Launch Announcement Thread (6 Tweets)
+                                </>
+                            )}
+                        </Button>
+                        <p className="text-xs text-muted-foreground mt-2 text-center">
+                            Posts your 6-tweet product launch thread with images and videos
+                        </p>
+                    </div>
+                )}
 
                 {/* Strategy Selector (LogicArt only - exclude quote tweet strategies) */}
                 {activeCampaign === 'logicart' && campaignData?.availableStrategies && campaignData.availableStrategies.length > 0 && (
