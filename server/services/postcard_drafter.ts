@@ -486,6 +486,49 @@ export class PostcardDrafter {
     private static readonly QUACK_URL = "https://x.quack.us.com";
     private static readonly ORCHESTRATE_URL = "https://x.orchestrate.us.com";
 
+    // Helper to add UTM parameters to URLs for tracking
+    static addUtmParams(baseUrl: string, options?: {
+        source?: string;
+        medium?: string;
+        campaign?: string;
+        content?: string;
+    }): string {
+        const url = new URL(baseUrl);
+        if (options?.source) url.searchParams.set('utm_source', options.source);
+        if (options?.medium) url.searchParams.set('utm_medium', options.medium);
+        if (options?.campaign) url.searchParams.set('utm_campaign', options.campaign);
+        if (options?.content) url.searchParams.set('utm_content', options.content);
+        return url.toString();
+    }
+
+    // Get tracked URLs for each product
+    static getTrackedQuackUrl(campaign?: string, content?: string): string {
+        return this.addUtmParams(this.QUACK_URL, {
+            source: 'twitter',
+            medium: 'social',
+            campaign: campaign || 'sniper',
+            content
+        });
+    }
+
+    static getTrackedLogicArtUrl(campaign?: string, content?: string): string {
+        return this.addUtmParams(this.LOGICART_LINK, {
+            source: 'twitter',
+            medium: 'social',
+            campaign: campaign || 'sniper',
+            content
+        });
+    }
+
+    static getTrackedOrchestrateUrl(campaign?: string, content?: string): string {
+        return this.addUtmParams(this.ORCHESTRATE_URL, {
+            source: 'twitter',
+            medium: 'social',
+            campaign: campaign || 'sniper',
+            content
+        });
+    }
+
     // Extract code snippet from a tweet
     extractCodeFromTweet(text: string): string | null {
         // Try to find code blocks (```code```)
@@ -525,7 +568,7 @@ export class PostcardDrafter {
     // Generate a LogicArt URL - pre-populate Arena with user's question/code
     generateArenaUrl(contentToPreload: string | null): string {
         if (!contentToPreload) {
-            return PostcardDrafter.LOGICART_LINK;
+            return PostcardDrafter.getTrackedLogicArtUrl('arena_sniper');
         }
         
         try {
@@ -538,9 +581,10 @@ export class PostcardDrafter {
             
             // Use ?q= parameter to pre-populate the Arena question field
             // This matches what Arena Referee uses and the Arena page expects
-            return `${PostcardDrafter.ARENA_URL}?q=${encoded}`;
+            // Add UTM tracking parameters
+            return `${PostcardDrafter.ARENA_URL}?q=${encoded}&utm_source=twitter&utm_medium=social&utm_campaign=arena_sniper`;
         } catch (e) {
-            return PostcardDrafter.LOGICART_LINK;
+            return PostcardDrafter.getTrackedLogicArtUrl('arena_sniper');
         }
     }
 
@@ -717,8 +761,8 @@ Visual theme (2-5 words):` }]
             
             let targetUrl: string;
             if (isQuackStrategy) {
-                targetUrl = PostcardDrafter.QUACK_URL;
-                console.log(`   🦆 Quack Duck strategy - using x.quack.us.com`);
+                targetUrl = PostcardDrafter.getTrackedQuackUrl('quack_sniper');
+                console.log(`   🦆 Quack Duck strategy - using tracked x.quack.us.com`);
             } else {
                 // Pre-populate Arena with the user's original tweet/question
                 targetUrl = this.generateArenaUrl(originalText);
@@ -738,7 +782,7 @@ Visual theme (2-5 words):` }]
     // LogicArt-specific reply generation
     async generateLogicArtReply(author: string, context: string, originalText: string, arenaUrl?: string, isQuackStrategy: boolean = false): Promise<{ text: string; score: number }> {
         // Use the dynamic URL - it's pre-populated with their question
-        const linkToUse = arenaUrl || PostcardDrafter.LOGICART_LINK;
+        const linkToUse = arenaUrl || PostcardDrafter.getTrackedLogicArtUrl('arena_sniper');
         const isPreloaded = arenaUrl?.includes('q=');
         
         try {
@@ -971,7 +1015,7 @@ Visual theme (2-5 words):` }]
         
         // Use x.quack.us.com for Quack strategy, Arena URL for others
         const isQuackStrategy = strategy === 'quack_duck';
-        const linkUrl = isQuackStrategy ? PostcardDrafter.QUACK_URL : arenaUrl;
+        const linkUrl = isQuackStrategy ? PostcardDrafter.getTrackedQuackUrl('quack_sniper') : arenaUrl;
         const linkDomain = isQuackStrategy ? 'x.quack.us.com' : 'x.logic.art';
         
         // Different prompt structure for Quack vs Arena strategies

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, RefreshCw, User, ExternalLink } from "lucide-react";
+import { Loader2, RefreshCw, User, ExternalLink, MousePointerClick, Globe } from "lucide-react";
 import {
   BarChart3,
   TrendingUp,
@@ -71,6 +71,31 @@ export default function Analytics() {
   // Fetch actual comments from Twitter
   const { data: commentsData, isLoading: commentsLoading, refetch: refetchComments } = useQuery<{ posts: PostWithComments[] }>({
     queryKey: ["/api/analytics/comments"],
+  });
+
+  // Fetch conversion analytics
+  interface ConversionStats {
+    totalViews: number;
+    uniqueVisitors: number;
+    bySite: Record<string, number>;
+    bySource: Record<string, number>;
+    byCampaign: Record<string, number>;
+    byPath: Record<string, number>;
+    byDate: Record<string, number>;
+    recentViews: Array<{
+      id: number;
+      site: string;
+      path: string;
+      utmSource: string | null;
+      utmCampaign: string | null;
+      visitorId: string | null;
+      createdAt: string;
+    }>;
+  }
+
+  const conversionDays = timeRange === "7days" ? 7 : timeRange === "30days" ? 30 : 90;
+  const { data: conversionsData, isLoading: conversionsLoading, refetch: refetchConversions } = useQuery<ConversionStats>({
+    queryKey: [`/api/analytics/conversions?days=${conversionDays}`],
   });
 
   // Filter out AI bot mentions from comments
@@ -496,12 +521,13 @@ export default function Analytics() {
           </Card>
 
           <Tabs defaultValue="engagement" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="engagement">Engagement Trends</TabsTrigger>
-              <TabsTrigger value="platforms">Platform Distribution</TabsTrigger>
-              <TabsTrigger value="posts">Top Performing Posts</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-6">
+              <TabsTrigger value="engagement">Engagement</TabsTrigger>
+              <TabsTrigger value="platforms">Platforms</TabsTrigger>
+              <TabsTrigger value="posts">Top Posts</TabsTrigger>
               <TabsTrigger value="comments">Comments</TabsTrigger>
-              <TabsTrigger value="recent">Recent Activity</TabsTrigger>
+              <TabsTrigger value="conversions">Conversions</TabsTrigger>
+              <TabsTrigger value="recent">Recent</TabsTrigger>
             </TabsList>
 
             <TabsContent value="engagement" className="space-y-6">
@@ -830,6 +856,172 @@ export default function Analytics() {
                       <p className="text-sm text-muted-foreground mt-1">
                         Comments will appear here when people reply to your tweets
                       </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="conversions" className="space-y-6">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <MousePointerClick className="h-5 w-5" />
+                    Website Conversions
+                  </CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => refetchConversions()}
+                    disabled={conversionsLoading}
+                  >
+                    {conversionsLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {conversionsLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : conversionsData ? (
+                    <div className="space-y-6">
+                      {/* Stats Cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                            <Eye className="h-4 w-4" />
+                            <span className="text-sm font-medium">Total Views</span>
+                          </div>
+                          <p className="text-2xl font-bold mt-1">{conversionsData.totalViews}</p>
+                        </div>
+                        <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-900/20">
+                          <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                            <User className="h-4 w-4" />
+                            <span className="text-sm font-medium">Unique Visitors</span>
+                          </div>
+                          <p className="text-2xl font-bold mt-1">{conversionsData.uniqueVisitors}</p>
+                        </div>
+                        <div className="p-4 border rounded-lg bg-purple-50 dark:bg-purple-900/20">
+                          <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
+                            <Globe className="h-4 w-4" />
+                            <span className="text-sm font-medium">Sites Tracked</span>
+                          </div>
+                          <p className="text-2xl font-bold mt-1">{Object.keys(conversionsData.bySite || {}).length}</p>
+                        </div>
+                        <div className="p-4 border rounded-lg bg-orange-50 dark:bg-orange-900/20">
+                          <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                            <TrendingUp className="h-4 w-4" />
+                            <span className="text-sm font-medium">Traffic Sources</span>
+                          </div>
+                          <p className="text-2xl font-bold mt-1">{Object.keys(conversionsData.bySource || {}).length}</p>
+                        </div>
+                      </div>
+
+                      {/* By Site Breakdown */}
+                      {Object.keys(conversionsData.bySite || {}).length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                            <Globe className="h-4 w-4" />
+                            Visits by Product
+                          </h3>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {Object.entries(conversionsData.bySite).map(([site, count]) => (
+                              <div key={site} className="p-3 border rounded-lg">
+                                <p className="font-medium capitalize">{site}</p>
+                                <p className="text-2xl font-bold text-primary">{count}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* By Source Breakdown */}
+                      {Object.keys(conversionsData.bySource || {}).length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4" />
+                            Traffic Sources
+                          </h3>
+                          <div className="space-y-2">
+                            {Object.entries(conversionsData.bySource)
+                              .sort(([, a], [, b]) => b - a)
+                              .map(([source, count]) => (
+                                <div key={source} className="flex items-center justify-between p-2 border rounded">
+                                  <span className="capitalize">{source}</span>
+                                  <Badge variant="secondary">{count}</Badge>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* By Campaign Breakdown */}
+                      {Object.keys(conversionsData.byCampaign || {}).length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                            <BarChart3 className="h-4 w-4" />
+                            Campaign Attribution
+                          </h3>
+                          <div className="space-y-2">
+                            {Object.entries(conversionsData.byCampaign)
+                              .sort(([, a], [, b]) => b - a)
+                              .map(([campaign, count]) => (
+                                <div key={campaign} className="flex items-center justify-between p-2 border rounded">
+                                  <span>{campaign}</span>
+                                  <Badge variant="secondary">{count}</Badge>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recent Views */}
+                      {conversionsData.recentViews?.length > 0 && (
+                        <div>
+                          <h3 className="text-sm font-semibold mb-3">Recent Visits</h3>
+                          <div className="space-y-2 max-h-64 overflow-y-auto">
+                            {conversionsData.recentViews.slice(0, 20).map((view) => (
+                              <div key={view.id} className="flex items-center justify-between p-2 border rounded text-sm">
+                                <div className="flex items-center gap-3">
+                                  <Badge variant="outline" className="capitalize">{view.site}</Badge>
+                                  <span className="text-muted-foreground">{view.path}</span>
+                                </div>
+                                <div className="flex items-center gap-3 text-muted-foreground">
+                                  {view.utmSource && <span className="text-xs">{view.utmSource}</span>}
+                                  <span className="text-xs">{format(new Date(view.createdAt), "MMM d, h:mm a")}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Empty State */}
+                      {conversionsData.totalViews === 0 && (
+                        <div className="text-center py-12">
+                          <MousePointerClick className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                          <p className="text-muted-foreground font-medium">No visits tracked yet</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Visits to your landing pages will appear here when traffic arrives
+                          </p>
+                          <div className="mt-4 p-4 bg-muted rounded-lg text-left">
+                            <p className="text-sm font-medium mb-2">Tracking is active for:</p>
+                            <ul className="text-sm text-muted-foreground space-y-1">
+                              <li>• x.quack.us.com (Quack)</li>
+                              <li>• x.orchestrate.us.com (Orchestrate)</li>
+                              <li>• wizardofquack.com (Wizard)</li>
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">Unable to load conversion data</p>
                     </div>
                   )}
                 </CardContent>
