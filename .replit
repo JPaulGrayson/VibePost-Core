@@ -25,3 +25,14 @@ channel = "stable-25_05"
 
 [agent]
 integrations = ["javascript_log_in_with_replit:2.0.0", "javascript_gemini_ai_integrations:2.0.0"]
+
+[workflows]
+
+[[workflows.workflow]]
+name = "Start Application"
+mode = "sequential"
+author = 42982851
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "nom run dev"
