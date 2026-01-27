@@ -10,8 +10,8 @@ import { eq, and, or, isNull } from "drizzle-orm";
 import { storage } from "./storage";
 import { pool } from "./db";
 import { db } from "./db";
-import { postcardDrafts } from "@shared/schema";
-import { insertPostSchema, insertPlatformConnectionSchema, insertCampaignSchema, Platform, PostStatus } from "@shared/schema";
+import { postcardDrafts, pageViews } from "@shared/schema";
+import { insertPostSchema, insertPlatformConnectionSchema, insertCampaignSchema, Platform, PostStatus, insertPageViewSchema } from "@shared/schema";
 import { keywordSearchEngine } from "./keyword-search";
 import { postcardDrafter, generateDraft } from "./services/postcard_drafter";
 import { publishDraft } from "./services/twitter_publisher";
@@ -76,6 +76,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // In production, this would check actual authentication
     next();
   };
+
+  // ============================================
+  // CONVERSION TRACKING ENDPOINTS
+  // ============================================
+
+  // Tracking pixel endpoint - receives data from landing pages
+  app.post("/api/track", async (req, res) => {
+    try {
+      const {
+        site,
+        path,
+        utmSource,
+        utmMedium,
+        utmCampaign,
+        utmContent,
+        visitorId,
+        eventType,
+        eventData
+      } = req.body;
+
+      if (!site || !path) {
+        return res.status(400).json({ error: "site and path are required" });
+      }
+
+      // Get visitor info from headers
+      const userAgent = req.headers['user-agent'] || null;
+      const referer = req.headers['referer'] || null;
+      
+      // Create page view record
+      await db.insert(pageViews).values({
+        site,
+        path,
+        utmSource: utmSource || null,
+        utmMedium: utmMedium || null,
+        utmCampaign: utmCampaign || null,
+        utmContent: utmContent || null,
+        visitorId: visitorId || null,
+        userAgent,
+        referer,
+        eventType: eventType || 'pageview',
+        eventData: eventData || null
+      });
+
+      // Return transparent 1x1 pixel if requested via GET, or JSON for POST
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Tracking error:", error);
+      res.status(500).json({ error: "Failed to track" });
+    }
+  });
+
+  // GET endpoint for tracking pixel (for img tag embedding)
+  app.get("/api/track.gif", async (req, res) => {
+    try {
+      const { site, path, utm_source, utm_medium, utm_campaign, utm_content, vid } = req.query;
+
+      if (site && path) {
+        await db.insert(pageViews).values({
+          site: site as string,
+          path: path as string,
+          utmSource: (utm_source as string) || null,
+          utmMedium: (utm_medium as string) || null,
+          utmCampaign: (utm_campaign as string) || null,
+          utmContent: (utm_content as string) || null,
+          visitorId: (vid as string) || null,
+          userAgent: req.headers['user-agent'] || null,
+          referer: req.headers['referer'] || null,
+          eventType: 'pageview',
+          eventData: null
+        });
+      }
+
+      // Return transparent 1x1 GIF
+      const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+      res.set('Content-Type', 'image/gif');
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.send(pixel);
+    } catch (error) {
+      console.error("Tracking pixel error:", error);
+      // Still return pixel even on error
+      const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+      res.set('Content-Type', 'image/gif');
+      res.send(pixel);
+    }
+  });
+
+  // Get conversion analytics data
+  app.get("/api/analytics/conversions", async (req, res) => {
+    try {
+      const { site, days = 30 } = req.query;
+      
+      const daysAgo = new Date();
+      daysAgo.setDate(daysAgo.getDate() - Number(days));
+      
+      // Get all page views within the time range
+      let query = db.select().from(pageViews);
+      
+      const allViews = await query;
+      
+      // Filter by date and optionally by site
+      const filteredViews = allViews.filter(v => {
+        const matchesDate = new Date(v.createdAt) >= daysAgo;
+        const matchesSite = site ? v.site === site : true;
+        return matchesDate && matchesSite;
+      });
+
+      // Aggregate stats
+      const stats = {
+        totalViews: filteredViews.length,
+        uniqueVisitors: new Set(filteredViews.map(v => v.visitorId).filter(Boolean)).size,
+        bySite: {} as Record<string, number>,
+        bySource: {} as Record<string, number>,
+        byCampaign: {} as Record<string, number>,
+        byPath: {} as Record<string, number>,
+        byDate: {} as Record<string, number>,
+        recentViews: filteredViews.slice(-50).reverse()
+      };
+
+      filteredViews.forEach(v => {
+        // By site
+        stats.bySite[v.site] = (stats.bySite[v.site] || 0) + 1;
+        
+        // By source
+        const source = v.utmSource || 'direct';
+        stats.bySource[source] = (stats.bySource[source] || 0) + 1;
+        
+        // By campaign
+        if (v.utmCampaign) {
+          stats.byCampaign[v.utmCampaign] = (stats.byCampaign[v.utmCampaign] || 0) + 1;
+        }
+        
+        // By path
+        stats.byPath[v.path] = (stats.byPath[v.path] || 0) + 1;
+        
+        // By date
+        const date = new Date(v.createdAt).toISOString().split('T')[0];
+        stats.byDate[date] = (stats.byDate[date] || 0) + 1;
+      });
+
+      res.json(stats);
+    } catch (error) {
+      console.error("Conversion analytics error:", error);
+      res.status(500).json({ error: "Failed to get conversion data" });
+    }
+  });
 
   // Configure multer for file uploads
   const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
