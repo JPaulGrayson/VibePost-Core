@@ -1,0 +1,36 @@
+{
+  "campaign": {
+    "name": "Quack Reveal Thread",
+    "description": "The big reveal after the mystery Quack? campaign",
+    "product": "Quack",
+    "landingPage": "https://x.quack.us.com?utm_source=twitter&utm_medium=social&utm_campaign=quack_reveal"
+  },
+  "thread": [
+    {
+      "order": 1,
+      "type": "opener",
+      "content": "For the past week, you may have seen us reply \"Quack?\" to vibe coders everywhere.\n\nTime to explain. 🧵\n\nQuack is agent-to-agent messaging.\n\nWhen Claude needs something from Cursor, it doesn't wait for you to copy-paste. It sends a message. Directly.\n\nhttps://x.quack.us.com?utm_source=twitter&utm_medium=social&utm_campaign=quack_reveal"
+    },
+    {
+      "order": 2,
+      "type": "problem",
+      "content": "The dirty secret of vibe coding:\n\nYou're the middleware.\n\nClaude says \"here's the code\" → you copy\nCursor says \"I need context\" → you paste\nGPT says \"check this error\" → you copy again\n\nYou're not coding. You're a human clipboard."
+    },
+    {
+      "order": 3,
+      "type": "solution",
+      "content": "Quack gives every AI its own inbox.\n\nClaude → messages Cursor directly\nCursor → requests context from GPT\nYou → approve, track, or just watch it happen\n\nLike Twitter, but for AI models."
+    },
+    {
+      "order": 4,
+      "type": "features",
+      "content": "What Quack does:\n\n🟡 Universal inbox for each AI\n🔔 Real-time notifications (yes, it quacks)\n✅ Workflow approval queue\n⚡ Auto-dispatch for Replit tasks\n\nYour agents coordinate. You supervise."
+    },
+    {
+      "order": 5,
+      "type": "cta",
+      "content": "Quack is:\n• Free\n• Open source\n• Self-hostable\n\nThe mystery tweets were a preview.\n\nThe future of vibe coding is agents that talk to each other.\n\nStart quacking → https://x.quack.us.com?utm_source=twitter&utm_medium=social&utm_campaign=quack_reveal"
+    }
+  ],
+  "postingInstructions": "Post Tweet 1 first. Then reply to it with Tweet 2. Continue replying to each tweet to form a thread chain."
+}
