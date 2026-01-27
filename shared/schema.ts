@@ -300,6 +300,40 @@ export type PostcardDraft = typeof postcardDrafts.$inferSelect;
 export const PostcardDraftStatus = z.enum(["pending_review", "approved", "rejected", "published", "failed", "pending_retry"]);
 export type PostcardDraftStatus = z.infer<typeof PostcardDraftStatus>;
 
+// Page view tracking for conversion analytics
+export const pageViews = pgTable("page_views", {
+  id: serial("id").primaryKey(),
+  // Which product/site was visited
+  site: varchar("site").notNull(), // quack, orchestrate, logicart, wizardofquack
+  path: varchar("path").notNull(), // /home, /signup, /pricing, etc.
+  
+  // UTM parameters for campaign attribution
+  utmSource: varchar("utm_source"), // twitter, reddit, discord, etc.
+  utmMedium: varchar("utm_medium"), // social, email, etc.
+  utmCampaign: varchar("utm_campaign"), // quack_mystery, vibeappz_launch, etc.
+  utmContent: varchar("utm_content"), // specific post/tweet identifier
+  
+  // Visitor info
+  visitorId: varchar("visitor_id"), // anonymous fingerprint for unique visitors
+  userAgent: text("user_agent"),
+  referer: text("referer"),
+  ipCountry: varchar("ip_country"),
+  
+  // Event tracking
+  eventType: varchar("event_type").default("pageview"), // pageview, signup, trial_start, etc.
+  eventData: jsonb("event_data").$type<Record<string, any>>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPageViewSchema = createInsertSchema(pageViews).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPageView = z.infer<typeof insertPageViewSchema>;
+export type PageView = typeof pageViews.$inferSelect;
+
 // Arena Referee specific types
 export interface ArenaVerdict {
   winner: string;
