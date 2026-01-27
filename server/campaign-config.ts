@@ -740,32 +740,26 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         emoji: '🚀',
         description: 'Mystery "Quack?" campaign - quote tweet code posts with just "Quack?" and video',
         keywords: [
-            // ===== AGENT SWARMS (HOT TOPIC) =====
-            "agent swarm", "swarm agents", "multi-agent", "agent orchestration",
-            "swarm intelligence", "AI swarm", "swarm of agents",
-            "agents working together", "agent collaboration", "agent fleet",
-            "swarm coding", "swarm architecture", "agent mesh",
-            
-            // ===== VIBE CODING PLATFORMS =====
-            "Cursor AI", "Claude code", "Replit agent", "Copilot",
-            "vibe coding", "vibecoding", "agentic coding",
-            
-            // ===== CODE SHARING =====
-            "here's my code", "check this out", "just built",
-            "shipping", "deployed", "just launched",
-            "```python", "```javascript", "```typescript",
-            
-            // ===== AI CODING =====
-            "AI wrote this", "Claude helped", "GPT generated",
-            "Cursor built", "vibe coded this", "no-code",
-            
-            // ===== DEBUGGING =====
-            "finally fixed", "bug fixed", "it works",
-            "why doesn't this work", "help with code",
+            // ===== HIGH VOLUME FIRST (searched first!) =====
+            "vibe coding", "Cursor AI", "Claude code", "Replit agent",
+            "multi-agent", "agentic coding", "AI coding",
             
             // ===== INFLUENCER WATCH =====
             "from:karpathy", "from:levelsio", "from:swyx",
-            "from:amasad", "from:jxnlco"
+            
+            // ===== AGENT SWARMS =====
+            "agent swarm", "swarm agents", "agent orchestration",
+            "AI swarm", "agents working together",
+            
+            // ===== CODE SHARING =====
+            "just built", "just shipped", "deployed",
+            
+            // ===== AI CODING =====
+            "Claude helped", "GPT generated", "Cursor built",
+            "vibe coded this", "vibecoding",
+            
+            // ===== DEBUGGING =====
+            "finally fixed", "bug fixed"
         ],
         intentType: 'Code-Related Post (Launch Campaign Target)',
         intentSignals: {
