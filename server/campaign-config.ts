@@ -491,13 +491,11 @@ export interface StrategyConfig {
 export const GLOBAL_SAFETY_FILTERS = {
     // No hate/politics - if tweet involves race, politics, gender war -> DISCARD
     hatePolitics: ["maga", "woke", "leftist", "rightist", "trump", "biden", "gender war", "pronouns", "racist", "fascist"],
-    // No crypto/currency - if profile has .eth or discusses tokens/money -> DISCARD
+    // No crypto - if profile has .eth or discusses tokens -> DISCARD
+    // Be careful with short terms that match normal words (eth=ethereum vs method, sol=solana vs solution)
     crypto: [
-        ".eth", "crypto", "token", "nft", "blockchain", "web3", "defi", "hodl", "wagmi",
-        // Digital currencies
-        "btc", "bitcoin", "ethereum", "eth", "solana", "sol", "dogecoin", "doge", "xrp", "cardano",
-        // Currency symbols (detect money/trading content)
-        "$", "€", "£", "¥", "₿"
+        ".eth", "crypto", "nft", "blockchain", "web3", "defi", "hodl", "wagmi",
+        "bitcoin", "ethereum", "solana", "dogecoin", "cardano", "₿", "$btc", "$eth", "$sol"
     ],
     // Code fragments - skip tweets that are just raw code dumps
     codeFragments: ["}", "{", "();", "=>", "&&", "||", "===", "!==", "function(", "const {", "import {"],
