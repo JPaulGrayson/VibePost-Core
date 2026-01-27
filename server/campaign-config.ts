@@ -772,7 +772,7 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         intentType: 'Code-Related Post (Launch Campaign Target)',
         intentSignals: {
             positive: ["code", "coding", "built", "shipped", "deployed", "launched", "AI", "Claude", "GPT", "Cursor", "Replit", "vibe", "agent", "swarm", "multi-agent", "orchestration", "agents", "collaboration"],
-            negative: ["hiring", "job", "sponsor", "discount", "affiliate", "founder", "CEO", "we're building", "promo", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto, ...GLOBAL_SAFETY_FILTERS.codeFragments]
+            negative: ["hiring", "job", "sponsor", "discount", "affiliate", "founder", "CEO", "we're building", "promo", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto]
         },
         replyPersona: {
             tone: 'Mysterious, Playful - Just "Quack?" with video',
