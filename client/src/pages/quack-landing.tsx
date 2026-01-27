@@ -3,11 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Inbox, Bell, CheckSquare, Zap, FileText, Volume2, Copy, ArrowRight, ExternalLink } from "lucide-react";
 import { SiOpenai, SiGoogle } from "react-icons/si";
+import { trackPageView, trackEvent } from "@/lib/tracking";
 
 const QUACK_VISITED_KEY = "quack_landing_visited";
 
 export default function QuackLanding() {
   useEffect(() => {
+    // Track page view
+    trackPageView('quack');
+    
     const params = new URLSearchParams(window.location.search);
     const isPreview = params.get("preview") === "1";
     if (isPreview) return;

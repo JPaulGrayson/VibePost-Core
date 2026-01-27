@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -11,10 +11,13 @@ import {
   Zap,
   CheckCircle2
 } from "lucide-react";
+import { trackPageView, trackEvent } from "@/lib/tracking";
 
 export default function WizardLanding() {
-  // No automatic redirect - let users always see the Wizard landing page
-  // They can click on any product to go to that app
+  // Track page view on mount
+  useEffect(() => {
+    trackPageView('wizardofquack');
+  }, []);
 
   const [quackFeedback, setQuackFeedback] = useState<{ x: number; y: number } | null>(null);
   const lastQuackTime = useRef(0);

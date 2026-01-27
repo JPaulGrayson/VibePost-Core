@@ -18,6 +18,7 @@ import {
   ChevronDown,
   ChevronUp
 } from "lucide-react";
+import { trackPageView, trackEvent } from "@/lib/tracking";
 
 const ORCHESTRATE_VISITED_KEY = "orchestrate_landing_visited";
 
@@ -25,6 +26,9 @@ export default function OrchestrateLanding() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   useEffect(() => {
+    // Track page view
+    trackPageView('orchestrate');
+    
     const params = new URLSearchParams(window.location.search);
     const isPreview = params.get("preview") === "1";
     if (isPreview) return;
