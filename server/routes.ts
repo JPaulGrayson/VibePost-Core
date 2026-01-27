@@ -435,7 +435,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      console.log(`[Sync] Complete. Updated ${results.length} posts.`);
+      // 4. Sync sniper drafts (postcardDrafts)
+      const sniperDrafts = await db.select().from(postcardDrafts)
+        .where(eq(postcardDrafts.status, "published"));
+      
+      const sniperTweetIds = sniperDrafts
+        .map(d => d.tweetId)
+        .filter((id): id is string => !!id && /^\d+$/.test(id));
+      
+      console.log(`[Sync] Found ${sniperDrafts.length} sniper drafts, ${sniperTweetIds.length} with valid tweet IDs`);
+      
+      if (sniperTweetIds.length > 0) {
+        try {
+          const chunkSize = 100;
+          let sniperMetricsMap: Record<string, any> = {};
+          
+          for (let i = 0; i < sniperTweetIds.length; i += chunkSize) {
+            const chunk = sniperTweetIds.slice(i, i + chunkSize);
+            const chunkMetrics = await fetchTwitterMetricsBatch(chunk);
+            sniperMetricsMap = { ...sniperMetricsMap, ...chunkMetrics };
+          }
+          
+          // Update sniper drafts with metrics
+          for (const draft of sniperDrafts) {
+            if (draft.tweetId && sniperMetricsMap[draft.tweetId]) {
+              const metrics = sniperMetricsMap[draft.tweetId];
+              await db.update(postcardDrafts)
+                .set({
+                  likes: metrics.likes || 0,
+                  retweets: metrics.retweets || 0,
+                  replies: metrics.replies || 0,
+                  impressions: metrics.views || 0,
+                })
+                .where(eq(postcardDrafts.id, draft.id));
+            }
+          }
+          
+          console.log(`[Sync] Updated ${Object.keys(sniperMetricsMap).length} sniper drafts with metrics`);
+        } catch (error: any) {
+          console.error("[Sync] Failed to sync sniper drafts:", error);
+          syncErrors.push(`Sniper sync error: ${error.message || 'Unknown error'}`);
+        }
+      }
+
+      console.log(`[Sync] Complete. Updated ${results.length} posts + ${sniperTweetIds.length} sniper drafts.`);
       res.json({ 
         success: true, 
         results,
@@ -444,6 +487,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           postsWithTwitter: twitterIds.length,
           metricsReturned: Object.keys(twitterMetricsMap).length,
           postsUpdated: results.length,
+          sniperDrafts: sniperDrafts.length,
+          sniperSynced: sniperTweetIds.length,
           errors: syncErrors
         }
       });
@@ -548,6 +593,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(analytics);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch post analytics" });
+    }
+  });
+
+  // Combined analytics: posts + sniper drafts
+  app.get("/api/analytics/all-posts", async (req, res) => {
+    try {
+      // Get main posts
+      const mainPosts = await storage.getPostsByStatus("published");
+      
+      // Get published sniper drafts
+      const sniperDrafts = await db.select().from(postcardDrafts)
+        .where(eq(postcardDrafts.status, "published"));
+      
+      // Convert sniper drafts to post-like format for unified analytics
+      const sniperAsPosts = sniperDrafts.map(draft => ({
+        id: draft.id + 100000, // Offset to avoid ID collision
+        content: draft.draftReplyText || "",
+        platforms: ["twitter"],
+        status: "published" as const,
+        publishedAt: draft.publishedAt,
+        scheduledFor: null,
+        campaignId: null,
+        userId: 1,
+        createdAt: draft.createdAt,
+        updatedAt: draft.createdAt,
+        isSniper: true,
+        targetTweetId: draft.originalTweetId,
+        platformData: {
+          twitter: {
+            tweetId: draft.tweetId || draft.originalTweetId,
+            likes: draft.likes || 0,
+            retweets: draft.retweets || 0,
+            quotes: 0,
+            views: draft.impressions || 0,
+            replies: draft.replies || 0
+          }
+        }
+      }));
+      
+      // Combine and return
+      const allPosts = [...mainPosts, ...sniperAsPosts];
+      res.json(allPosts);
+    } catch (error) {
+      console.error("Failed to fetch all posts for analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
     }
   });
 

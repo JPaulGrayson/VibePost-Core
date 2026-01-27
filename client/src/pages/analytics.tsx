@@ -64,8 +64,7 @@ export default function Analytics() {
   const { toast } = useToast();
 
   const { data: posts = [] } = useQuery<Post[]>({
-    queryKey: ["/api/posts"],
-    select: (data) => data.filter(post => post.status === "published"),
+    queryKey: ["/api/analytics/all-posts"],
   });
 
   // Fetch actual comments from Twitter
