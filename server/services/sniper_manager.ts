@@ -288,7 +288,9 @@ export class SniperManager {
                 stats.keywordsSearched++;
                 try {
                     // Search for keyword on Twitter with strategy-specific ranking
+                    console.log(`   🔍 Searching for: "${keyword}" (mode: ${rankingMode})`);
                     const results = await keywordSearchEngine.searchAllPlatforms(keyword, ['twitter'], false, rankingMode);
+                    console.log(`   📊 Results for "${keyword}": ${results.length} tweets found`);
                     stats.tweetsFound += results.length;
 
                     if (results.length === 0) continue;

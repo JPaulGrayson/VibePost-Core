@@ -209,9 +209,10 @@ export default function SniperQueue() {
             const strategyInfo = debug ? `[${debug.strategyName}]` : '';
             
             if (stats) {
+                const errorInfo = stats.errors > 0 ? `\n⚠️ ${stats.errors} errors: ${stats.lastError}` : '';
                 toast({
                     title: `Hunt Complete! ${strategyInfo}`,
-                    description: `Searched ${stats.keywordsSearched} keywords, found ${stats.tweetsFound} tweets, created ${stats.draftsCreated} drafts, skipped ${stats.duplicatesSkipped} duplicates.`,
+                    description: `Searched ${stats.keywordsSearched} keywords, found ${stats.tweetsFound} tweets, created ${stats.draftsCreated} drafts, skipped ${stats.duplicatesSkipped} duplicates.${errorInfo}`,
                 });
             } else {
                 toast({
