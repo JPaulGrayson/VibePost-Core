@@ -145,7 +145,8 @@ export default function WizardLanding() {
                 <img
                   src="/images/wizard-architecture.jpg"
                   alt="Claude as Conductor - Deep Reasoning Architecture"
-                  className="rounded-2xl shadow-2xl border-2 border-orange-400/50 hover:border-orange-400 transition-all w-full max-w-md"
+                  className="rounded-2xl shadow-2xl border-2 border-orange-400/50 hover:border-orange-400 transition-all"
+                  style={{ width: '400px', height: '400px', objectFit: 'cover' }}
                 />
                 <div className="mt-3 text-center">
                   <p className="text-orange-400 font-semibold">Claude Conductor</p>
@@ -158,7 +159,8 @@ export default function WizardLanding() {
                 <img
                   src="/images/wizard-architecture-grok.jpg"
                   alt="Grok as Conductor - Fast Messaging Architecture"
-                  className="rounded-2xl shadow-2xl cursor-pointer w-full max-w-md"
+                  className="rounded-2xl shadow-2xl cursor-pointer"
+                  style={{ width: '400px', height: '400px', objectFit: 'cover' }}
                 />
                 <div className="mt-3 text-center">
                   <p className="text-gray-400 text-sm">Best for fast automation & X integration</p>
