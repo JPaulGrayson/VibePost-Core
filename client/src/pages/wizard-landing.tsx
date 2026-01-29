@@ -134,20 +134,21 @@ export default function WizardLanding() {
             <h3 className="text-2xl font-bold text-white mb-2 text-center">Choose Your Conductor</h3>
             <p className="text-gray-400 text-center mb-6">Same Quack message bus. Your choice of AI orchestrator.</p>
             
-            <div className="flex flex-wrap justify-center gap-8 max-w-6xl mx-auto">
+            <div className="flex flex-wrap justify-center gap-8 max-w-6xl mx-auto items-start">
               {/* Claude Conductor */}
-              <div className="relative group flex flex-col items-center" style={{ width: '400px' }}>
+              <div className="relative group flex flex-col items-center">
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
                   <span className="bg-orange-500 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg">
                     Deep Reasoning Mode
                   </span>
                 </div>
-                <img
-                  src="/images/wizard-architecture.jpg"
-                  alt="Claude as Conductor - Deep Reasoning Architecture"
-                  className="rounded-2xl shadow-2xl border-2 border-orange-400/50 hover:border-orange-400 transition-all"
-                  style={{ width: '400px', height: '400px', objectFit: 'contain' }}
-                />
+                <div className="w-96 h-96 overflow-hidden rounded-2xl shadow-2xl border-2 border-orange-400/50 hover:border-orange-400 transition-all">
+                  <img
+                    src="/images/wizard-architecture.jpg"
+                    alt="Claude as Conductor - Deep Reasoning Architecture"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
                 <div className="mt-3 text-center">
                   <p className="text-orange-400 font-semibold">Claude Conductor</p>
                   <p className="text-gray-400 text-sm">Best for complex analysis & planning</p>
@@ -155,13 +156,14 @@ export default function WizardLanding() {
               </div>
 
               {/* Grok Conductor - labels are built into the image */}
-              <div className="relative group flex flex-col items-center" style={{ width: '400px' }} onClick={playQuack}>
-                <img
-                  src="/images/wizard-architecture-grok.jpg"
-                  alt="Grok as Conductor - Fast Messaging Architecture"
-                  className="rounded-2xl shadow-2xl cursor-pointer"
-                  style={{ width: '400px', height: '400px', objectFit: 'contain' }}
-                />
+              <div className="relative group flex flex-col items-center" onClick={playQuack}>
+                <div className="w-96 h-96 overflow-hidden rounded-2xl shadow-2xl cursor-pointer">
+                  <img
+                    src="/images/wizard-architecture-grok.jpg"
+                    alt="Grok as Conductor - Fast Messaging Architecture"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
                 <div className="mt-3 text-center">
                   <p className="text-gray-400 text-sm">Best for fast automation & X integration</p>
                 </div>
