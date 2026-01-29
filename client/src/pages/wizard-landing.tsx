@@ -136,13 +136,8 @@ export default function WizardLanding() {
             
             <div className="flex flex-wrap justify-center gap-8 max-w-6xl mx-auto items-start">
               {/* Claude Conductor */}
-              <div className="relative group flex flex-col items-center">
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
-                  <span className="bg-orange-500 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg">
-                    Deep Reasoning Mode
-                  </span>
-                </div>
-                <div className="w-96 h-96 overflow-hidden rounded-2xl shadow-2xl">
+              <div className="relative group flex flex-col items-center" onClick={playQuack}>
+                <div className="w-96 h-96 overflow-hidden rounded-2xl shadow-2xl cursor-pointer">
                   <img
                     src="/images/wizard-architecture.jpg"
                     alt="Claude as Conductor - Deep Reasoning Architecture"
@@ -157,12 +152,6 @@ export default function WizardLanding() {
 
               {/* Grok Conductor */}
               <div className="relative group flex flex-col items-center" onClick={playQuack}>
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
-                  <span className="bg-green-500 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg flex items-center gap-1">
-                    Fast Messaging Mode
-                    <span className="animate-pulse">⚡</span>
-                  </span>
-                </div>
                 <div className="w-96 h-96 overflow-hidden rounded-2xl shadow-2xl cursor-pointer">
                   <img
                     src="/images/wizard-architecture-grok.jpg"
