@@ -1,5 +1,5 @@
 import { keywordSearchEngine } from "../keyword-search";
-import { generateDraft, generateArenaRefereeDraft, generateCodeFlowchartDraft, generateQuackLaunchDraft } from "./postcard_drafter";
+import { generateDraft, generateArenaRefereeDraft, generateCodeFlowchartDraft, generateQuackLaunchDraft, generateQuackQuackDraft } from "./postcard_drafter";
 import { storage } from "../storage";
 import { replyTimingOptimizer } from "./reply_timing_optimizer";
 import { dmFollowUpService } from "./dm_follow_up";
@@ -327,6 +327,9 @@ export class SniperManager {
                         } else if (activeStrategy === 'quack_launch') {
                             // Use Quack Launch handler (simple "Quack?" quote tweet)
                             created = await generateQuackLaunchDraft(postObj, result.author);
+                        } else if (activeStrategy === 'quack_quack') {
+                            // Use Quack Quack handler (follow-up "Quack Quack" quote tweet)
+                            created = await generateQuackQuackDraft(postObj, result.author);
                         } else {
                             // Standard reply draft generation (includes quack_duck - uses strategy config for actionType)
                             created = await generateDraft(postObj, result.author, currentCampaign);

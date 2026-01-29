@@ -125,9 +125,9 @@ class AutoPublisher {
                 return; // No eligible drafts
             }
 
-            // Filter out quack_launch drafts - they should only be manually approved
-            // Quack Launch uses simple "Quack?" text, not AI-generated content
-            const filteredDrafts = eligibleDrafts.filter(d => d.strategy !== 'quack_launch');
+            // Filter out quack_launch and quack_quack drafts - they should only be manually approved
+            // These use simple text, not AI-generated content
+            const filteredDrafts = eligibleDrafts.filter(d => d.strategy !== 'quack_launch' && d.strategy !== 'quack_quack');
             
             if (filteredDrafts.length === 0) {
                 return; // No eligible drafts after filtering

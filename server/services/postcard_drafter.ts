@@ -2171,3 +2171,117 @@ export async function generateQuackLaunchDraft(
         return false;
     }
 }
+
+/**
+ * QUACK QUACK CAMPAIGN (Follow-up)
+ * 
+ * Follow-up to the mystery "Quack?" campaign - doubles down with "Quack Quack"
+ * Uses different video and targets same audience to build pattern recognition
+ */
+export async function generateQuackQuackDraft(
+    tweet: { id: string; text: string; author_id?: string },
+    authorHandle: string
+): Promise<boolean> {
+    console.log(`🦆🦆 Generating Quack Quack draft for tweet ${tweet.id} from @${authorHandle}`);
+    
+    // Check if draft already exists
+    const existing = await db.query.postcardDrafts.findFirst({
+        where: eq(postcardDrafts.originalTweetId, tweet.id),
+    });
+    
+    if (existing) {
+        console.log(`   Draft already exists for tweet ${tweet.id}. Skipping.`);
+        return false;
+    }
+    
+    // Filter out bot/spam patterns
+    const botPatterns = [
+        /late night rabbit hole on @/i,
+        /threw an agent swarm at a mock/i,
+        /fed it .* oracle/i,
+        /zk-trails/i,
+        /oracle.*spikes/i,
+        /pulled me in deep again/i,
+    ];
+    
+    if (botPatterns.some(pattern => pattern.test(tweet.text))) {
+        console.log(`   🤖 Bot/spam pattern detected. Skipping: "${tweet.text.substring(0, 50)}..."`);
+        return false;
+    }
+    
+    // Filter out off-topic content
+    const offTopicPatterns = [
+        /border patrol/i,
+        /federal agent/i,
+        /fbi agent/i,
+        /cia agent/i,
+        /ice agent/i,
+        /secret service/i,
+        /law enforcement/i,
+        /real estate agent/i,
+        /travel agent/i,
+        /insurance agent/i,
+    ];
+    
+    if (offTopicPatterns.some(pattern => pattern.test(tweet.text))) {
+        console.log(`   🚫 Off-topic content (wrong type of 'agent'). Skipping.`);
+        return false;
+    }
+    
+    // Check for duplicate content
+    const textFingerprint = tweet.text.substring(0, 60).toLowerCase().trim();
+    const pendingDrafts = await db.select().from(postcardDrafts).where(
+        and(
+            eq(postcardDrafts.strategy, 'quack_quack'),
+            eq(postcardDrafts.status, 'pending_review')
+        )
+    );
+    
+    const hasSimilarContent = pendingDrafts.some(draft => {
+        const existingFingerprint = (draft.originalTweetText || '').substring(0, 60).toLowerCase().trim();
+        return existingFingerprint === textFingerprint;
+    });
+    
+    if (hasSimilarContent) {
+        console.log(`   📋 Duplicate content detected. Skipping.`);
+        return false;
+    }
+    
+    // "Quack Quack" text - doubles down on mystery
+    const draftText = "Quack Quack";
+    
+    // Score based on target tweet quality
+    const text = tweet.text.toLowerCase();
+    let score = 80;
+    
+    const highValueKeywords = ['agent swarm', 'multi-agent', 'swarm intelligence', 'agent orchestration', 'agent-to-agent'];
+    const mediumKeywords = ['autonomous agent', 'ai agent', 'agent framework', 'mcp', 'a2a', 'langchain', 'autogen', 'crewai'];
+    
+    if (highValueKeywords.some(kw => text.includes(kw))) score += 10;
+    if (mediumKeywords.some(kw => text.includes(kw))) score += 5;
+    
+    // Influencer detection
+    const influencers = ['karpathy', 'levelsio', 'swyx', 'sama', 'emollick'];
+    if (influencers.some(inf => authorHandle.toLowerCase().includes(inf))) score += 15;
+    
+    try {
+        await db.insert(postcardDrafts).values({
+            campaignType: "logicart",
+            strategy: "quack_quack",
+            originalTweetId: tweet.id,
+            originalAuthorHandle: authorHandle,
+            originalTweetText: tweet.text,
+            detectedLocation: "quack_quack",
+            status: "pending_review",
+            draftReplyText: draftText,
+            actionType: "quote_tweet",
+            score: score,
+        });
+        
+        console.log(`   ✅ Quack Quack draft created: "${draftText}"`);
+        return true;
+    } catch (error) {
+        console.error(`   ❌ Error creating Quack Quack draft:`, error);
+        return false;
+    }
+}

@@ -461,7 +461,7 @@ export function calculateCampaignScore(
 export default CAMPAIGN_CONFIGS;
 
 // ============= LOGICART STRATEGY SYSTEM =============
-export type LogicArtStrategy = 'vibe_scout' | 'spaghetti_detective' | 'bug_hunter' | 'arena_referee' | 'code_flowchart' | 'quack_duck' | 'quack_launch';
+export type LogicArtStrategy = 'vibe_scout' | 'spaghetti_detective' | 'bug_hunter' | 'arena_referee' | 'code_flowchart' | 'quack_duck' | 'quack_launch' | 'quack_quack';
 
 export interface StrategyConfig {
     id: string;
@@ -775,6 +775,49 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         rankingMode: 'hot', // Target trending/popular code posts for maximum visibility
         // Video attachment for Quack Launch campaign (path relative to project root)
         mediaPath: 'attached_assets/Video_Ready_Missing_Quack_Sound_1769435167874.mp4',
+        mediaType: 'video' as const
+    },
+
+    quack_quack: {
+        id: 'quack_quack',
+        name: 'Quack Quack (Follow-up)',
+        emoji: '🦆🦆',
+        description: 'Follow-up to mystery campaign - "Quack Quack" quote tweets to build momentum',
+        keywords: [
+            // ===== HIGH VOLUME FIRST (searched first!) =====
+            "vibe coding", "Cursor AI", "Claude code", "Replit agent",
+            "multi-agent", "agentic coding", "AI coding",
+            
+            // ===== INFLUENCER WATCH =====
+            "from:karpathy", "from:levelsio", "from:swyx",
+            
+            // ===== AGENT SWARMS =====
+            "agent swarm", "swarm agents", "agent orchestration",
+            "AI swarm", "agents working together",
+            
+            // ===== CODE SHARING =====
+            "just built", "just shipped", "deployed",
+            
+            // ===== AI CODING =====
+            "Claude helped", "GPT generated", "Cursor built",
+            "vibe coded this", "vibecoding",
+            
+            // ===== DEBUGGING =====
+            "finally fixed", "bug fixed"
+        ],
+        intentType: 'Code-Related Post (Follow-up Campaign Target)',
+        intentSignals: {
+            positive: ["code", "coding", "built", "shipped", "deployed", "launched", "AI", "Claude", "GPT", "Cursor", "Replit", "vibe", "agent", "swarm", "multi-agent", "orchestration", "agents", "collaboration"],
+            negative: ["hiring", "job", "sponsor", "discount", "affiliate", "founder", "CEO", "we're building", "promo", ...GLOBAL_SAFETY_FILTERS.hatePolitics, ...GLOBAL_SAFETY_FILTERS.crypto]
+        },
+        replyPersona: {
+            tone: 'Building momentum - "Quack Quack" doubles down on mystery',
+            hook: 'Follow-up creates pattern recognition - people start noticing the duck',
+            templateExample: "Quack Quack"
+        },
+        actionType: 'quote_tweet',
+        rankingMode: 'hot',
+        mediaPath: 'attached_assets/Video_Generation_Quack_Quack__1769695167312.mp4',
         mediaType: 'video' as const
     }
 };
