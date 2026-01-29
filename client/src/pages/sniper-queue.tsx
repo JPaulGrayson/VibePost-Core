@@ -83,6 +83,8 @@ export default function SniperQueue() {
                 setActiveCampaign('code_flowchart');
             } else if (campaignData.currentCampaign === 'logicart' && campaignData.activeStrategy === 'quack_launch') {
                 setActiveCampaign('quack_launch');
+            } else if (campaignData.currentCampaign === 'logicart' && campaignData.activeStrategy === 'quack_quack') {
+                setActiveCampaign('quack_quack');
             } else {
                 setActiveCampaign(campaignData.currentCampaign);
             }
@@ -130,13 +132,19 @@ export default function SniperQueue() {
             return isQuackLaunch && matchesSearch;
         }
         
+        // Quack Quack tab - show only quack_quack drafts
+        if (activeCampaign === 'quack_quack') {
+            const isQuackQuack = draft.strategy === 'quack_quack';
+            return isQuackQuack && matchesSearch;
+        }
+        
         const campaignMatch = draft.campaignType === activeCampaign || 
             (!(draft.campaignType) && activeCampaign === 'turai'); // Legacy drafts default to turai
         
         if (!campaignMatch) return false;
         
         // For logicart, exclude Quote Tweet strategies (they have their own tabs)
-        if (activeCampaign === 'logicart' && (['arena_referee', 'code_flowchart', 'quack_launch'].includes(draft.strategy || '') || draft.actionType === 'quote_tweet')) {
+        if (activeCampaign === 'logicart' && (['arena_referee', 'code_flowchart', 'quack_launch', 'quack_quack'].includes(draft.strategy || '') || draft.actionType === 'quote_tweet')) {
             return false;
         }
         
@@ -146,14 +154,16 @@ export default function SniperQueue() {
     // Switch campaign mutation with optimistic updates
     const switchCampaign = useMutation({
         mutationFn: async (campaignType: string) => {
-            // Arena Referee and Code Flowchart use logicart campaign + specific strategy
-            if (campaignType === 'arena_referee' || campaignType === 'code_flowchart' || campaignType === 'quack_launch') {
+            // Arena Referee, Code Flowchart, and Quack campaigns use logicart campaign + specific strategy
+            if (campaignType === 'arena_referee' || campaignType === 'code_flowchart' || campaignType === 'quack_launch' || campaignType === 'quack_quack') {
                 await apiRequest("POST", "/api/sniper/campaign", { campaignType: 'logicart' });
                 const strategyRes = await apiRequest("POST", "/api/sniper/strategy", { strategy: campaignType });
                 const strategyName = campaignType === 'arena_referee' ? 'Arena Referee' : 
-                    campaignType === 'code_flowchart' ? 'Code Flowchart' : 'Quack Launch';
+                    campaignType === 'code_flowchart' ? 'Code Flowchart' : 
+                    campaignType === 'quack_quack' ? 'Quack Quack' : 'Quack Launch';
                 const emoji = campaignType === 'arena_referee' ? '🏛️' : 
-                    campaignType === 'code_flowchart' ? '📊' : '🚀';
+                    campaignType === 'code_flowchart' ? '📊' : 
+                    campaignType === 'quack_quack' ? '🦆🦆' : '🚀';
                 return { 
                     config: { emoji, name: strategyName },
                     isQuoteTweet: true,
@@ -190,13 +200,13 @@ export default function SniperQueue() {
 
     const manualHunt = useMutation({
         mutationFn: async () => {
-            // Arena Referee and Code Flowchart use logicart campaign + specific strategy
-            if (activeCampaign === 'arena_referee' || activeCampaign === 'code_flowchart' || activeCampaign === 'quack_launch') {
+            // Arena Referee, Code Flowchart, and Quack campaigns use logicart campaign + specific strategy
+            if (activeCampaign === 'arena_referee' || activeCampaign === 'code_flowchart' || activeCampaign === 'quack_launch' || activeCampaign === 'quack_quack') {
                 await apiRequest("POST", "/api/sniper/campaign", { campaignType: 'logicart' });
                 await apiRequest("POST", "/api/sniper/strategy", { strategy: activeCampaign });
             }
             // Send the actual backend campaign type
-            const backendCampaign = (activeCampaign === 'arena_referee' || activeCampaign === 'code_flowchart' || activeCampaign === 'quack_launch') ? 'logicart' : activeCampaign;
+            const backendCampaign = (activeCampaign === 'arena_referee' || activeCampaign === 'code_flowchart' || activeCampaign === 'quack_launch' || activeCampaign === 'quack_quack') ? 'logicart' : activeCampaign;
             const res = await apiRequest("POST", "/api/debug/hunt", { campaignType: backendCampaign });
             return res.json();
         },
@@ -476,6 +486,22 @@ export default function SniperQueue() {
                         </Badge>
                     </Button>
                     
+                    {/* Quack Quack - Follow-up Campaign */}
+                    <Button
+                        variant={activeCampaign === 'quack_quack' ? "default" : "outline"}
+                        size="sm"
+                        className="flex flex-col items-center h-[64px] py-2 px-2"
+                        onClick={() => switchCampaign.mutate('quack_quack')}
+                        disabled={switchCampaign.isPending}
+                        data-testid="campaign-quack-quack"
+                    >
+                        <Send className="h-4 w-4 mb-1" />
+                        <span className="font-medium text-xs">🦆🦆 Quack²</span>
+                        <Badge variant="secondary" className="text-[10px] px-1">
+                            {drafts?.filter(d => d.strategy === 'quack_quack').length || 0}
+                        </Badge>
+                    </Button>
+                    
                     {/* Top 10 - Best Candidates */}
                     <Button
                         variant={activeCampaign === 'top_10' ? "default" : "outline"}
@@ -498,6 +524,7 @@ export default function SniperQueue() {
                     {activeCampaign === 'arena_referee' && 'AI debates → Run through Arena → Quote Tweet with verdict'}
                     {activeCampaign === 'code_flowchart' && 'Code snippets → Generate flowchart → Quote Tweet with CTA'}
                     {activeCampaign === 'quack_launch' && '🦆 Mystery campaign → "Quack?" quote tweets with video → Drive curiosity'}
+                    {activeCampaign === 'quack_quack' && '🦆🦆 Follow-up campaign → "Quack Quack" quote tweets → Build momentum'}
                     {activeCampaign === 'top_10' && '⭐ Your top 10 highest-scoring candidates across all queues - select and batch send!'}
                 </p>
                 
@@ -589,14 +616,14 @@ export default function SniperQueue() {
                 </Button>
             </div>
 
-            {/* Quack Launch Display - Show ALL drafts with checkboxes */}
-            {activeCampaign === 'quack_launch' ? (
+            {/* Quack Launch/Quack Quack Display - Show ALL drafts with checkboxes */}
+            {(activeCampaign === 'quack_launch' || activeCampaign === 'quack_quack') ? (
                 <div className="space-y-4">
-                    {/* Quack Launch Header with actions */}
+                    {/* Quack Header with actions */}
                     <div className="flex items-center justify-between p-3 bg-gradient-to-r from-yellow-900/20 to-orange-900/20 border border-yellow-400/50 rounded-lg">
                         <div className="flex items-center gap-3">
-                            <span className="text-2xl">🦆</span>
-                            <span className="font-bold text-yellow-300">Quack Launch Targets</span>
+                            <span className="text-2xl">{activeCampaign === 'quack_quack' ? '🦆🦆' : '🦆'}</span>
+                            <span className="font-bold text-yellow-300">{activeCampaign === 'quack_quack' ? 'Quack Quack Targets' : 'Quack Launch Targets'}</span>
                             <Badge className="bg-yellow-500/20 text-yellow-300">
                                 {filteredDrafts?.length || 0} leads
                             </Badge>
@@ -728,7 +755,7 @@ export default function SniperQueue() {
                             <Quote className="h-5 w-5 text-blue-400 mt-0.5" />
                             <div>
                                 <span className="font-medium text-sm text-blue-300">Quote Tweet Preview</span>
-                                <p className="text-sm mt-1 text-white font-medium">"Quack?"</p>
+                                <p className="text-sm mt-1 text-white font-medium">"{activeCampaign === 'quack_quack' ? 'Quack Quack' : 'Quack?'}"</p>
                                 <p className="text-xs text-muted-foreground mt-1">
                                     + Video attachment + Quoted original tweet
                                 </p>
@@ -736,14 +763,14 @@ export default function SniperQueue() {
                         </div>
                     </div>
 
-                    {/* Quack Launch List - ALL drafts */}
+                    {/* Quack List - ALL drafts */}
                     {isLoading ? (
                         <div className="text-center py-8 text-muted-foreground">
                             <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
                             <p>Loading leads...</p>
                         </div>
                     ) : filteredDrafts?.length === 0 ? (
-                        <p className="text-center py-8 text-muted-foreground">No Quack Launch leads found. Run a hunt to find agent swarm discussions!</p>
+                        <p className="text-center py-8 text-muted-foreground">No {activeCampaign === 'quack_quack' ? 'Quack Quack' : 'Quack Launch'} leads found. Run a hunt to find agent swarm discussions!</p>
                     ) : (
                         <div className="space-y-3">
                             {filteredDrafts?.map((draft, index) => (
