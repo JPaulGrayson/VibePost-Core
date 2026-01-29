@@ -50,14 +50,18 @@ export async function publishDraft(draft: PostcardDraft) {
         const me = await client.v2.me();
         console.log(`Authenticated as @${me.data.username}`);
 
-        // Check if this is a Quack Launch draft - use video instead of image
+        // Check if this is a Quack campaign draft - use video instead of image
         const isQuackLaunch = draft.strategy === 'quack_launch';
+        const isQuackQuack = draft.strategy === 'quack_quack';
+        const isQuackCampaign = isQuackLaunch || isQuackQuack;
         let mediaId;
         
-        if (isQuackLaunch) {
-            // Use the configured Quack Launch video
-            const videoPath = getQuackLaunchMediaPath();
-            console.log(`🎥 Quack Launch draft - uploading video: ${videoPath}`);
+        if (isQuackCampaign) {
+            // Use the configured video for the respective campaign
+            const videoPath = isQuackQuack 
+                ? (LOGICART_STRATEGIES.quack_quack.mediaPath || 'attached_assets/Video_Generation_Quack_Quack__1769695167312.mp4')
+                : getQuackLaunchMediaPath();
+            console.log(`🎥 ${isQuackQuack ? 'Quack Quack' : 'Quack Launch'} draft - uploading video: ${videoPath}`);
             
             try {
                 const fullPath = path.join(process.cwd(), videoPath);
