@@ -64,10 +64,17 @@ export default function SniperQueue() {
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set()); // For Top 10 batch selection
     const [isUploadingVideo, setIsUploadingVideo] = useState(false);
 
-    // Fetch current quack launch video path
+    // Fetch current quack video path for both campaigns
     const { data: quackMediaData } = useQuery<{ mediaPath: string }>({
-        queryKey: ["/api/sniper/quack-launch/media"],
-        enabled: activeCampaign === 'quack_launch',
+        queryKey: ["/api/sniper/quack-media", activeCampaign],
+        queryFn: async () => {
+            const endpoint = activeCampaign === 'quack_quack' 
+                ? '/api/sniper/quack-quack/media' 
+                : '/api/sniper/quack-launch/media';
+            const res = await fetch(endpoint);
+            return res.json();
+        },
+        enabled: activeCampaign === 'quack_launch' || activeCampaign === 'quack_quack',
     });
 
     // Sync local state when campaign data loads from server (only on initial load)
@@ -696,7 +703,10 @@ export default function SniperQueue() {
                                                 const formData = new FormData();
                                                 formData.append('video', file);
                                                 
-                                                const res = await fetch('/api/sniper/quack-launch/upload-video', {
+                                                const uploadEndpoint = activeCampaign === 'quack_quack' 
+                                                    ? '/api/sniper/quack-quack/upload-video'
+                                                    : '/api/sniper/quack-launch/upload-video';
+                                                const res = await fetch(uploadEndpoint, {
                                                     method: 'POST',
                                                     body: formData,
                                                 });
@@ -706,10 +716,10 @@ export default function SniperQueue() {
                                                 if (!res.ok) {
                                                     throw new Error(data.error || 'Upload failed');
                                                 }
-                                                queryClient.invalidateQueries({ queryKey: ["/api/sniper/quack-launch/media"] });
+                                                queryClient.invalidateQueries({ queryKey: ["/api/sniper/quack-media", activeCampaign] });
                                                 toast({
                                                     title: "Video Uploaded! 🎥",
-                                                    description: `${file.name} is now set for all Quack Launch posts`,
+                                                    description: `${file.name} is now set for all ${activeCampaign === 'quack_quack' ? 'Quack Quack' : 'Quack Launch'} posts`,
                                                 });
                                             } catch (error: any) {
                                                 const errorMsg = error?.message || "Could not upload video. Try a smaller file.";

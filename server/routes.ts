@@ -1879,6 +1879,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Get/Set Quack Quack video
+  app.get("/api/sniper/quack-quack/media", (req, res) => {
+    const { getQuackQuackMediaPath } = require("./campaign-config");
+    res.json({
+      mediaPath: getQuackQuackMediaPath()
+    });
+  });
+
+  app.post("/api/sniper/quack-quack/media", (req, res) => {
+    const { mediaPath } = req.body;
+    const { setQuackQuackMediaPath, getQuackQuackMediaPath } = require("./campaign-config");
+    
+    if (!mediaPath || typeof mediaPath !== 'string') {
+      return res.status(400).json({ error: 'mediaPath is required' });
+    }
+    
+    setQuackQuackMediaPath(mediaPath);
+    
+    res.json({
+      success: true,
+      mediaPath: getQuackQuackMediaPath()
+    });
+  });
+
+  // Video upload endpoint for Quack Quack
+  app.post("/api/sniper/quack-quack/upload-video", (req, res) => {
+    upload.single('video')(req, res, (err) => {
+      if (err) {
+        console.error('Quack Quack video upload multer error:', err);
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: 'File too large. Maximum size is 50MB.' });
+        }
+        return res.status(400).json({ error: err.message || 'Upload failed' });
+      }
+      
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: 'No video file uploaded' });
+        }
+        
+        // Set the new video path
+        const { setQuackQuackMediaPath } = require("./campaign-config");
+        const videoPath = `public/uploads/${req.file.filename}`;
+        setQuackQuackMediaPath(videoPath);
+        
+        console.log(`🎥 Quack Quack video uploaded: ${videoPath} (${req.file.size} bytes)`);
+        
+        res.json({
+          success: true,
+          mediaPath: videoPath,
+          filename: req.file.filename,
+          size: req.file.size
+        });
+      } catch (error) {
+        console.error('Quack Quack video upload error:', error);
+        res.status(500).json({ error: 'Failed to upload video' });
+      }
+    });
+  });
+
   // Pause/Resume sniper auto-hunting - per campaign
   app.post("/api/sniper/pause", (req, res) => {
     const { campaign } = req.body; // Optional: 'turai' or 'logicart'

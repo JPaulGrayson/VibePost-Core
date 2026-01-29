@@ -834,6 +834,18 @@ export function setQuackLaunchMediaPath(path: string): void {
     console.log(`🎥 Quack Launch media updated: ${path}`);
 }
 
+// Store for configurable Quack Quack media
+let quackQuackMediaPath = 'attached_assets/Video_Generation_Quack_Quack__1769695167312.mp4';
+
+export function getQuackQuackMediaPath(): string {
+    return quackQuackMediaPath;
+}
+
+export function setQuackQuackMediaPath(path: string): void {
+    quackQuackMediaPath = path;
+    console.log(`🎥 Quack Quack media updated: ${path}`);
+}
+
 // State management for active strategy - defaults to Vibe Coding Scout
 let currentLogicArtStrategy: LogicArtStrategy = 'vibe_scout';
 

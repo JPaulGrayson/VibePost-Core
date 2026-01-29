@@ -4,7 +4,7 @@ const require = createRequire(import.meta.url);
 import { PostcardDraft } from "@shared/schema";
 import { storage } from "../storage";
 import { postcardDrafter } from "./postcard_drafter";
-import { getQuackLaunchMediaPath, LOGICART_STRATEGIES } from "../campaign-config";
+import { getQuackLaunchMediaPath, getQuackQuackMediaPath, LOGICART_STRATEGIES } from "../campaign-config";
 import * as fs from "fs/promises";
 import * as path from "path";
 
@@ -59,7 +59,7 @@ export async function publishDraft(draft: PostcardDraft) {
         if (isQuackCampaign) {
             // Use the configured video for the respective campaign
             const videoPath = isQuackQuack 
-                ? (LOGICART_STRATEGIES.quack_quack.mediaPath || 'attached_assets/Video_Generation_Quack_Quack__1769695167312.mp4')
+                ? getQuackQuackMediaPath()
                 : getQuackLaunchMediaPath();
             console.log(`🎥 ${isQuackQuack ? 'Quack Quack' : 'Quack Launch'} draft - uploading video: ${videoPath}`);
             
