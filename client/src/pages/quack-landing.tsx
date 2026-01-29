@@ -83,11 +83,11 @@ export default function QuackLanding() {
 
   const platforms = [
     { name: "Claude", color: "bg-orange-500", badge: null },
+    { name: "Grok", color: "bg-green-500", badge: "⚡ Best messaging" },
     { name: "ChatGPT", color: "bg-green-600", badge: null },
     { name: "Cursor", color: "bg-purple-600", badge: null },
-    { name: "Replit", color: "bg-orange-400", badge: "⚡" },
+    { name: "Replit", color: "bg-orange-400", badge: "⚡ Auto-dispatch" },
     { name: "Gemini", color: "bg-blue-500", badge: null },
-    { name: "Grok", color: "bg-gray-700", badge: null },
     { name: "Copilot", color: "bg-cyan-600", badge: null },
     { name: "Antigravity", color: "bg-indigo-600", badge: null },
   ];

@@ -129,36 +129,63 @@ export default function WizardLanding() {
             </p>
           </div>
 
-          {/* Architecture Diagram - Click the ducks to quack! */}
-          <div className="mt-12 relative">
-            <img
-              src="/images/wizard-architecture.jpg"
-              alt="Wizard of Quack - How AI agents communicate"
-              className="max-w-4xl mx-auto rounded-2xl shadow-2xl border border-white/20"
-            />
-
-            {/* Invisible click zone for the ducks at the bottom */}
-            <div
-              className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-full h-[18%] cursor-pointer hover:bg-yellow-400/5 transition-all rounded-b-2xl"
-              onClick={playQuack}
-              title="🦆 Click the ducks to quack!"
-              role="button"
-              aria-label="Play quack sound"
-            />
-
-            {/* Quack feedback bubble */}
-            {quackFeedback && (
-              <div
-                className="absolute pointer-events-none text-2xl animate-bounce"
-                style={{
-                  left: quackFeedback.x,
-                  top: quackFeedback.y,
-                  animation: 'quackBubble 0.8s ease-out forwards'
-                }}
-              >
-                🦆 Quack!
+          {/* Architecture Diagrams - Side by Side Comparison */}
+          <div className="mt-12">
+            <h3 className="text-2xl font-bold text-white mb-2 text-center">Choose Your Conductor</h3>
+            <p className="text-gray-400 text-center mb-6">Same Quack message bus. Your choice of AI orchestrator.</p>
+            
+            <div className="grid md:grid-cols-2 gap-6 max-w-6xl mx-auto">
+              {/* Claude Conductor */}
+              <div className="relative group">
+                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
+                  <span className="bg-orange-500 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg">
+                    Deep Reasoning Mode
+                  </span>
+                </div>
+                <img
+                  src="/images/wizard-architecture.jpg"
+                  alt="Claude as Conductor - Deep Reasoning Architecture"
+                  className="rounded-2xl shadow-2xl border-2 border-orange-400/50 hover:border-orange-400 transition-all"
+                />
+                <div className="mt-3 text-center">
+                  <p className="text-orange-400 font-semibold">Claude Conductor</p>
+                  <p className="text-gray-400 text-sm">Best for complex analysis & planning</p>
+                </div>
               </div>
-            )}
+
+              {/* Grok Conductor */}
+              <div className="relative group" onClick={playQuack}>
+                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
+                  <span className="bg-green-500 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg flex items-center gap-1">
+                    Fast Messaging Mode
+                    <span className="animate-pulse">⚡</span>
+                  </span>
+                </div>
+                <img
+                  src="/images/wizard-architecture-grok.jpg"
+                  alt="Grok as Conductor - Fast Messaging Architecture"
+                  className="rounded-2xl shadow-2xl border-2 border-green-400/50 hover:border-green-400 transition-all cursor-pointer"
+                />
+                <div className="mt-3 text-center">
+                  <p className="text-green-400 font-semibold">Grok Conductor</p>
+                  <p className="text-gray-400 text-sm">Best for fast automation & X integration</p>
+                </div>
+
+                {/* Quack feedback bubble */}
+                {quackFeedback && (
+                  <div
+                    className="absolute pointer-events-none text-2xl"
+                    style={{
+                      left: quackFeedback.x,
+                      top: quackFeedback.y,
+                      animation: 'quackBubble 0.8s ease-out forwards'
+                    }}
+                  >
+                    🦆 Quack!
+                  </div>
+                )}
+              </div>
+            </div>
 
             <style>{`
               @keyframes quackBubble {
@@ -168,8 +195,8 @@ export default function WizardLanding() {
               }
             `}</style>
 
-            <p className="text-center text-gray-400 mt-4 text-sm">
-              One wizard. Many agents. Zero copy-paste. <span className="text-yellow-400 ml-2">(Click the ducks! 🦆)</span>
+            <p className="text-center text-yellow-400 mt-6 text-sm font-medium">
+              🦆 Click the Grok diagram to quack!
             </p>
           </div>
         </div>
@@ -284,13 +311,13 @@ export default function WizardLanding() {
           </h2>
           <div className="flex flex-wrap justify-center gap-4 text-gray-400">
             <span className="bg-white/10 px-4 py-2 rounded-lg">Claude</span>
+            <span className="bg-green-500/20 border border-green-400/50 px-4 py-2 rounded-lg text-green-400 font-semibold">Grok ⚡ Best for messaging</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">Replit ⚡</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">Cursor</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">ChatGPT</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">Gemini</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">VS Code</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">Antigravity</span>
-            <span className="bg-white/10 px-4 py-2 rounded-lg text-gray-500">Grok 🔜</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg text-gray-500">Copilot 🔜</span>
           </div>
         </div>
