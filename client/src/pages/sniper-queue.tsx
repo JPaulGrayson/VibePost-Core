@@ -925,6 +925,7 @@ function Top10Card({ draft, rank, isSelected, onToggle, onDelete }: {
         if (draft.strategy === 'arena_referee') return { text: '🏛️ Arena', color: 'bg-purple-600' };
         if (draft.strategy === 'code_flowchart') return { text: '📊 Flowchart', color: 'bg-blue-600' };
         if (draft.strategy === 'quack_launch') return { text: '🚀 Quack', color: 'bg-yellow-600' };
+        if (draft.strategy === 'quack_quack') return { text: '🦆🦆 Quack²', color: 'bg-orange-600' };
         if (draft.campaignType === 'turai') return { text: '✈️ Turai', color: 'bg-cyan-600' };
         return { text: '🧠 LogicArt', color: 'bg-green-600' };
     };
