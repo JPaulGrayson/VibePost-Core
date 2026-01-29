@@ -142,7 +142,7 @@ export default function WizardLanding() {
                     Deep Reasoning Mode
                   </span>
                 </div>
-                <div className="w-96 h-96 overflow-hidden rounded-2xl shadow-2xl border-2 border-orange-400/50 hover:border-orange-400 transition-all box-border">
+                <div className="w-96 h-96 overflow-hidden rounded-2xl shadow-2xl">
                   <img
                     src="/images/wizard-architecture.jpg"
                     alt="Claude as Conductor - Deep Reasoning Architecture"
@@ -157,7 +157,7 @@ export default function WizardLanding() {
 
               {/* Grok Conductor - labels are built into the image */}
               <div className="relative group flex flex-col items-center" onClick={playQuack}>
-                <div className="w-96 h-96 overflow-hidden rounded-2xl shadow-2xl cursor-pointer border-2 border-green-400/50 hover:border-green-400 transition-all box-border">
+                <div className="w-96 h-96 overflow-hidden rounded-2xl shadow-2xl cursor-pointer">
                   <img
                     src="/images/wizard-architecture-grok.jpg"
                     alt="Grok as Conductor - Fast Messaging Architecture"
