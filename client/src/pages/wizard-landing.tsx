@@ -153,21 +153,14 @@ export default function WizardLanding() {
                 </div>
               </div>
 
-              {/* Grok Conductor */}
+              {/* Grok Conductor - labels are built into the image */}
               <div className="relative group" onClick={playQuack}>
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
-                  <span className="bg-green-500 text-white px-4 py-1 rounded-full text-sm font-bold shadow-lg flex items-center gap-1">
-                    Fast Messaging Mode
-                    <span className="animate-pulse">⚡</span>
-                  </span>
-                </div>
                 <img
                   src="/images/wizard-architecture-grok.jpg"
                   alt="Grok as Conductor - Fast Messaging Architecture"
                   className="rounded-2xl shadow-2xl border-2 border-green-400/50 hover:border-green-400 transition-all cursor-pointer"
                 />
                 <div className="mt-3 text-center">
-                  <p className="text-green-400 font-semibold">Grok Conductor</p>
                   <p className="text-gray-400 text-sm">Best for fast automation & X integration</p>
                 </div>
 
