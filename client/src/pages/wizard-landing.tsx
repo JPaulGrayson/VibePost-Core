@@ -148,6 +148,20 @@ export default function WizardLanding() {
                   <p className="text-orange-400 font-semibold">Claude Conductor</p>
                   <p className="text-gray-400 text-sm">Best for complex analysis & planning</p>
                 </div>
+
+                {/* Quack feedback bubble */}
+                {quackFeedback && (
+                  <div
+                    className="absolute pointer-events-none text-2xl"
+                    style={{
+                      left: quackFeedback.x,
+                      top: quackFeedback.y,
+                      animation: 'quackBubble 0.8s ease-out forwards'
+                    }}
+                  >
+                    🦆 Quack!
+                  </div>
+                )}
               </div>
 
               {/* Grok Conductor */}
@@ -189,7 +203,7 @@ export default function WizardLanding() {
             `}</style>
 
             <p className="text-center text-yellow-400 mt-6 text-sm font-medium">
-              🦆 Click the Grok diagram to quack!
+              🦆 Click a diagram to quack!
             </p>
           </div>
         </div>
