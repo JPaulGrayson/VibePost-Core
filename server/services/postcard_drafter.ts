@@ -2082,6 +2082,16 @@ export async function generateQuackLaunchDraft(
         return false;
     }
     
+    // LANGUAGE FILTER: Skip tweets with high CJK/Thai/Korean content
+    const cjkPattern = /[\u3000-\u9FFF\uAC00-\uD7AF\u0E00-\u0E7F]/g;
+    const cjkMatches = tweet.text.match(cjkPattern) || [];
+    const cjkRatio = cjkMatches.length / tweet.text.length;
+    
+    if (cjkRatio > 0.2) {
+        console.log(`   🌍 Foreign language detected (${Math.round(cjkRatio * 100)}% CJK chars). Skipping.`);
+        return false;
+    }
+    
     // Filter out off-topic content (law enforcement, politics, etc. using "agent" in wrong context)
     const offTopicPatterns = [
         /border patrol/i,
@@ -2206,6 +2216,16 @@ export async function generateQuackQuackDraft(
     
     if (botPatterns.some(pattern => pattern.test(tweet.text))) {
         console.log(`   🤖 Bot/spam pattern detected. Skipping: "${tweet.text.substring(0, 50)}..."`);
+        return false;
+    }
+    
+    // LANGUAGE FILTER: Skip tweets with high CJK/Thai/Korean content
+    const cjkPattern = /[\u3000-\u9FFF\uAC00-\uD7AF\u0E00-\u0E7F]/g;
+    const cjkMatches = tweet.text.match(cjkPattern) || [];
+    const cjkRatio = cjkMatches.length / tweet.text.length;
+    
+    if (cjkRatio > 0.2) {
+        console.log(`   🌍 Foreign language detected (${Math.round(cjkRatio * 100)}% CJK chars). Skipping.`);
         return false;
     }
     
