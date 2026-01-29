@@ -113,7 +113,7 @@ export class KeywordSearchEngine {
     return `(${intents}) ${BASE_FILTERS} ${SPAM_FILTERS}`;
   }
 
-  async searchTwitter(keyword: string, maxResults: number = 10, strictMode: boolean = false): Promise<SearchResult[]> {
+  async searchTwitter(keyword: string, maxResults: number = 10, strictMode: boolean = false, hoursBack: number = 24): Promise<SearchResult[]> {
     const twitterClient = await this.getTwitterClient();
 
     if (!twitterClient) {
@@ -123,10 +123,14 @@ export class KeywordSearchEngine {
     try {
       // Use v2 search API recent endpoint
       const query = strictMode ? this.buildTravelQuery(keyword) : keyword;
-      console.log(`Searching X using v2 API for query: ${query} (Strict: ${strictMode})`);
+      
+      // Calculate start_time for recency filter (default: last 24 hours)
+      const startTime = new Date(Date.now() - hoursBack * 60 * 60 * 1000).toISOString();
+      console.log(`Searching X using v2 API for query: ${query} (Strict: ${strictMode}, Last ${hoursBack}h, Since: ${startTime})`);
 
       const searchResults = await twitterClient.v2.search(query, {
         max_results: Math.max(10, Math.min(maxResults, 100)), // v2 API requires 10-100
+        start_time: startTime,
         'tweet.fields': ['created_at', 'author_id', 'public_metrics'],
         'user.fields': ['username', 'public_metrics', 'created_at'],  // Added metrics for spam filtering
         expansions: ['author_id']
@@ -361,7 +365,8 @@ export class KeywordSearchEngine {
     keyword: string, 
     platforms: string[] = ['twitter', 'reddit'], 
     strictMode: boolean = false,
-    rankingMode: 'opportunity' | 'hot' = 'opportunity'
+    rankingMode: 'opportunity' | 'hot' = 'opportunity',
+    hoursBack: number = 24
   ): Promise<SearchResult[]> {
     const allResults: SearchResult[] = [];
     const errors: string[] = [];
@@ -372,7 +377,7 @@ export class KeywordSearchEngine {
     // Search Twitter if requested
     if (platforms.includes('twitter')) {
       try {
-        const twitterResults = await this.searchTwitter(keyword, maxResults, strictMode);
+        const twitterResults = await this.searchTwitter(keyword, maxResults, strictMode, hoursBack);
         allResults.push(...twitterResults);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown Twitter error';
