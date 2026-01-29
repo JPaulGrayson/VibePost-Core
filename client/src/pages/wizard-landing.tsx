@@ -158,7 +158,7 @@ export default function WizardLanding() {
                 <img
                   src="/images/wizard-architecture-grok.jpg"
                   alt="Grok as Conductor - Fast Messaging Architecture"
-                  className="rounded-2xl shadow-2xl border-2 border-green-400/50 hover:border-green-400 transition-all cursor-pointer"
+                  className="rounded-2xl shadow-2xl cursor-pointer"
                 />
                 <div className="mt-3 text-center">
                   <p className="text-gray-400 text-sm">Best for fast automation & X integration</p>
