@@ -24,7 +24,7 @@ import { getThreadTourSchedulerStatus, setNextThreadDestination, clearNextThread
 import { autoPublisher } from "./services/auto_publisher";
 import { previewVideoPost, generateVideoPost, generateVideoCaption, refreshPreviewData } from "./services/video_post_generator";
 import { getDailyVideoSchedulerStatus, setNextVideoDestination, clearNextVideoDestination, triggerDailyVideoNow, getVideoDestinationQueue } from "./services/daily_video_scheduler";
-import { CAMPAIGN_CONFIGS, LOGICART_STRATEGIES, getActiveLogicArtStrategy, setActiveLogicArtStrategy, getActiveStrategyConfig, getQuackLaunchMediaPath, setQuackLaunchMediaPath } from "./campaign-config";
+import { CAMPAIGN_CONFIGS, LOGICART_STRATEGIES, getActiveLogicArtStrategy, setActiveLogicArtStrategy, getActiveStrategyConfig, getQuackLaunchMediaPath, setQuackLaunchMediaPath, getQuackQuackMediaPath, setQuackQuackMediaPath } from "./campaign-config";
 import { getActiveCampaign, setActiveCampaign, isValidCampaignType } from "./campaign-state";
 import { arenaService, type ArenaRequest, getRandomChallenge, getAllChallenges, runAutoArena } from "./services/arena_service";
 import { requireTier, checkFeature, getTierLimits, TIER_LIMITS } from "./middleware/tier-guard";
@@ -1881,7 +1881,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get/Set Quack Quack video
   app.get("/api/sniper/quack-quack/media", (req, res) => {
-    const { getQuackQuackMediaPath } = require("./campaign-config");
     res.json({
       mediaPath: getQuackQuackMediaPath()
     });
@@ -1889,7 +1888,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/sniper/quack-quack/media", (req, res) => {
     const { mediaPath } = req.body;
-    const { setQuackQuackMediaPath, getQuackQuackMediaPath } = require("./campaign-config");
     
     if (!mediaPath || typeof mediaPath !== 'string') {
       return res.status(400).json({ error: 'mediaPath is required' });
@@ -1920,7 +1918,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Set the new video path
-        const { setQuackQuackMediaPath } = require("./campaign-config");
         const videoPath = `public/uploads/${req.file.filename}`;
         setQuackQuackMediaPath(videoPath);
         
