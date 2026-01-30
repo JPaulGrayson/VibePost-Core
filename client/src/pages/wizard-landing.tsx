@@ -294,7 +294,7 @@ export default function WizardLanding() {
             <span className="bg-white/10 px-4 py-2 rounded-lg">Gemini</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">VS Code</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">Antigravity</span>
-            <span className="bg-white/10 px-4 py-2 rounded-lg text-gray-500">Copilot 🔜</span>
+            <span className="bg-white/10 px-4 py-2 rounded-lg">Copilot</span>
           </div>
         </div>
 
