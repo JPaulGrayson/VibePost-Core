@@ -2074,10 +2074,12 @@ The tech changes. The architecture stays the same. 🧙‍♂️`,
     }
   });
 
-  // Post the Quack REVEAL thread (text-only, 5 tweets)
+  // Post the Quack REVEAL thread with images/video
   app.post("/api/quack-reveal-thread", async (req, res) => {
     try {
       const { TwitterApi } = await import("twitter-api-v2");
+      const fs = await import("fs");
+      const path = await import("path");
       
       // Get Twitter credentials
       const twitterConnection = await storage.getPlatformConnection("twitter");
@@ -2090,9 +2092,10 @@ The tech changes. The architecture stays the same. 🧙‍♂️`,
         accessSecret: creds.accessTokenSecret || process.env.TWITTER_ACCESS_TOKEN_SECRET!,
       });
       
-      // The 5 reveal thread tweets
+      // The 5 reveal thread tweets with media paths
       const revealThread = [
-        `For the past week, you may have seen us reply "Quack?" to vibe coders everywhere.
+        {
+          text: `For the past week, you may have seen us reply "Quack?" to vibe coders everywhere.
 
 Time to explain. 🧵
 
@@ -2100,9 +2103,12 @@ Quack is agent-to-agent messaging.
 
 When Claude needs something from Cursor, it doesn't wait for you to copy-paste. It sends a message. Directly.
 
-https://x.quack.us.com?utm_source=twitter&utm_medium=social&utm_campaign=quack_reveal`,
-        
-        `The dirty secret of vibe coding:
+https://wizardofquack.com/wizard?utm_source=twitter&utm_medium=social&utm_campaign=quack_reveal`,
+          media: "public/images/reveal-1-architecture.png",
+          isVideo: false
+        },
+        {
+          text: `The dirty secret of vibe coding:
 
 You're the middleware.
 
@@ -2111,16 +2117,22 @@ Cursor says "I need context" → you paste
 GPT says "check this error" → you copy again
 
 You're not coding. You're a human clipboard.`,
-        
-        `Quack gives every AI its own inbox.
+          media: "public/images/reveal-2-handoff.png",
+          isVideo: false
+        },
+        {
+          text: `Quack gives every AI its own inbox.
 
 Claude → messages Cursor directly
 Cursor → requests context from GPT
 You → approve, track, or just watch it happen
 
 Like Twitter, but for AI models.`,
-        
-        `What Quack does:
+          media: "public/images/reveal-3-quack-center.png",
+          isVideo: false
+        },
+        {
+          text: `What Quack does:
 
 🟡 Universal inbox for each AI
 🔔 Real-time notifications (yes, it quacks)
@@ -2128,8 +2140,11 @@ Like Twitter, but for AI models.`,
 ⚡ Auto-dispatch for Replit tasks
 
 Your agents coordinate. You supervise.`,
-        
-        `Quack is:
+          media: "public/images/reveal-4-dev-prod.png",
+          isVideo: false
+        },
+        {
+          text: `Quack is:
 • Free
 • Open source
 • Self-hostable
@@ -2138,31 +2153,57 @@ The mystery tweets were a preview.
 
 The future of vibe coding is agents that talk to each other.
 
-Start quacking → https://x.quack.us.com?utm_source=twitter&utm_medium=social&utm_campaign=quack_reveal`
+Start quacking → https://wizardofquack.com/wizard?utm_source=twitter&utm_medium=social&utm_campaign=quack_reveal`,
+          media: "public/images/reveal-5-duck.mp4",
+          isVideo: true
+        }
       ];
       
-      console.log(`🦆 Posting Quack reveal thread (${revealThread.length} tweets)...`);
+      console.log(`🦆 Posting Quack reveal thread (${revealThread.length} tweets with media)...`);
       
       // Post thread
       const tweetIds: string[] = [];
       let lastTweetId: string | undefined;
       
       for (let i = 0; i < revealThread.length; i++) {
-        const tweetText = revealThread[i];
-        console.log(`📝 Posting tweet ${i + 1}/${revealThread.length}...`);
+        const tweet = revealThread[i];
+        console.log(`📝 Posting tweet ${i + 1}/${revealThread.length} with ${tweet.isVideo ? 'video' : 'image'}...`);
         
-        const tweetParams: any = { text: tweetText };
+        // Upload media first
+        let mediaId: string | undefined;
+        try {
+          const mediaPath = path.resolve(tweet.media);
+          if (fs.existsSync(mediaPath)) {
+            if (tweet.isVideo) {
+              // Video upload with chunked method
+              mediaId = await client.v1.uploadMedia(mediaPath, { mimeType: 'video/mp4' });
+            } else {
+              // Image upload
+              mediaId = await client.v1.uploadMedia(mediaPath);
+            }
+            console.log(`✅ Media uploaded: ${mediaId}`);
+          } else {
+            console.log(`⚠️ Media file not found: ${mediaPath}`);
+          }
+        } catch (mediaError: any) {
+          console.error(`⚠️ Media upload failed for tweet ${i + 1}:`, mediaError.message);
+        }
+        
+        const tweetParams: any = { text: tweet.text };
         if (lastTweetId) {
           tweetParams.reply = { in_reply_to_tweet_id: lastTweetId };
         }
+        if (mediaId) {
+          tweetParams.media = { media_ids: [mediaId] };
+        }
         
-        const tweet = await client.v2.tweet(tweetParams);
-        tweetIds.push(tweet.data.id);
-        lastTweetId = tweet.data.id;
+        const postedTweet = await client.v2.tweet(tweetParams);
+        tweetIds.push(postedTweet.data.id);
+        lastTweetId = postedTweet.data.id;
         
-        // Small delay between tweets
+        // Longer delay between tweets (media uploads need more time)
         if (i < revealThread.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 3000));
         }
       }
       
