@@ -281,12 +281,13 @@ export default function WizardLanding() {
         </div>
 
         <div className="text-center mb-12">
-          <h2 className="text-2xl font-bold text-white mb-4">
+          <h2 className="text-2xl font-bold text-white mb-2">
             Works With Your Favorite AI Tools
           </h2>
+          <p className="text-gray-400 mb-4">Claude / CoWork not required — you can be the conductor</p>
           <div className="flex flex-wrap justify-center gap-4 text-gray-400">
             <span className="bg-white/10 px-4 py-2 rounded-lg">Claude</span>
-            <span className="bg-green-500/20 border border-green-400/50 px-4 py-2 rounded-lg text-green-400 font-semibold">Grok ⚡ Best for messaging</span>
+            <span className="bg-white/10 px-4 py-2 rounded-lg">Grok</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">Replit ⚡</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">Cursor</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">ChatGPT</span>
