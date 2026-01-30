@@ -12,6 +12,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 import { trackPageView, trackEvent } from "@/lib/tracking";
+import wizardArchitectureImg from "@assets/Gemini_Generated_Image_47hgvr47hgvr47hg_1769776277591.jpg";
 
 export default function WizardLanding() {
   // Track page view on mount
@@ -139,7 +140,7 @@ export default function WizardLanding() {
               <div className="relative group flex flex-col items-center" onClick={playQuack}>
                 <div className="w-full max-w-3xl overflow-hidden rounded-2xl shadow-2xl cursor-pointer">
                   <img
-                    src="/images/wizard-architecture-unified.jpg"
+                    src={wizardArchitectureImg}
                     alt="Quack Architecture - Claude/CoWork as Conductor with Universal Message Bus"
                     className="w-full h-auto object-contain"
                   />
