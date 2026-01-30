@@ -288,7 +288,7 @@ export default function WizardLanding() {
           <div className="flex flex-wrap justify-center gap-4 text-gray-400">
             <span className="bg-white/10 px-4 py-2 rounded-lg">Claude</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">Grok</span>
-            <span className="bg-white/10 px-4 py-2 rounded-lg">Replit ⚡</span>
+            <span className="bg-white/10 px-4 py-2 rounded-lg">Replit</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">Cursor</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">ChatGPT</span>
             <span className="bg-white/10 px-4 py-2 rounded-lg">Gemini</span>
