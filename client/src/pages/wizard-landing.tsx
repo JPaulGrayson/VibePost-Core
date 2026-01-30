@@ -129,53 +129,20 @@ export default function WizardLanding() {
             </p>
           </div>
 
-          {/* Architecture Diagrams - Side by Side Comparison */}
+          {/* Architecture Diagram */}
           <div className="mt-12">
-            <h3 className="text-2xl font-bold text-white mb-2 text-center">Choose Your Conductor</h3>
-            <p className="text-gray-400 text-center mb-6">Same Quack message bus. Your choice of AI orchestrator.</p>
+            <h3 className="text-2xl font-bold text-white mb-2 text-center">The Architecture</h3>
+            <p className="text-gray-400 text-center mb-6">Claude/CoWork conducts. Your agents collaborate. You supervise.</p>
             
-            <div className="flex flex-wrap justify-center gap-8 max-w-6xl mx-auto items-start">
-              {/* Claude Conductor */}
+            <div className="flex justify-center max-w-4xl mx-auto">
+              {/* Unified Conductor Diagram */}
               <div className="relative group flex flex-col items-center" onClick={playQuack}>
-                <div className="w-96 h-96 overflow-hidden rounded-2xl shadow-2xl cursor-pointer">
+                <div className="w-full max-w-3xl overflow-hidden rounded-2xl shadow-2xl cursor-pointer">
                   <img
-                    src="/images/wizard-architecture.jpg"
-                    alt="Claude as Conductor - Deep Reasoning Architecture"
-                    className="w-full h-full object-contain"
+                    src="/images/wizard-architecture-unified.jpg"
+                    alt="Quack Architecture - Claude/CoWork as Conductor with Universal Message Bus"
+                    className="w-full h-auto object-contain"
                   />
-                </div>
-                <div className="mt-3 text-center">
-                  <p className="text-orange-400 font-semibold">Claude Conductor</p>
-                  <p className="text-gray-400 text-sm">Best for complex analysis & planning</p>
-                </div>
-
-                {/* Quack feedback bubble */}
-                {quackFeedback && (
-                  <div
-                    className="absolute pointer-events-none text-2xl"
-                    style={{
-                      left: quackFeedback.x,
-                      top: quackFeedback.y,
-                      animation: 'quackBubble 0.8s ease-out forwards'
-                    }}
-                  >
-                    🦆 Quack!
-                  </div>
-                )}
-              </div>
-
-              {/* Grok Conductor */}
-              <div className="relative group flex flex-col items-center" onClick={playQuack}>
-                <div className="w-96 h-96 overflow-hidden rounded-2xl shadow-2xl cursor-pointer">
-                  <img
-                    src="/images/wizard-architecture-grok.jpg"
-                    alt="Grok as Conductor - Fast Messaging Architecture"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-                <div className="mt-3 text-center">
-                  <p className="text-green-400 font-semibold">Grok Conductor</p>
-                  <p className="text-gray-400 text-sm">Best for fast automation & X integration</p>
                 </div>
 
                 {/* Quack feedback bubble */}
@@ -203,7 +170,7 @@ export default function WizardLanding() {
             `}</style>
 
             <p className="text-center text-yellow-400 mt-6 text-sm font-medium">
-              🦆 Click a diagram to quack!
+              🦆 Click the diagram to quack!
             </p>
           </div>
         </div>
