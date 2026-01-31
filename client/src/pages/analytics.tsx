@@ -60,6 +60,7 @@ interface PostWithComments {
 export default function Analytics() {
   const [timeRange, setTimeRange] = useState("7days");
   const [selectedPlatform, setSelectedPlatform] = useState("all");
+  const [activeTab, setActiveTab] = useState("engagement");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -68,9 +69,11 @@ export default function Analytics() {
     select: (data) => data.filter(post => post.status === "published"),
   });
 
-  // Fetch actual comments from Twitter
+  // Fetch actual comments from Twitter - ONLY when Comments tab is active
   const { data: commentsData, isLoading: commentsLoading, refetch: refetchComments } = useQuery<{ posts: PostWithComments[] }>({
     queryKey: ["/api/analytics/comments"],
+    enabled: activeTab === "comments",
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes to avoid re-fetching
   });
 
   // Fetch conversion analytics
@@ -520,7 +523,7 @@ export default function Analytics() {
             </CardContent>
           </Card>
 
-          <Tabs defaultValue="engagement" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="engagement">Engagement</TabsTrigger>
               <TabsTrigger value="platforms">Platforms</TabsTrigger>
