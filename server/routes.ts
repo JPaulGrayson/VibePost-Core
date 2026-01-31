@@ -554,13 +554,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
 
-          // Sync Reddit metrics (Still sequential for now, Reddit API is different)
+          // Sync Reddit metrics with timeout (5 seconds)
           if (platformData.reddit?.id) {
             try {
-              const redditMetrics = await fetchRedditMetrics(platformData.reddit.id);
+              const redditPromise = fetchRedditMetrics(platformData.reddit.id);
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Reddit timeout')), 5000)
+              );
+              const redditMetrics = await Promise.race([redditPromise, timeoutPromise]) as any;
               updatedMetrics.reddit = { ...platformData.reddit, ...redditMetrics };
-            } catch (error) {
-              console.error(`Failed to fetch Reddit metrics for post ${post.id}:`, error);
+            } catch (error: any) {
+              console.error(`Failed to fetch Reddit metrics for post ${post.id}: ${error.message || error}`);
             }
           }
 
@@ -828,9 +832,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const bReplies = (b.platformData as any)?.twitter?.replies || 0;
           return bReplies - aReplies;
         })
-        .slice(0, 10); // Top 10 posts with most comments
+        .slice(0, 5); // Reduced from 10 to 5 to avoid rate limits
 
-      // Fetch actual replies for each post
+      // Helper function to add timeout to async operations
+      const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+        return Promise.race([
+          promise,
+          new Promise<T>((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), ms)
+          )
+        ]);
+      };
+
+      // Fetch actual replies for each post with timeout protection
       const results = [];
       
       for (const post of postsWithReplies) {
@@ -840,7 +854,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!tweetId) continue;
         
         try {
-          const replies = await keywordSearchEngine.fetchTweetReplies(tweetId, 5);
+          // 8 second timeout per tweet to avoid hanging
+          const replies = await withTimeout(
+            keywordSearchEngine.fetchTweetReplies(tweetId, 5),
+            8000
+          );
           
           results.push({
             postId: post.id,
@@ -858,9 +876,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
               url: `https://twitter.com/${r.author}/status/${r.id}`
             }))
           });
-        } catch (e) {
-          // Skip posts where we can't fetch replies
-          console.log(`Could not fetch replies for tweet ${tweetId}:`, e);
+        } catch (e: any) {
+          // Skip posts where we can't fetch replies or timeout
+          console.log(`Could not fetch replies for tweet ${tweetId}: ${e.message || e}`);
+          // Still add the post with no replies so UI shows something
+          results.push({
+            postId: post.id,
+            tweetId,
+            postContent: post.content.substring(0, 100) + (post.content.length > 100 ? '...' : ''),
+            postUrl: `https://twitter.com/MaxTruth_Seeker/status/${tweetId}`,
+            publishedAt: post.publishedAt,
+            totalReplies: data?.twitter?.replies || 0,
+            replies: []
+          });
         }
       }
       
