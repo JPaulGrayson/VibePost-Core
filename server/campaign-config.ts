@@ -738,7 +738,7 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         id: 'quack_launch',
         name: 'Quack Launch',
         emoji: '🚀',
-        description: 'Mystery "Quack?" campaign - quote tweet code posts with just "Quack?" and video',
+        description: 'Mystery "Quack?" campaign - reply to code posts with just "Quack?" and video',
         keywords: [
             // ===== HIGH VOLUME FIRST (searched first!) =====
             "vibe coding", "Cursor AI", "Claude code", "Replit agent",
@@ -771,7 +771,7 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
             hook: 'Create curiosity - people will ask Grok what Quack means',
             templateExample: "Quack?"
         },
-        actionType: 'quote_tweet',
+        actionType: 'reply',
         rankingMode: 'hot', // Target trending/popular code posts for maximum visibility
         // Video attachment for Quack Launch campaign (path relative to project root)
         mediaPath: 'attached_assets/Video_Ready_Missing_Quack_Sound_1769435167874.mp4',
@@ -782,7 +782,7 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
         id: 'quack_quack',
         name: 'Quack Quack (Follow-up)',
         emoji: '🦆🦆',
-        description: 'Follow-up to mystery campaign - "Quack Quack" quote tweets to build momentum',
+        description: 'Follow-up to mystery campaign - "Quack Quack" replies to build momentum',
         keywords: [
             // ===== HIGH VOLUME FIRST (searched first!) =====
             "vibe coding", "Cursor AI", "Claude code", "Replit agent",
@@ -815,7 +815,7 @@ export const LOGICART_STRATEGIES: Record<LogicArtStrategy, StrategyConfig> = {
             hook: 'Follow-up creates pattern recognition - people start noticing the duck',
             templateExample: "Quack Quack"
         },
-        actionType: 'quote_tweet',
+        actionType: 'reply',
         rankingMode: 'hot',
         mediaPath: 'attached_assets/Video_Generation_Quack_Quack__1769695167312.mp4',
         mediaType: 'video' as const
