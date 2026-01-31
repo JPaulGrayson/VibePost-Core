@@ -522,6 +522,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(syncState);
   });
 
+  // Reset sync status (if stuck)
+  app.post("/api/posts/sync-reset", isAuthenticated, async (req, res) => {
+    syncState = {
+      isRunning: false,
+      startedAt: null,
+      totalPosts: 0,
+      processedPosts: 0,
+      totalSniperDrafts: 0,
+      processedSniperDrafts: 0,
+      errors: [],
+      lastCompleted: null,
+      metricsUpdated: 0
+    };
+    res.json({ success: true, message: "Sync state reset" });
+  });
+
   // Sync metrics for all published posts (background processing)
   app.post("/api/posts/sync-all-metrics", isAuthenticated, async (req, res) => {
     // If already running, return current status
@@ -598,16 +614,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             const chunkMetrics = await fetchTwitterMetricsBatch(chunk);
             twitterMetricsMap = { ...twitterMetricsMap, ...chunkMetrics };
+            console.log(`[Sync] Batch ${batchNum} got ${Object.keys(chunkMetrics).length} metrics`);
             
             // Update progress - mark posts as processed after each batch
             syncState.processedPosts = Math.min(i + chunkSize, twitterIds.length);
           } catch (batchError: any) {
             console.warn(`[Sync] Batch ${batchNum} failed: ${batchError.message}`);
             syncState.errors.push(`Batch ${batchNum}: ${batchError.message}`);
+            
+            // If rate limited (429), wait longer before next batch
+            if (batchError.message?.includes('429')) {
+              console.log(`[Sync] Rate limited, waiting 60 seconds...`);
+              await new Promise(resolve => setTimeout(resolve, 60000));
+            }
           }
           
-          // Small delay between batches to avoid rate limits
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Longer delay between batches to avoid rate limits (3 seconds)
+          await new Promise(resolve => setTimeout(resolve, 3000));
         }
 
         console.log(`[Sync] Got metrics for ${Object.keys(twitterMetricsMap).length} tweets`);
@@ -641,8 +664,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         syncState.processedPosts = allPosts.length;
 
         // Sync sniper drafts
-        const allSniperDrafts = await db.select().from(postcardDrafts)
-          .where(eq(postcardDrafts.status, "published"));
+        console.log("[Sync] Loading sniper drafts...");
+        let allSniperDrafts;
+        try {
+          allSniperDrafts = await db.select().from(postcardDrafts)
+            .where(eq(postcardDrafts.status, "published"));
+          console.log(`[Sync] Loaded ${allSniperDrafts.length} sniper drafts`);
+        } catch (sniperDbError: any) {
+          console.error("[Sync] Failed to load sniper drafts:", sniperDbError.message);
+          syncState.errors.push(`Sniper DB error: ${sniperDbError.message}`);
+          allSniperDrafts = [];
+        }
         
         syncState.totalSniperDrafts = allSniperDrafts.length;
         
