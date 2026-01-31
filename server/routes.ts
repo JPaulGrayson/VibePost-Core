@@ -494,238 +494,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Background sync state
-  let syncState: {
-    isRunning: boolean;
-    startedAt: string | null;
-    totalPosts: number;
-    processedPosts: number;
-    totalSniperDrafts: number;
-    processedSniperDrafts: number;
-    errors: string[];
-    lastCompleted: string | null;
-    metricsUpdated: number;
-  } = {
-    isRunning: false,
-    startedAt: null,
-    totalPosts: 0,
-    processedPosts: 0,
-    totalSniperDrafts: 0,
-    processedSniperDrafts: 0,
-    errors: [],
-    lastCompleted: null,
-    metricsUpdated: 0
-  };
-
-  // Get sync status
-  app.get("/api/posts/sync-status", isAuthenticated, async (req, res) => {
-    res.json(syncState);
-  });
-
-  // Reset sync status (if stuck)
-  app.post("/api/posts/sync-reset", isAuthenticated, async (req, res) => {
-    syncState = {
-      isRunning: false,
-      startedAt: null,
-      totalPosts: 0,
-      processedPosts: 0,
-      totalSniperDrafts: 0,
-      processedSniperDrafts: 0,
-      errors: [],
-      lastCompleted: null,
-      metricsUpdated: 0
-    };
-    res.json({ success: true, message: "Sync state reset" });
-  });
-
-  // Sync metrics for all published posts (background processing)
+  // Sync metrics for all published posts (original working version)
   app.post("/api/posts/sync-all-metrics", isAuthenticated, async (req, res) => {
-    // If already running, return current status
-    if (syncState.isRunning) {
-      return res.json({ 
-        success: true, 
-        message: "Sync already in progress",
-        status: syncState
+    try {
+      console.log("[Sync] Starting manual metrics sync...");
+      const posts = await storage.getPostsByStatus("published");
+      const results = [];
+      let syncErrors: string[] = [];
+
+      // 1. Collect all Twitter IDs needing sync
+      const postsToUpdate = posts.filter(p => {
+        const data = p.platformData as any;
+        return data && data.twitter && (data.twitter.tweetId || data.twitter.id);
       });
-    }
 
-    // Start background sync
-    syncState = {
-      isRunning: true,
-      startedAt: new Date().toISOString(),
-      totalPosts: 0,
-      processedPosts: 0,
-      totalSniperDrafts: 0,
-      processedSniperDrafts: 0,
-      errors: [],
-      lastCompleted: null,
-      metricsUpdated: 0
-    };
+      const twitterIds = postsToUpdate.map(p => {
+        const data = (p.platformData as any).twitter;
+        return data.tweetId || data.id;
+      }).filter(id => id && id !== 'unknown' && /^\d+$/.test(id));
 
-    // Return immediately, process in background
-    res.json({ 
-      success: true, 
-      message: "Sync started in background",
-      status: syncState
-    });
+      console.log(`[Sync] Found ${posts.length} published posts, ${twitterIds.length} with valid Twitter IDs`);
 
-    // Background processing
-    (async () => {
-      try {
-        console.log("[Sync] Starting background metrics sync...");
-        
-        let allPosts;
+      // 2. Fetch Twitter metrics in batches of 100 (API limit)
+      let twitterMetricsMap: Record<string, any> = {};
+      if (twitterIds.length > 0) {
         try {
-          allPosts = await storage.getPostsByStatus("published");
-          console.log(`[Sync] Loaded ${allPosts.length} posts from database`);
-        } catch (dbError: any) {
-          console.error("[Sync] Failed to load posts:", dbError.message);
-          syncState.errors.push(`Database error: ${dbError.message}`);
-          syncState.isRunning = false;
-          return;
-        }
-        
-        syncState.totalPosts = allPosts.length;
-
-        // Collect all Twitter IDs
-        const postsWithTwitter = allPosts.filter(p => {
-          const data = p.platformData as any;
-          return data && data.twitter && (data.twitter.tweetId || data.twitter.id);
-        });
-
-        const twitterIds = postsWithTwitter.map(p => {
-          const data = (p.platformData as any).twitter;
-          return data.tweetId || data.id;
-        }).filter(id => id && id !== 'unknown' && /^\d+$/.test(id));
-
-        console.log(`[Sync] Found ${allPosts.length} posts, ${twitterIds.length} with Twitter IDs`);
-
-        // Fetch Twitter metrics in batches of 100
-        let twitterMetricsMap: Record<string, any> = {};
-        const chunkSize = 100;
-        
-        for (let i = 0; i < twitterIds.length; i += chunkSize) {
-          const chunk = twitterIds.slice(i, i + chunkSize);
-          const batchNum = Math.floor(i / chunkSize) + 1;
-          const totalBatches = Math.ceil(twitterIds.length / chunkSize);
-          
-          console.log(`[Sync] Fetching Twitter batch ${batchNum}/${totalBatches}...`);
-          
-          try {
+          const chunkSize = 100;
+          for (let i = 0; i < twitterIds.length; i += chunkSize) {
+            const chunk = twitterIds.slice(i, i + chunkSize);
+            console.log(`[Sync] Fetching batch ${Math.floor(i / chunkSize) + 1}/${Math.ceil(twitterIds.length / chunkSize)} (${chunk.length} IDs)...`);
             const chunkMetrics = await fetchTwitterMetricsBatch(chunk);
             twitterMetricsMap = { ...twitterMetricsMap, ...chunkMetrics };
-            console.log(`[Sync] Batch ${batchNum} got ${Object.keys(chunkMetrics).length} metrics`);
-            
-            // Update progress - mark posts as processed after each batch
-            syncState.processedPosts = Math.min(i + chunkSize, twitterIds.length);
-          } catch (batchError: any) {
-            console.warn(`[Sync] Batch ${batchNum} failed: ${batchError.message}`);
-            syncState.errors.push(`Batch ${batchNum}: ${batchError.message}`);
-            
-            // If rate limited (429), wait longer before next batch
-            if (batchError.message?.includes('429')) {
-              console.log(`[Sync] Rate limited, waiting 60 seconds...`);
-              await new Promise(resolve => setTimeout(resolve, 60000));
-            }
           }
-          
-          // Longer delay between batches to avoid rate limits (3 seconds)
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          console.log(`[Sync] Twitter API returned metrics for ${Object.keys(twitterMetricsMap).length} tweets`);
+        } catch (error: any) {
+          console.error("[Sync] Failed to fetch batch Twitter metrics:", error);
+          syncErrors.push(`Twitter API error: ${error.message || 'Unknown error'}`);
         }
+      } else {
+        syncErrors.push("No valid Twitter IDs found to sync");
+      }
 
-        console.log(`[Sync] Got metrics for ${Object.keys(twitterMetricsMap).length} tweets`);
+      // 3. Loop through posts and update data
+      for (const post of posts) {
+        if (!post.platformData) continue;
 
-        // Update posts with metrics
-        let metricsUpdated = 0;
-        for (const post of allPosts) {
-          if (!post.platformData) continue;
-
-          const platformData = post.platformData as any;
-          const twitterId = platformData.twitter?.tweetId || platformData.twitter?.id;
-          
-          if (twitterId && twitterMetricsMap[twitterId]) {
-            const metrics = twitterMetricsMap[twitterId];
-            try {
-              await storage.updatePost(post.id, {
-                platformData: {
-                  ...platformData,
-                  twitter: { ...platformData.twitter, ...metrics },
-                  lastSyncedAt: new Date().toISOString(),
-                },
-              });
-              metricsUpdated++;
-            } catch (e: any) {
-              syncState.errors.push(`Post ${post.id}: ${e.message}`);
-            }
-          }
-        }
-        
-        syncState.metricsUpdated = metricsUpdated;
-        syncState.processedPosts = allPosts.length;
-
-        // Sync sniper drafts
-        console.log("[Sync] Loading sniper drafts...");
-        let allSniperDrafts;
         try {
-          allSniperDrafts = await db.select().from(postcardDrafts)
-            .where(eq(postcardDrafts.status, "published"));
-          console.log(`[Sync] Loaded ${allSniperDrafts.length} sniper drafts`);
-        } catch (sniperDbError: any) {
-          console.error("[Sync] Failed to load sniper drafts:", sniperDbError.message);
-          syncState.errors.push(`Sniper DB error: ${sniperDbError.message}`);
-          allSniperDrafts = [];
-        }
-        
-        syncState.totalSniperDrafts = allSniperDrafts.length;
-        
-        const sniperTweetIds = allSniperDrafts
-          .map(d => d.tweetId)
-          .filter((id): id is string => !!id && /^\d+$/.test(id));
-        
-        console.log(`[Sync] Syncing ${sniperTweetIds.length} sniper drafts...`);
+          const platformData = post.platformData as any;
+          const updatedMetrics: any = {};
 
-        if (sniperTweetIds.length > 0) {
-          // Process sniper drafts in batches too
+          // Sync Twitter metrics (from map)
+          const twitterId = platformData.twitter?.tweetId || platformData.twitter?.id;
+          if (twitterId) {
+            const metrics = twitterMetricsMap[twitterId];
+            if (metrics) {
+              updatedMetrics.twitter = { ...platformData.twitter, ...metrics };
+            }
+          }
+
+          // Sync Reddit metrics
+          if (platformData.reddit?.id) {
+            try {
+              const redditMetrics = await fetchRedditMetrics(platformData.reddit.id);
+              updatedMetrics.reddit = { ...platformData.reddit, ...redditMetrics };
+            } catch (error) {
+              console.error(`Failed to fetch Reddit metrics for post ${post.id}:`, error);
+            }
+          }
+
+          // Only update if we have new data
+          if (Object.keys(updatedMetrics).length > 0) {
+            await storage.updatePost(post.id, {
+              platformData: {
+                ...platformData,
+                ...updatedMetrics,
+                lastSyncedAt: new Date().toISOString(),
+              },
+            });
+            results.push({ postId: post.id, success: true, metrics: updatedMetrics });
+          }
+        } catch (error) {
+          results.push({ postId: post.id, success: false, error: error instanceof Error ? error.message : "Unknown error" });
+        }
+      }
+
+      // 4. Sync sniper drafts (postcardDrafts)
+      const sniperDrafts = await db.select().from(postcardDrafts)
+        .where(eq(postcardDrafts.status, "published"));
+      
+      const sniperTweetIds = sniperDrafts
+        .map(d => d.tweetId)
+        .filter((id): id is string => !!id && /^\d+$/.test(id));
+      
+      console.log(`[Sync] Found ${sniperDrafts.length} sniper drafts, ${sniperTweetIds.length} with valid tweet IDs`);
+      
+      if (sniperTweetIds.length > 0) {
+        try {
+          const chunkSize = 100;
+          let sniperMetricsMap: Record<string, any> = {};
+          
           for (let i = 0; i < sniperTweetIds.length; i += chunkSize) {
             const chunk = sniperTweetIds.slice(i, i + chunkSize);
-            
-            try {
-              const sniperMetricsMap = await fetchTwitterMetricsBatch(chunk);
-              
-              for (const draft of allSniperDrafts) {
-                if (draft.tweetId && sniperMetricsMap[draft.tweetId]) {
-                  const metrics = sniperMetricsMap[draft.tweetId];
-                  await db.update(postcardDrafts)
-                    .set({
-                      likes: metrics.likes || 0,
-                      retweets: metrics.retweets || 0,
-                      replies: metrics.replies || 0,
-                      impressions: metrics.views || 0,
-                    })
-                    .where(eq(postcardDrafts.id, draft.id));
-                }
-              }
-              
-              syncState.processedSniperDrafts = Math.min(i + chunkSize, sniperTweetIds.length);
-            } catch (error: any) {
-              syncState.errors.push(`Sniper batch: ${error.message}`);
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, 500));
+            const chunkMetrics = await fetchTwitterMetricsBatch(chunk);
+            sniperMetricsMap = { ...sniperMetricsMap, ...chunkMetrics };
           }
+          
+          // Update sniper drafts with metrics
+          for (const draft of sniperDrafts) {
+            if (draft.tweetId && sniperMetricsMap[draft.tweetId]) {
+              const metrics = sniperMetricsMap[draft.tweetId];
+              await db.update(postcardDrafts)
+                .set({
+                  likes: metrics.likes || 0,
+                  retweets: metrics.retweets || 0,
+                  replies: metrics.replies || 0,
+                  impressions: metrics.views || 0,
+                })
+                .where(eq(postcardDrafts.id, draft.id));
+            }
+          }
+          
+          console.log(`[Sync] Updated ${Object.keys(sniperMetricsMap).length} sniper drafts with metrics`);
+        } catch (error: any) {
+          console.error("[Sync] Failed to sync sniper drafts:", error.message);
+          syncErrors.push(`Sniper sync: ${error.message || 'Unknown error'}`);
         }
-
-        syncState.processedSniperDrafts = allSniperDrafts.length;
-        syncState.lastCompleted = new Date().toISOString();
-        syncState.isRunning = false;
-        
-        console.log(`[Sync] Complete. Updated ${metricsUpdated} posts, ${sniperTweetIds.length} sniper drafts.`);
-      } catch (error: any) {
-        console.error("[Sync] Background sync error:", error);
-        syncState.errors.push(`Fatal: ${error.message}`);
-        syncState.isRunning = false;
       }
-    })();
+
+      console.log(`[Sync] Complete. Updated ${results.length} posts.`);
+      res.json({ 
+        success: true, 
+        results,
+        stats: {
+          totalPosts: posts.length,
+          postsWithTwitter: twitterIds.length,
+          metricsReturned: Object.keys(twitterMetricsMap).length,
+          postsUpdated: results.length,
+          sniperDrafts: sniperDrafts.length,
+          sniperSynced: sniperTweetIds.length,
+          errors: syncErrors
+        }
+      });
+    } catch (error) {
+      console.error("Error syncing all metrics:", error);
+      res.status(500).json({ message: "Failed to sync metrics" });
+    }
   });
 
   // Topic Search
