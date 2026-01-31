@@ -557,7 +557,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     (async () => {
       try {
         console.log("[Sync] Starting background metrics sync...");
-        const allPosts = await storage.getPostsByStatus("published");
+        
+        let allPosts;
+        try {
+          allPosts = await storage.getPostsByStatus("published");
+          console.log(`[Sync] Loaded ${allPosts.length} posts from database`);
+        } catch (dbError: any) {
+          console.error("[Sync] Failed to load posts:", dbError.message);
+          syncState.errors.push(`Database error: ${dbError.message}`);
+          syncState.isRunning = false;
+          return;
+        }
+        
         syncState.totalPosts = allPosts.length;
 
         // Collect all Twitter IDs
