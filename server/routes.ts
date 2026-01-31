@@ -494,13 +494,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Minimal sync endpoint (1 post only) for quick testing
+  app.post("/api/debug/quick-sync", async (req, res) => {
+    try {
+      const posts = await storage.getPostsByStatus("published");
+      if (posts.length === 0) {
+        return res.json({ success: true, message: "No posts to sync" });
+      }
+      
+      const post = posts[0];
+      const twitterId = (post.platformData as any)?.twitter?.tweetId;
+      if (!twitterId) {
+        return res.json({ success: true, message: "First post has no Twitter ID" });
+      }
+      
+      // Try to fetch metrics for just 1 tweet
+      try {
+        const metrics = await fetchTwitterMetricsBatch([twitterId]);
+        return res.json({ 
+          success: true, 
+          message: `Fetched metrics for 1 tweet`, 
+          twitterId,
+          metrics: metrics[twitterId] || null,
+          hasData: !!metrics[twitterId]
+        });
+      } catch (error: any) {
+        return res.json({ 
+          success: false, 
+          message: `Twitter API error: ${error.message}`,
+          twitterId
+        });
+      }
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Debug endpoint to check posts data structure
+  app.get("/api/debug/posts-check", async (req, res) => {
+    try {
+      const posts = await storage.getPostsByStatus("published");
+      
+      // Run the EXACT same filtering logic as the sync
+      const postsToUpdate = posts.filter(p => {
+        const data = p.platformData as any;
+        return data && data.twitter && (data.twitter.tweetId || data.twitter.id);
+      });
+      
+      const twitterIds = postsToUpdate.map(p => {
+        const data = (p.platformData as any).twitter;
+        return data.tweetId || data.id;
+      }).filter(id => id && id !== 'unknown' && /^\d+$/.test(id));
+      
+      const sample = posts.slice(0, 3).map(p => ({
+        id: p.id,
+        platformData: p.platformData,
+        hasTwitter: !!(p.platformData as any)?.twitter,
+        tweetId: (p.platformData as any)?.twitter?.tweetId
+      }));
+      res.json({
+        total: posts.length,
+        postsWithTwitterData: postsToUpdate.length,
+        twitterIdsFound: twitterIds.length,
+        sampleTwitterIds: twitterIds.slice(0, 5),
+        samples: sample
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Sync metrics for all published posts (original working version)
   app.post("/api/posts/sync-all-metrics", isAuthenticated, async (req, res) => {
     try {
-      console.log("[Sync] Starting manual metrics sync...");
-      const posts = await storage.getPostsByStatus("published");
+      // Support quick sync mode (default: last 50 posts) or full sync (limit=0)
+      const limit = parseInt(req.query.limit as string) || 50;
+      const isQuickSync = limit > 0;
+      
+      console.log(`[Sync] Starting ${isQuickSync ? `quick sync (last ${limit} posts)` : 'full sync'}...`);
+      
+      let posts = await storage.getPostsByStatus("published");
+      const totalPosts = posts.length;
+      
+      // For quick sync, only process the most recent posts
+      if (isQuickSync && posts.length > limit) {
+        console.log(`[Sync] Limiting from ${posts.length} to ${limit} most recent posts`);
+        posts = posts.slice(0, limit);
+      }
       const results = [];
       let syncErrors: string[] = [];
+
+      // Debug: Check what posts look like
+      console.log(`[Sync] Loaded ${posts.length} posts from storage`);
+      if (posts.length > 0) {
+        const sample = posts[0];
+        console.log(`[Sync] Sample post ID: ${sample.id}, platformData type: ${typeof sample.platformData}`);
+        console.log(`[Sync] Sample platformData: ${JSON.stringify(sample.platformData)?.substring(0, 200)}`);
+      }
 
       // 1. Collect all Twitter IDs needing sync
       const postsToUpdate = posts.filter(p => {
@@ -508,30 +598,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return data && data.twitter && (data.twitter.tweetId || data.twitter.id);
       });
 
+      console.log(`[Sync] Posts with Twitter data: ${postsToUpdate.length}`);
+
       const twitterIds = postsToUpdate.map(p => {
         const data = (p.platformData as any).twitter;
         return data.tweetId || data.id;
       }).filter(id => id && id !== 'unknown' && /^\d+$/.test(id));
 
       console.log(`[Sync] Found ${posts.length} published posts, ${twitterIds.length} with valid Twitter IDs`);
-
-      // 2. Fetch Twitter metrics in batches of 100 (API limit)
-      let twitterMetricsMap: Record<string, any> = {};
       if (twitterIds.length > 0) {
+        console.log(`[Sync] Sample Twitter IDs: ${twitterIds.slice(0, 3).join(', ')}`);
+      }
+
+      // 2. Check Twitter credentials first (fail fast)
+      const twitterConnection = await storage.getPlatformConnection("twitter");
+      const credentials = twitterConnection?.credentials;
+      const hasTwitterCreds = !!(
+        (credentials?.apiKey || process.env.TWITTER_API_KEY) &&
+        (credentials?.apiSecret || process.env.TWITTER_API_SECRET) &&
+        (credentials?.accessToken || process.env.TWITTER_ACCESS_TOKEN) &&
+        (credentials?.accessTokenSecret || process.env.TWITTER_ACCESS_TOKEN_SECRET)
+      );
+
+      if (!hasTwitterCreds && twitterIds.length > 0) {
+        console.log("[Sync] No Twitter credentials found - skipping Twitter API");
+        syncErrors.push("Twitter credentials not configured");
+      }
+
+      // 3. Fetch Twitter metrics in batches of 100 (API limit)
+      let twitterMetricsMap: Record<string, any> = {};
+      if (twitterIds.length > 0 && hasTwitterCreds) {
         try {
           const chunkSize = 100;
           for (let i = 0; i < twitterIds.length; i += chunkSize) {
             const chunk = twitterIds.slice(i, i + chunkSize);
-            console.log(`[Sync] Fetching batch ${Math.floor(i / chunkSize) + 1}/${Math.ceil(twitterIds.length / chunkSize)} (${chunk.length} IDs)...`);
-            const chunkMetrics = await fetchTwitterMetricsBatch(chunk);
-            twitterMetricsMap = { ...twitterMetricsMap, ...chunkMetrics };
+            const batchNum = Math.floor(i / chunkSize) + 1;
+            const totalBatches = Math.ceil(twitterIds.length / chunkSize);
+            console.log(`[Sync] Fetching batch ${batchNum}/${totalBatches} (${chunk.length} IDs)...`);
+            
+            try {
+              const chunkMetrics = await fetchTwitterMetricsBatch(chunk);
+              twitterMetricsMap = { ...twitterMetricsMap, ...chunkMetrics };
+            } catch (batchError: any) {
+              console.error(`[Sync] Batch ${batchNum} failed:`, batchError.message);
+              syncErrors.push(`Batch ${batchNum}/${totalBatches} failed: ${batchError.message}`);
+              // Continue with next batch instead of failing completely
+            }
           }
           console.log(`[Sync] Twitter API returned metrics for ${Object.keys(twitterMetricsMap).length} tweets`);
         } catch (error: any) {
           console.error("[Sync] Failed to fetch batch Twitter metrics:", error);
           syncErrors.push(`Twitter API error: ${error.message || 'Unknown error'}`);
         }
-      } else {
+      } else if (twitterIds.length === 0) {
         syncErrors.push("No valid Twitter IDs found to sync");
       }
 
@@ -626,7 +745,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true, 
         results,
         stats: {
-          totalPosts: posts.length,
+          totalAvailable: totalPosts,
+          postsChecked: posts.length,
+          quickSync: isQuickSync,
           postsWithTwitter: twitterIds.length,
           metricsReturned: Object.keys(twitterMetricsMap).length,
           postsUpdated: results.length,
@@ -3411,13 +3532,13 @@ Start quacking → https://wizardofquack.com/wizard?utm_source=twitter&utm_mediu
       console.log(`[Metrics] Batch fetching for ${tweetIds.length} tweets...`);
       console.log(`[Metrics] Sample tweet IDs: ${tweetIds.slice(0, 3).join(', ')}...`);
       
-      // Use v2.tweets to fetch up to 100 tweets at once with 10s timeout
+      // Use v2.tweets to fetch up to 100 tweets at once with 5s timeout
       const tweetPromise = twitterClient.v2.tweets(tweetIds, {
         'tweet.fields': ['public_metrics', 'created_at'],
       });
       
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Twitter API took too long (10s)')), 10000);
+        setTimeout(() => reject(new Error('Twitter API timeout (5s)')), 5000);
       });
       
       const tweets = await Promise.race([tweetPromise, timeoutPromise]);

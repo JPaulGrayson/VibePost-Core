@@ -132,12 +132,18 @@ export default function Analytics() {
       const stats = data?.stats;
       const updateCount = data?.results?.filter((r: any) => r.success).length || 0;
       const metricsReturned = stats?.metricsReturned || 0;
+      const postsWithTwitter = stats?.postsWithTwitter || 0;
+      const postsChecked = stats?.postsChecked || postsWithTwitter;
+      const totalAvailable = stats?.totalAvailable || postsChecked;
       const errors = stats?.errors || [];
+      const quickSyncNote = stats?.quickSync && totalAvailable > postsChecked 
+        ? ` (${totalAvailable} total posts available)` 
+        : "";
       
       if (metricsReturned > 0) {
         toast({
           title: "Sync Complete",
-          description: `Updated metrics for ${updateCount} posts. Twitter returned data for ${metricsReturned} tweets.`,
+          description: `Updated metrics for ${updateCount} posts. Twitter returned data for ${metricsReturned} tweets.${quickSyncNote}`,
         });
       } else if (errors.length > 0) {
         toast({
@@ -148,7 +154,7 @@ export default function Analytics() {
       } else {
         toast({
           title: "Sync Complete",
-          description: `Checked ${stats?.postsWithTwitter || 0} posts. No new metrics from Twitter.`,
+          description: `Checked ${postsWithTwitter} posts. No new metrics from Twitter.${quickSyncNote}`,
         });
       }
     },
