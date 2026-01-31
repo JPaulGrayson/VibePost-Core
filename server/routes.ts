@@ -516,8 +516,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[Sync] Found ${posts.length} published posts, ${twitterIds.length} with valid Twitter IDs`);
 
-      // 2. Fetch Twitter metrics in batches of 100 (API limit)
+      // 2. Fetch Twitter metrics in batches of 100 (API limit) with 15s timeout per batch
       let twitterMetricsMap: Record<string, any> = {};
+      const batchTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+        return Promise.race([
+          promise,
+          new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Twitter API timeout')), ms))
+        ]);
+      };
+      
       if (twitterIds.length > 0) {
         try {
           // Split into chunks of 100 (Twitter API limit)
@@ -525,8 +532,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           for (let i = 0; i < twitterIds.length; i += chunkSize) {
             const chunk = twitterIds.slice(i, i + chunkSize);
             console.log(`[Sync] Fetching batch ${Math.floor(i / chunkSize) + 1}/${Math.ceil(twitterIds.length / chunkSize)} (${chunk.length} IDs)...`);
-            const chunkMetrics = await fetchTwitterMetricsBatch(chunk);
-            twitterMetricsMap = { ...twitterMetricsMap, ...chunkMetrics };
+            try {
+              const chunkMetrics = await batchTimeout(fetchTwitterMetricsBatch(chunk), 15000);
+              twitterMetricsMap = { ...twitterMetricsMap, ...chunkMetrics };
+            } catch (batchError: any) {
+              console.warn(`[Sync] Batch ${Math.floor(i / chunkSize) + 1} failed: ${batchError.message}`);
+              syncErrors.push(`Batch ${Math.floor(i / chunkSize) + 1} failed: ${batchError.message}`);
+            }
           }
           console.log(`[Sync] Twitter API returned metrics for ${Object.keys(twitterMetricsMap).length} tweets`);
         } catch (error: any) {
