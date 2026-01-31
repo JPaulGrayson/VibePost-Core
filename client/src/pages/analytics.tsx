@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,69 +114,75 @@ export default function Analytics() {
     return total + filteredReplies.length;
   }, 0) || 0;
 
-  // Mutation to sync metrics for all posts with 30-second timeout
+  // Sync status state
+  const [syncStatus, setSyncStatus] = useState<{
+    isRunning: boolean;
+    totalPosts: number;
+    processedPosts: number;
+    metricsUpdated: number;
+    errors: string[];
+  } | null>(null);
+
+  // Poll for sync status when sync is running
+  useEffect(() => {
+    if (!syncStatus?.isRunning) return;
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch("/api/posts/sync-status");
+        const status = await response.json();
+        setSyncStatus(status);
+        
+        // When sync completes, refresh data and show toast
+        if (!status.isRunning && status.lastCompleted) {
+          clearInterval(pollInterval);
+          queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/analytics/comments"] });
+          
+          if (status.errors.length > 0) {
+            toast({
+              title: "Sync Complete with Errors",
+              description: `Updated ${status.metricsUpdated} posts. ${status.errors.length} errors occurred.`,
+            });
+          } else {
+            toast({
+              title: "Sync Complete",
+              description: `Updated metrics for ${status.metricsUpdated} of ${status.totalPosts} posts.`,
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Failed to poll sync status:", e);
+      }
+    }, 2000); // Poll every 2 seconds
+    
+    return () => clearInterval(pollInterval);
+  }, [syncStatus?.isRunning, queryClient, toast]);
+
+  // Mutation to start background sync
   const syncAllMetrics = useMutation({
     mutationFn: async () => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-      
-      try {
-        const response = await fetch("/api/posts/sync-all-metrics", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Sync failed:", response.status, errorText);
-          throw new Error(`Failed to sync metrics: ${response.status}`);
-        }
-        return response.json();
-      } catch (error: any) {
-        clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-          throw new Error('Sync timed out after 30 seconds. Try again later.');
-        }
-        throw error;
-      }
+      const response = await fetch("/api/posts/sync-all-metrics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error(`Failed to start sync: ${response.status}`);
+      return response.json();
     },
     onSuccess: (data) => {
-      console.log("Sync completed:", data);
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/analytics/comments"] });
-      const stats = data?.stats;
-      const updateCount = data?.results?.filter((r: any) => r.success).length || 0;
-      const metricsReturned = stats?.metricsReturned || 0;
-      const errors = stats?.errors || [];
-      
-      if (metricsReturned > 0) {
-        toast({
-          title: "Sync Complete",
-          description: `Updated metrics for ${updateCount} posts. Twitter returned data for ${metricsReturned} tweets.`,
-        });
-      } else if (errors.length > 0) {
-        toast({
-          title: "Sync Issue",
-          description: errors[0],
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Sync Complete",
-          description: `Checked ${stats?.postsWithTwitter || 0} posts. No new metrics from Twitter.`,
-        });
-      }
+      console.log("Sync started:", data);
+      setSyncStatus(data.status);
+      toast({
+        title: "Sync Started",
+        description: "Syncing all posts in background. This may take a few minutes.",
+      });
     },
     onError: (error) => {
       console.error("Sync error:", error);
       toast({
         title: "Sync Failed",
-        description: error instanceof Error ? error.message : "Failed to sync metrics",
+        description: error instanceof Error ? error.message : "Failed to start sync",
         variant: "destructive",
       });
     },
@@ -356,14 +362,21 @@ export default function Analytics() {
                 console.log("Starting metrics sync...");
                 syncAllMetrics.mutate();
               }}
-              disabled={syncAllMetrics.isPending}
+              disabled={syncAllMetrics.isPending || syncStatus?.isRunning}
               className="bg-blue-600 hover:bg-blue-700"
               data-testid="button-sync-metrics"
             >
-              {syncAllMetrics.isPending ? (
+              {syncStatus?.isRunning ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Syncing...
+                  {syncStatus.totalPosts > 0 
+                    ? `${syncStatus.processedPosts}/${syncStatus.totalPosts}`
+                    : "Starting..."}
+                </>
+              ) : syncAllMetrics.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Starting...
                 </>
               ) : (
                 "Sync Metrics"
