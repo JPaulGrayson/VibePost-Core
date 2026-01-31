@@ -639,10 +639,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             try {
               const chunkMetrics = await fetchTwitterMetricsBatch(chunk);
               twitterMetricsMap = { ...twitterMetricsMap, ...chunkMetrics };
+              
+              // Add 1.5 second delay between batches to avoid rate limits
+              if (i + chunkSize < twitterIds.length) {
+                await new Promise(resolve => setTimeout(resolve, 1500));
+              }
             } catch (batchError: any) {
               console.error(`[Sync] Batch ${batchNum} failed:`, batchError.message);
               syncErrors.push(`Batch ${batchNum}/${totalBatches} failed: ${batchError.message}`);
-              // Continue with next batch instead of failing completely
+              // Add longer delay after errors (rate limit recovery)
+              await new Promise(resolve => setTimeout(resolve, 3000));
             }
           }
           console.log(`[Sync] Twitter API returned metrics for ${Object.keys(twitterMetricsMap).length} tweets`);
