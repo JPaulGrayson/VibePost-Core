@@ -114,22 +114,36 @@ export default function Analytics() {
     return total + filteredReplies.length;
   }, 0) || 0;
 
-  // Mutation to sync metrics for all posts
+  // Mutation to sync metrics for all posts with 30-second timeout
   const syncAllMetrics = useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/posts/sync-all-metrics", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Sync failed:", response.status, errorText);
-        throw new Error(`Failed to sync metrics: ${response.status}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      try {
+        const response = await fetch("/api/posts/sync-all-metrics", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Sync failed:", response.status, errorText);
+          throw new Error(`Failed to sync metrics: ${response.status}`);
+        }
+        return response.json();
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          throw new Error('Sync timed out after 30 seconds. Try again later.');
+        }
+        throw error;
       }
-      return response.json();
     },
     onSuccess: (data) => {
       console.log("Sync completed:", data);

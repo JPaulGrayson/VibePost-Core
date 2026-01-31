@@ -498,7 +498,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/posts/sync-all-metrics", isAuthenticated, async (req, res) => {
     try {
       console.log("[Sync] Starting manual metrics sync...");
-      const posts = await storage.getPostsByStatus("published");
+      const allPosts = await storage.getPostsByStatus("published");
+      
+      // Limit to most recent 20 posts to avoid timeout (1751 posts was causing 502 errors)
+      const posts = allPosts.slice(0, 20);
       const results = [];
       let syncErrors: string[] = [];
 
@@ -514,7 +517,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return data.tweetId || data.id;
       }).filter(id => id && id !== 'unknown' && /^\d+$/.test(id)); // Validate IDs are numeric
 
-      console.log(`[Sync] Found ${posts.length} published posts, ${twitterIds.length} with valid Twitter IDs`);
+      console.log(`[Sync] Found ${allPosts.length} total published posts, syncing most recent ${posts.length} (${twitterIds.length} with Twitter IDs)`);
 
       // 2. Fetch Twitter metrics in batches of 100 (API limit) with 15s timeout per batch
       let twitterMetricsMap: Record<string, any> = {};
@@ -596,29 +599,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // 4. Sync sniper drafts (postcardDrafts)
-      const sniperDrafts = await db.select().from(postcardDrafts)
-        .where(eq(postcardDrafts.status, "published"));
+      // 4. Sync sniper drafts (postcardDrafts) - limit to 20 most recent
+      const allSniperDrafts = await db.select().from(postcardDrafts)
+        .where(eq(postcardDrafts.status, "published"))
+        .limit(20);
       
-      const sniperTweetIds = sniperDrafts
+      const sniperTweetIds = allSniperDrafts
         .map(d => d.tweetId)
         .filter((id): id is string => !!id && /^\d+$/.test(id));
       
-      console.log(`[Sync] Found ${sniperDrafts.length} sniper drafts, ${sniperTweetIds.length} with valid tweet IDs`);
+      console.log(`[Sync] Syncing ${allSniperDrafts.length} sniper drafts, ${sniperTweetIds.length} with valid tweet IDs`);
       
       if (sniperTweetIds.length > 0) {
         try {
-          const chunkSize = 100;
-          let sniperMetricsMap: Record<string, any> = {};
-          
-          for (let i = 0; i < sniperTweetIds.length; i += chunkSize) {
-            const chunk = sniperTweetIds.slice(i, i + chunkSize);
-            const chunkMetrics = await fetchTwitterMetricsBatch(chunk);
-            sniperMetricsMap = { ...sniperMetricsMap, ...chunkMetrics };
-          }
+          // Single batch with timeout for sniper drafts
+          const sniperMetricsMap = await batchTimeout(fetchTwitterMetricsBatch(sniperTweetIds), 15000);
           
           // Update sniper drafts with metrics
-          for (const draft of sniperDrafts) {
+          for (const draft of allSniperDrafts) {
             if (draft.tweetId && sniperMetricsMap[draft.tweetId]) {
               const metrics = sniperMetricsMap[draft.tweetId];
               await db.update(postcardDrafts)
@@ -634,8 +632,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           console.log(`[Sync] Updated ${Object.keys(sniperMetricsMap).length} sniper drafts with metrics`);
         } catch (error: any) {
-          console.error("[Sync] Failed to sync sniper drafts:", error);
-          syncErrors.push(`Sniper sync error: ${error.message || 'Unknown error'}`);
+          console.error("[Sync] Failed to sync sniper drafts:", error.message);
+          syncErrors.push(`Sniper sync: ${error.message || 'Unknown error'}`);
         }
       }
 
@@ -648,7 +646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           postsWithTwitter: twitterIds.length,
           metricsReturned: Object.keys(twitterMetricsMap).length,
           postsUpdated: results.length,
-          sniperDrafts: sniperDrafts.length,
+          sniperDrafts: allSniperDrafts.length,
           sniperSynced: sniperTweetIds.length,
           errors: syncErrors
         }
@@ -3429,10 +3427,16 @@ Start quacking → https://wizardofquack.com/wizard?utm_source=twitter&utm_mediu
       console.log(`[Metrics] Batch fetching for ${tweetIds.length} tweets...`);
       console.log(`[Metrics] Sample tweet IDs: ${tweetIds.slice(0, 3).join(', ')}...`);
       
-      // Use v2.tweets to fetch up to 100 tweets at once
-      const tweets = await twitterClient.v2.tweets(tweetIds, {
+      // Use v2.tweets to fetch up to 100 tweets at once with 10s timeout
+      const tweetPromise = twitterClient.v2.tweets(tweetIds, {
         'tweet.fields': ['public_metrics', 'created_at'],
       });
+      
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Twitter API took too long (10s)')), 10000);
+      });
+      
+      const tweets = await Promise.race([tweetPromise, timeoutPromise]);
 
       console.log(`[Metrics] Twitter API response received. Data exists: ${!!tweets.data}, Errors: ${JSON.stringify(tweets.errors || [])}`);
 
