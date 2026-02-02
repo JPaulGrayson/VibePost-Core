@@ -378,8 +378,8 @@ export default function DiscordCampaign() {
               </div>
 
               {selectedRepo && selectedRepo.demoFiles.length > 0 && (
-                <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-                  <h4 className="font-medium mb-3">Working Demo URLs (verified)</h4>
+                <div className="mt-4 p-4 bg-gray-900 rounded-lg">
+                  <h4 className="font-medium mb-3 text-white">Working Demo URLs (verified)</h4>
                   <div className="space-y-2">
                     {selectedRepo.demoFiles.map((file) => (
                       <div
@@ -387,17 +387,17 @@ export default function DiscordCampaign() {
                         onClick={() => setSelectedFile(file)}
                         className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
                           selectedFile?.path === file.path
-                            ? "bg-indigo-100 dark:bg-indigo-900/30 border border-indigo-300"
-                            : "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            ? "bg-indigo-600 border border-indigo-400"
+                            : "bg-gray-800 hover:bg-gray-700"
                         }`}
                       >
                         <div>
-                          <div className="font-medium text-sm">{file.name}</div>
-                          <div className="text-xs text-muted-foreground">{file.description}</div>
+                          <div className="font-medium text-sm text-white">{file.name}</div>
+                          <div className="text-xs text-gray-300">{file.description}</div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">{file.lines} lines</Badge>
-                          <Button variant="ghost" size="sm" asChild onClick={(e) => e.stopPropagation()}>
+                          <Badge className="bg-gray-700 text-white text-xs border-gray-600">{file.lines} lines</Badge>
+                          <Button variant="ghost" size="sm" className="text-white hover:bg-gray-600" asChild onClick={(e) => e.stopPropagation()}>
                             <a href={file.logicartUrl} target="_blank" rel="noopener noreferrer">
                               <ExternalLink className="h-3 w-3" />
                             </a>
@@ -410,14 +410,14 @@ export default function DiscordCampaign() {
               )}
 
               {selectedRepo?.insights && (
-                <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                  <h4 className="font-medium mb-2 flex items-center gap-2">
-                    <Lightbulb className="h-4 w-4 text-amber-500" />
+                <div className="mt-4 p-4 bg-gray-900 rounded-lg border border-amber-500">
+                  <h4 className="font-medium mb-2 flex items-center gap-2 text-amber-400">
+                    <Lightbulb className="h-4 w-4 text-amber-400" />
                     Key Insights from Analysis
                   </h4>
                   <ul className="text-sm space-y-1">
                     {selectedRepo.insights.map((insight, i) => (
-                      <li key={i} className="text-muted-foreground">• {insight}</li>
+                      <li key={i} className="text-gray-200">• {insight}</li>
                     ))}
                   </ul>
                 </div>
