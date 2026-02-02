@@ -1,0 +1,275 @@
+# LogicArt Discord Campaign - Raw Material for Vibepost
+
+## Core Value Proposition
+
+- Turns TypeScript/JavaScript into interactive flowcharts
+- GitHub deeplink feature: paste any GitHub URL, instant visualization
+- Not just visualization: complexity analysis, bug detection, execution path counting
+- Open source: github.com/JPaulGrayson/Logicart
+- Website: logic.art
+
+---
+
+## Target Discord Servers
+
+### Tier 1 (Primary - AI/Agent Communities)
+
+| Server | Members | Invite Link | Why |
+|--------|---------|-------------|-----|
+| **OpenClaw** | Active | `discord.com/invite/clawd` | Showcase their own code - instant relevance |
+| **AutoGPT** | ~56K | `discord.com/invite/autogpt` | Agentic AI community |
+| **OpenAI** | ~850K | `discord.com/invite/openai` | AI builders, massive audience |
+
+### Tier 2 (Technical/ML Communities)
+
+| Server | Members | Invite Link | Why |
+|--------|---------|-------------|-----|
+| **Hugging Face** | ~200K | `hf.co/join/discord` | Open-source AI, very technical |
+| **The Programmer's Hangout** | ~205K | `discord.com/invite/programming` | General devs, non-AI-hype perspective |
+
+### Tier 3 (Platform-Specific)
+
+| Server | Members | Invite Link | Why |
+|--------|---------|-------------|-----|
+| **Friends of Replit** (Unofficial) | ~20K | `discord.gg/friendsofreplit` | Vibe coders, deployment platform |
+| **Replit Devs** (Official) | ~1.5K | `discord.com/invite/replit` | Official but may be invite-only |
+
+### Note on LangChain
+
+LangChain primarily uses **Slack** instead of Discord:
+- Community link: `langchain.com/join-community`
+- Consider posting there as well if you use Slack
+
+---
+
+## Quick Start Checklist (Per Server)
+
+1. ☐ Click invite link
+2. ☐ Complete any verification steps (some servers require this)
+3. ☐ Read `#rules` or `#welcome` channel
+4. ☐ Find `#showcase` or `#i-made-this` channel
+5. ☐ Post your LogicArt content
+6. ☐ Engage with responses
+
+---
+
+## Channel Types to Target
+
+Look for these channel names in each server:
+
+- `#showcase`
+- `#i-made-this`
+- `#resources`
+- `#dev-tools`
+- `#projects`
+- `#community`
+- `#made-with-replit` (Replit specific)
+
+---
+
+## Working Demo URLs
+
+These URLs are verified working with the ES module parser fix:
+
+1. **Agent Runner** (692 lines, core execution loop)
+   ```
+   https://logic.art/?github=openclaw/openclaw&path=src/agents/pi-embedded-runner/run.ts
+   ```
+
+2. **Context Compaction** (489 lines, session compression)
+   ```
+   https://logic.art/?github=openclaw/openclaw&path=src/agents/pi-embedded-runner/compact.ts
+   ```
+
+3. **Failover Logic** (203 lines, error handling)
+   ```
+   https://logic.art/?github=openclaw/openclaw&path=src/agents/failover-error.ts
+   ```
+
+### URL Pattern for Users
+```
+logic.art/?github=owner/repo&path=src/file.ts
+```
+
+---
+
+## Key Insights from OpenClaw Analysis
+
+Use these as talking points to show genuine value/contribution:
+
+- Sophisticated auth profile rotation with cooldown tracking
+- Auto-compaction on context overflow (users don't need `/compact` manually)
+- Anthropic magic string scrubbing to prevent test token poisoning
+- 47 unique execution paths in the agent runner
+- Clean error classification taxonomy (billing/rate limit/auth/timeout)
+
+---
+
+## Tone Guidance
+
+- **Contribution first, promotion second**
+- Frame as "I visualized X and noticed some interesting patterns"
+- Collaborative tone, NOT "I found your bugs"
+- Let the quality of the analysis speak for itself
+- Offer value before asking for anything
+
+---
+
+## Post Variations by Audience
+
+### For OpenClaw Discord (Specific)
+
+> Made some flowchart views of OpenClaw to help visualize how it works 🦞
+> 
+> 🔗 **Agent Runner** — Core execution loop with auth rotation
+> https://logic.art/?github=openclaw/openclaw&path=src/agents/pi-embedded-runner/run.ts
+> 
+> 🔗 **Context Compaction** — How conversation history gets compressed
+> https://logic.art/?github=openclaw/openclaw&path=src/agents/pi-embedded-runner/compact.ts
+> 
+> 🔗 **Failover Logic** — Error classification and retry flow
+> https://logic.art/?github=openclaw/openclaw&path=src/agents/failover-error.ts
+> 
+> **A few interesting patterns I noticed:**
+> - Sophisticated auth profile rotation with cooldown tracking
+> - Auto-compaction on context overflow
+> - Anthropic magic string scrubbing
+> 
+> Works with any public GitHub file — just swap repo/path:
+> `logic.art/?github=owner/repo&path=src/file.ts`
+> 
+> Thought it might be useful for contributors! Open source: github.com/JPaulGrayson/Logicart
+
+---
+
+### For General AI/Agent Servers (LangChain, AutoGPT, OpenAI)
+
+> Built a tool that turns TypeScript/JavaScript into interactive flowcharts. Useful for understanding complex agent codebases.
+> 
+> Example: Here's OpenClaw's agent runner visualized — 47 unique execution paths:
+> https://logic.art/?github=openclaw/openclaw&path=src/agents/pi-embedded-runner/run.ts
+> 
+> Features:
+> - Complexity analysis
+> - Bug detection
+> - Execution path counting
+> - Works with any public GitHub file
+> 
+> Try your own repo: `logic.art/?github=owner/repo&path=src/file.ts`
+> 
+> Open source: github.com/JPaulGrayson/Logicart
+
+---
+
+### For General Dev Servers (Programmer's Hangout)
+
+> Code visualization tool for TypeScript/JavaScript 📊
+> 
+> Paste any GitHub URL → get an interactive flowchart
+> 
+> Useful for:
+> - Onboarding to unfamiliar codebases
+> - Code review
+> - Understanding complex control flow
+> - Finding redundant logic paths
+> 
+> Example (OpenClaw's agent runner):
+> https://logic.art/?github=openclaw/openclaw&path=src/agents/pi-embedded-runner/run.ts
+> 
+> Works with any public repo: `logic.art/?github=owner/repo&path=src/file.ts`
+> 
+> Open source: github.com/JPaulGrayson/Logicart
+
+---
+
+### For Replit Discord
+
+> Made with Replit: LogicArt — code visualization tool 🎨
+> 
+> Turns TypeScript/JavaScript into interactive flowcharts. Just added GitHub deeplinks so you can visualize any public repo instantly.
+> 
+> Example: `logic.art/?github=owner/repo&path=src/file.ts`
+> 
+> Features beyond visualization:
+> - Complexity scoring
+> - Execution path analysis
+> - Bug detection
+> - Model Arena (compare AI models)
+> 
+> Built and deployed on Replit. Open source: github.com/JPaulGrayson/Logicart
+
+---
+
+## Call to Action Options
+
+Choose based on context:
+
+- "Works with any public GitHub file — try your own repo"
+- "Open source: github.com/JPaulGrayson/Logicart"
+- "What codebase should I visualize next?"
+- "Drop a GitHub link and I'll generate a flowchart"
+- "Feedback welcome — still iterating on the UX"
+
+---
+
+## Hashtags/Keywords
+
+For platforms that support them:
+
+- code visualization
+- flowchart
+- developer tools
+- devtools
+- AI agents
+- OpenClaw
+- TypeScript
+- JavaScript
+- open source
+- code review
+- complexity analysis
+
+---
+
+## Advanced Features to Mention (Optional)
+
+If the conversation goes deeper, LogicArt also has:
+
+- **Model Arena** — Compare AI model responses side-by-side
+- **Ralph Wiggum Method** — Iterative AI debugging cycles
+- **Display Audit** — Detect redundant render paths
+- **Complexity Scoring** — Quantify code complexity
+- **Execution Path Counting** — Understand test coverage needs
+- **BPMN Generation** — Business process diagrams from natural language
+- **Full API/MCP** — Programmatic access for integration
+
+---
+
+## Posting Strategy
+
+### Suggested Order
+
+1. **OpenClaw Discord** — Most authentic, you're showcasing their code
+2. **LangChain / AutoGPT** — Agent tool builders, natural fit
+3. **OpenAI Developer Community** — Broader AI audience
+4. **Replit Discord** — Home platform, supportive community
+5. **Hugging Face / Programmer's Hangout** — Based on bandwidth
+
+### Timing Tips
+
+- Post during active hours (US morning/afternoon)
+- Don't spam multiple channels in same server
+- Wait for engagement before posting to next server
+- Respond to comments to build relationships
+
+---
+
+## Source Attribution
+
+This campaign material compiled from:
+- Claude (Anthropic) — Discord strategy, post drafts, OpenClaw analysis
+- Gemini — Server recommendations, channel suggestions
+
+---
+
+*Document created: February 2, 2026*
+*For use with Vibepost campaign distribution*
