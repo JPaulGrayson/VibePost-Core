@@ -549,19 +549,19 @@ export default function DiscordCampaign() {
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {DISCORD_SERVERS.filter(s => s.tier === tier).map((server) => (
-                        <div key={server.name} className="p-3 border rounded-lg bg-white dark:bg-gray-800">
+                        <div key={server.name} className="p-3 border border-gray-700 rounded-lg bg-black">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="font-medium text-sm">{server.name}</span>
-                            <Badge variant="outline" className="text-xs">{server.members}</Badge>
+                            <span className="font-bold text-white">{server.name}</span>
+                            <Badge className="bg-indigo-600 text-white text-xs border-0">{server.members}</Badge>
                           </div>
-                          <p className="text-xs text-muted-foreground mb-2">{server.audience}</p>
+                          <p className="text-sm text-white mb-2">{server.audience}</p>
                           <div className="flex items-center justify-between">
                             <div className="flex gap-1 flex-wrap">
                               {server.channels.slice(0, 2).map((ch) => (
-                                <Badge key={ch} variant="secondary" className="text-xs">{ch}</Badge>
+                                <Badge className="bg-gray-700 text-white text-xs border-0">{ch}</Badge>
                               ))}
                             </div>
-                            <Button variant="ghost" size="sm" asChild>
+                            <Button variant="ghost" size="sm" className="text-white hover:bg-gray-800" asChild>
                               <a href={server.inviteLink} target="_blank" rel="noopener noreferrer">
                                 <ExternalLink className="h-4 w-4" />
                               </a>
