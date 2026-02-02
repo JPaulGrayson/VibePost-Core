@@ -33,6 +33,7 @@ export default function Sidebar() {
     { href: "/history", icon: History, label: "Post History", active: location === "/history" },
     { href: "/scheduled", icon: Calendar, label: "Scheduled Posts", active: location === "/scheduled" },
     { href: "/campaigns", icon: Target, label: "Campaigns", active: location === "/campaigns" },
+    { href: "/discord-campaign", icon: SiDiscord, label: "Discord Campaign", active: location === "/discord-campaign" },
     { href: "/sniper-queue", icon: Sparkles, label: "Wizard's Tower", active: location === "/sniper-queue" },
     { href: "/video-slideshows", icon: Film, label: "Video Posts", active: location === "/video-slideshows" },
     { href: "/topic-search", icon: Search, label: "Topic Search", active: location === "/topic-search" || location === "/search" },

@@ -24,6 +24,7 @@ import Arena from "@/pages/arena";
 import QuackLanding from "@/pages/quack-landing";
 import OrchestrateLanding from "@/pages/orchestrate-landing";
 import WizardLanding from "@/pages/wizard-landing";
+import DiscordCampaign from "@/pages/discord-campaign";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -86,6 +87,7 @@ function Router() {
         <Route path="/daily-postcard" component={DailyPostcard} />
         <Route path="/video-slideshows" component={VideoSlideshows} />
         <Route path="/thread-tours" component={ThreadTours} />
+        <Route path="/discord-campaign" component={DiscordCampaign} />
         <Route component={NotFound} />
       </Switch>
     </MainLayout>
