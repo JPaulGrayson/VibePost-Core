@@ -357,20 +357,20 @@ export default function DiscordCampaign() {
                     onClick={() => selectRepo(repo)}
                     className={`p-4 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
                       selectedRepo?.name === repo.name 
-                        ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20" 
-                        : "border-gray-200 hover:border-indigo-300"
+                        ? "border-indigo-400 bg-indigo-700" 
+                        : "border-gray-700 bg-black hover:border-indigo-400"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-semibold">{repo.displayName}</span>
+                      <span className="font-bold text-white">{repo.displayName}</span>
                       {repo.name === "openclaw" && (
                         <Badge className="bg-green-500 text-white text-xs">Primary</Badge>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                    <p className="text-sm text-white line-clamp-2 mb-2">
                       {repo.description}
                     </p>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-sm text-white">
                       {repo.demoFiles.length} demo files
                     </div>
                   </div>
@@ -592,9 +592,9 @@ export default function DiscordCampaign() {
             {showStrategyTips && (
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <h4 className="font-medium mb-2">Suggested Order</h4>
-                    <ol className="text-sm space-y-1 list-decimal list-inside text-muted-foreground">
+                  <div className="p-4 bg-black border border-blue-500 rounded-lg">
+                    <h4 className="font-bold mb-2 text-blue-400">Suggested Order</h4>
+                    <ol className="text-sm space-y-1 list-decimal list-inside text-white">
                       <li><strong>OpenClaw Discord</strong> — Most authentic, you're showcasing their code</li>
                       <li><strong>LangChain / AutoGPT</strong> — Agent tool builders, natural fit</li>
                       <li><strong>OpenAI Developer Community</strong> — Broader AI audience</li>
@@ -602,9 +602,9 @@ export default function DiscordCampaign() {
                       <li><strong>Hugging Face / Programmer's Hangout</strong> — Based on bandwidth</li>
                     </ol>
                   </div>
-                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <h4 className="font-medium mb-2">Timing Tips</h4>
-                    <ul className="text-sm space-y-1 text-muted-foreground">
+                  <div className="p-4 bg-black border border-green-500 rounded-lg">
+                    <h4 className="font-bold mb-2 text-green-400">Timing Tips</h4>
+                    <ul className="text-sm space-y-1 text-white">
                       <li>• Post during active hours (US morning/afternoon)</li>
                       <li>• Don't spam multiple channels in same server</li>
                       <li>• Wait for engagement before posting to next server</li>
@@ -612,9 +612,9 @@ export default function DiscordCampaign() {
                     </ul>
                   </div>
                 </div>
-                <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                  <h4 className="font-medium mb-2">Tone Guidance</h4>
-                  <ul className="text-sm space-y-1 text-muted-foreground">
+                <div className="p-4 bg-black border border-amber-500 rounded-lg">
+                  <h4 className="font-bold mb-2 text-amber-400">Tone Guidance</h4>
+                  <ul className="text-sm space-y-1 text-white">
                     <li>• <strong>Contribution first, promotion second</strong></li>
                     <li>• Frame as "I visualized X and noticed some interesting patterns"</li>
                     <li>• Collaborative tone, NOT "I found your bugs"</li>
@@ -622,9 +622,9 @@ export default function DiscordCampaign() {
                     <li>• Offer value before asking for anything</li>
                   </ul>
                 </div>
-                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                  <h4 className="font-medium mb-2">Quick Start Checklist (Per Server)</h4>
-                  <ul className="text-sm space-y-1 text-muted-foreground">
+                <div className="p-4 bg-black border border-purple-500 rounded-lg">
+                  <h4 className="font-bold mb-2 text-purple-400">Quick Start Checklist (Per Server)</h4>
+                  <ul className="text-sm space-y-1 text-white">
                     <li>☐ Click invite link</li>
                     <li>☐ Complete any verification steps (some servers require this)</li>
                     <li>☐ Read #rules or #welcome channel</li>
