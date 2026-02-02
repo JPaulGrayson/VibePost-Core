@@ -637,16 +637,16 @@ export default function DiscordCampaign() {
             )}
           </Card>
 
-          <Card className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-indigo-200">
+          <Card className="bg-black border-2 border-indigo-500">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold text-lg">Note: LangChain uses Slack</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <h3 className="font-bold text-lg text-white">Note: LangChain uses Slack</h3>
+                  <p className="text-sm text-white mt-1">
                     LangChain primarily uses Slack instead of Discord. Consider posting there too.
                   </p>
                 </div>
-                <Button variant="outline" asChild>
+                <Button className="bg-indigo-600 text-white hover:bg-indigo-700 border-0" asChild>
                   <a href="https://langchain.com/join-community" target="_blank" rel="noopener noreferrer">
                     Join LangChain Slack
                     <ExternalLink className="ml-2 h-4 w-4" />
