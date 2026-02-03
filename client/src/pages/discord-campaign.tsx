@@ -147,10 +147,10 @@ const DISCORD_SERVERS: DiscordServer[] = [
     tier: 2
   },
   {
-    name: "Friends of Replit",
-    members: "~20K",
-    inviteLink: "https://discord.com/invite/friendsofreplit",
-    channels: ["#made-with-replit", "#showcase"],
+    name: "YAPC (Replit Community)",
+    members: "~16K",
+    inviteLink: "https://discord.com/invite/yapc",
+    channels: ["#showcase", "#projects"],
     audience: "Vibe coders, deployment platform",
     tier: 3
   }
