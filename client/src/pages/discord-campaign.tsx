@@ -133,7 +133,7 @@ const DISCORD_SERVERS: DiscordServer[] = [
   {
     name: "Hugging Face",
     members: "~200K",
-    inviteLink: "https://hf.co/join/discord",
+    inviteLink: "https://discord.com/invite/hugging-face-879548962464493619",
     channels: ["#show-and-tell", "#dev-tools"],
     audience: "Open-source AI, very technical",
     tier: 2
