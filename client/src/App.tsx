@@ -75,8 +75,10 @@ function Router() {
         <Route path="/history" component={PostHistory} />
         <Route path="/post-history" component={PostHistory} />
         <Route path="/scheduled" component={ScheduledPosts} />
-        <Route path="/campaigns" component={Campaigns} />
-        <Route path="/campaigns/:id" component={CampaignDetails} />
+        <Route path="/campaigns" component={DiscordCampaign} />
+        <Route path="/discord-campaign" component={DiscordCampaign} />
+        <Route path="/old-campaigns" component={Campaigns} />
+        <Route path="/old-campaigns/:id" component={CampaignDetails} />
         <Route path="/analytics" component={Analytics} />
         <Route path="/growth-reports" component={GrowthReports} />
         <Route path="/topic-search" component={TopicSearch} />
@@ -87,7 +89,6 @@ function Router() {
         <Route path="/daily-postcard" component={DailyPostcard} />
         <Route path="/video-slideshows" component={VideoSlideshows} />
         <Route path="/thread-tours" component={ThreadTours} />
-        <Route path="/discord-campaign" component={DiscordCampaign} />
         <Route component={NotFound} />
       </Switch>
     </MainLayout>
